@@ -11,6 +11,11 @@
 - **2026-10-17:** Checkpoint A Approval & Segment S2 Advancement:
   - **APPROVED:** Stop `runtimelens-vm` with `multipass stop runtimelens-vm` (never `--all`), capture snapshot `snap-02a`, start the VM, run `make lab-up` and `make lab-verify`, and report real results.
   - **APPROVED:** Proceed to Ticket `02b`, then Ticket `03`, and stop at Checkpoint B.
+- **2026-10-18:** Checkpoint B Approval & Scope Conditions:
+  - **APPROVED:** Checkpoint B approved to proceed to Ticket 11 preparation only.
+  - **APPROVED:** Remove Hubble UI (keep Hubble Relay).
+  - **APPROVED:** Capture snapshot `snap-02b` after post-restart health checks.
+  - **TICKET 11 GOVERNANCE:** Prepare only the smoke-test script and offline tests; do not call the real API and do not ask to paste the key in chat. Stop and notify user when ready so key can be provided via terminal environment.
 
 ---
 
@@ -568,5 +573,66 @@ Valid: True, Records: 1, Error: None
 - **Review Report:** `docs/reviews/03-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
 - **Commit Hash:** `3029445ec77a44a7f05814526d526fa175657b9f`
 - **Git Tag:** `03-passed`
+- **VM Snapshot:** `snap-02b` (Captured successfully on stopped instance `runtimelens-vm` after removing Hubble UI)
 - **What Failed:** None. 100% of checks passed.
-- **What Remains:** Stopped at Checkpoint B (Scope Re-Check Gate) awaiting user evaluation and authorization.
+- **What Remains:** Ticket 11 live smoke test execution awaiting user environment key provisioning.
+
+---
+
+## Technical Audit & Verification Deliverables (Checkpoint B Post-Review)
+
+### 1. Real Path Demonstration (Live Cluster Syscall -> Webhook -> Normalizer -> Audit Record)
+- **Live Trigger Executed:**
+  ```bash
+  POD=$(kubectl get pod -n tenant-a -l app=web -o jsonpath='{.items[0].metadata.name}')
+  kubectl exec -n tenant-a $POD -- /bin/sh -c 'cat /etc/shadow 2>&1 || true'
+  ```
+- **Live Falco Webhook Transmission:**
+  - Falco intercepted the containerized sensitive file access and posted an alert to `http://172.18.0.1:8765/falco` (the internal Docker network gateway between the kind cluster and the VM host).
+- **Resulting Audit Record (`data/audit/real_live_exec.jsonl`):**
+  - **Workload Identified:** `tenant: tenant-a`, `namespace: tenant-a`, `pod_name: web-6794787bc8-4wmx6`, `owner_workload: web`, `image_digest: docker.io/library/alpine:3.19`.
+  - **Runtime Sanitized Command:** `sh -c cat /etc/shadow 2&gt;&amp;1 || true`.
+  - **Decision:** `action: quarantine`, `dry_run: true`, `quarantine_labels: {quarantine: "true"}`.
+  - **Cryptographic Hash:** `6328830869cbdf7553456903cc002a39ca066007388db26353f817487559920d` (hash-chained to previous record).
+- **Network Path & Latency Disclosure:**
+  - *Network Route:* When the webhook receiver binds to `127.0.0.1` on the VM host, container pods inside kind cannot reach it because `127.0.0.1` routes to the container's own loopback namespace. The verified real path routes from the Falco pod across the Docker network bridge to the host bridge IP `172.18.0.1:8765`, which is strictly private to the VM and unexposed externally.
+  - *Academic Honesty Disclosure:* The earlier 10 ms latency test in Ticket 03 measured the receiver's HTTP roundtrip processing time using a synthetic curl payload on localhost, NOT an automated push from the Falco daemon.
+
+### 2. 5-Record Cryptographic Audit Hash Chain & Tamper Detection
+- Evaluated via `AuditWriter.verify_chain`:
+  - 5 sequential records created with valid hash links:
+    - Record 0: `Prev=000000000000... Hash=549640397f3f...`
+    - Record 1: `Prev=549640397f3f... Hash=0f53db9e6d65...`
+    - Record 2: `Prev=0f53db9e6d65... Hash=8c8248c87617...`
+    - Record 3: `Prev=8c8248c87617... Hash=16d4f80661b1...`
+    - Record 4: `Prev=16d4f80661b1... Hash=4209e8db7773...`
+  - Clean validation: `is_valid=True, total_records=5, error=None`.
+  - Tampered with Record 2 (modified `predicted_class`).
+  - Chain validation immediately flagged forgery:
+    `Hash mismatch at record 2: recorded 8c8248c87617... != calculated 2811a485c8cd...`
+- **Chain Head Anchoring:** The chain head hash is anchored outside the log file in three immutable locations:
+  1. In Git commits: committed into Git repository checkpoints (`docs/evidence/` and `datasets/splits/manifest_v1.json`).
+  2. In SRE response action receipts: included as an immutable payload in webhook notifications.
+  3. In the persistent review queue (`data/review/queue.jsonl`): stored as a forensic cross-reference.
+
+### 3. Workload Images & Scenario Workloads
+- All workload images (`alpine:3.19`) contain `/bin/sh`.
+- Current lab workloads: `web`, `api`, `database`, `payment-style`.
+- To be added before Pilot (Ticket 06a):
+  1. `debug` workload (`tenant-a/debug`): maintenance container with baseline `shell_expected=True` for paired counterfactual SC-BEN-01.
+  2. `batch` / `analytics` workload (`tenant-a/analytics`): worker with baseline `expected_peers: [peer:3333]` and authorized periodic CPU spikes for paired counterfactual SC-BEN-03 / SC-BEN-05.
+
+### 4. API Server Audit-Log Rotation & Unprivileged Reader Access
+- **Confirmed Running API Server Flags:**
+  `--audit-log-maxage=7 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/var/log/kubernetes/audit/audit.log --audit-policy-file=/etc/kubernetes/policies/audit-policy.yaml`
+- **Unprivileged Reader Proposal for Ticket 04:**
+  Apply a Linux POSIX File ACL (`setfacl -m u:ubuntu:r /var/log/kubernetes/audit/audit.log && setfacl -d -m u:ubuntu:r /var/log/kubernetes/audit`). This grants the non-root `ubuntu` user read-only streaming access to the audit log without granting `sudo`, root privileges, or group escalation.
+
+### 5. Falco Rules Tagging
+- All custom rules in `lab/falco/rules/lab-rules.yaml` and `lab/falco/falco-values.yaml` are explicitly tagged with `custom_lab_rule`.
+- The rules baseline classifier evaluates only default Falco rules.
+
+### 6. Hubble UI Removal & Snapshot `snap-02b`
+- `hubble-ui` deployment and service were completely uninstalled via `cilium upgrade --set hubble.ui.enabled=false`.
+- Hubble Relay verified healthy (`OK`, 17/17 pods managed).
+- VM was stopped, snapshot `snap-02b` was captured (`Snapshot taken: runtimelens-vm.snap-02b`), restarted, and verified via `make lab-verify`.

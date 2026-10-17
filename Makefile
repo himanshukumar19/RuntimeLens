@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 REQUIRED_KUBE_CONTEXT := kind-runtimelens
 
-.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify
+.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api
 
 help:
 	@echo "RuntimeLens Development Automation"
@@ -17,6 +17,7 @@ help:
 	@echo "lab-up              : Create kind cluster and install Cilium CNI"
 	@echo "lab-verify          : Verify cluster health and context safety"
 	@echo "lab-down            : Destroy kind lab cluster"
+	@echo "test-live-api       : Run live ScaleDown API smoke test (requires SCALEDOWN_API_KEY)"
 
 setup:
 	uv sync --extra dev
@@ -81,6 +82,14 @@ lab-verify: check-kube-context
 lab-down: check-kube-context
 	@echo "Tearing down kind cluster 'runtimelens'..."
 	kind delete cluster --name runtimelens
+
+test-live-api:
+	@if [ -z "$$SCALEDOWN_API_KEY" ]; then \
+		echo "ERROR: SCALEDOWN_API_KEY environment variable is not set."; \
+		echo "Please export SCALEDOWN_API_KEY in your terminal before running this target."; \
+		exit 1; \
+	fi
+	RUN_LIVE_API_TESTS=1 uv run pytest tests/live/test_smoke.py -v -s
 
 verify-gates:
 	@echo "=== Verifying Gate 01: Repo Foundation, Secrets CI & Skeleton ==="

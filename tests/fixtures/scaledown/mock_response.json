@@ -1,0 +1,52 @@
+{
+  "model": "classify-1",
+  "answers": {
+    "attack_type": {
+      "type": "choice",
+      "choice": "container_escape",
+      "probabilities": {
+        "benign": 0.02,
+        "container_escape": 0.91,
+        "privilege_abuse": 0.04,
+        "cryptomining": 0.01,
+        "unknown": 0.02
+      },
+      "confidence": 0.91
+    },
+    "severity": {
+      "type": "score",
+      "score": 3.75,
+      "confidence": 0.84,
+      "legend": {
+        "0": "Informational: Standard expected activity or benign baseline event.",
+        "1": "Low: Minor anomaly or unusual action with high likelihood of benign intent.",
+        "2": "Medium: Suspicious policy violation or unexpected process requiring human investigation.",
+        "3": "High: Clear indicator of compromise, sensitive host exposure, or unauthorized credential access.",
+        "4": "Critical: Active confirmed container breakout, cluster-wide compromise, or severe denial of service."
+      },
+      "probabilities": {
+        "0": 0.01,
+        "1": 0.03,
+        "2": 0.16,
+        "3": 0.75,
+        "4": 0.05
+      }
+    },
+    "baseline_deviation": {
+      "type": "noul",
+      "noul": 0.92
+    },
+    "shell_unexpected": {
+      "type": "noul",
+      "noul": 0.88
+    },
+    "resource_exposure": {
+      "type": "noul",
+      "noul": 0.95
+    },
+    "resource_abuse": {
+      "type": "noul",
+      "noul": 0.04
+    }
+  }
+}
