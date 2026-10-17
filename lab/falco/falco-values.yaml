@@ -12,7 +12,7 @@ falco:
 
   http_output:
     enabled: true
-    url: "http://172.18.0.1:8765/falco"
+    url: "http://172.18.0.1:8765/falco?token=runtimelens-lab-pre-shared-webhook-token-v1"
 
 customRules:
   runtimelens_rules.yaml: |-
