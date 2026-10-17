@@ -566,7 +566,7 @@ Valid: True, Records: 1, Error: None
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/03-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `3029445ec77a44a7f05814526d526fa175657b9f`
 - **Git Tag:** `03-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Stopped at Checkpoint B (Scope Re-Check Gate) awaiting user evaluation and authorization.
