@@ -94,7 +94,7 @@ if [ ! -s "$AUDIT_LOG" ]; then
     exit 1
 fi
 echo "Audit log actively receiving events. Sample record:"
-tail -n 1 "$AUDIT_LOG" | jq .
+sudo tail -n 1 "$AUDIT_LOG" | jq .
 
 echo "--- Check B: Verify PSS and Tenant Workloads ---"
 kubectl get namespaces -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/audit

@@ -45,6 +45,9 @@ EXCLUDED_PATHS = {
 }
 
 
+BINARY_EXTENSIONS = {".jpeg", ".jpg", ".png", ".pdf", ".tar", ".gz", ".ico", ".bin"}
+
+
 def check_file(path_str: str) -> list[str]:
     path = Path(path_str)
     violations: list[str] = []
@@ -60,7 +63,7 @@ def check_file(path_str: str) -> list[str]:
         if re.match(pattern, filename, re.IGNORECASE):
             violations.append(f"Forbidden secret file name detected: {path}")
 
-    if not path.is_file():
+    if not path.is_file() or path.suffix.lower() in BINARY_EXTENSIONS:
         return violations
 
     # 2. Check file contents
