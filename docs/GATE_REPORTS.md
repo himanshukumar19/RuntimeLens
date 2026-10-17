@@ -8,6 +8,9 @@
   - **DENIED:** Step 3 (`multipass mount`). `multipass mount` strictly forbidden.
   - **APPROVED TRANSFER METHOD:** Tracked files only into VM via `git archive HEAD` / `multipass transfer` (no tokens/credentials in VM). VM outputs copied back explicitly via `multipass transfer`.
   - **VM GOVERNANCE:** VM name `runtimelens-vm`. Never stop/restart without notice; never delete/purge without explicit approval. On restart after manual stop: run `make lab-up` and `make lab-verify`. Password typed by user in terminal if prompted.
+- **2026-10-17:** Checkpoint A Approval & Segment S2 Advancement:
+  - **APPROVED:** Stop `runtimelens-vm` with `multipass stop runtimelens-vm` (never `--all`), capture snapshot `snap-02a`, start the VM, run `make lab-up` and `make lab-verify`, and report real results.
+  - **APPROVED:** Proceed to Ticket `02b`, then Ticket `03`, and stop at Checkpoint B.
 
 ---
 
@@ -207,9 +210,28 @@ Sat Oct 17 17:00:18 2026: One ring buffer every '2' CPUs.
 17:00:59.960468335: Warning Sensitive file opened for reading by trusted program after startup | file=/etc/shadow pcmdline=event-generator run syscall --loop=false process=httpd proc_exepath=/usr/bin/event-generator command=httpd --loglevel info run ^syscall.ReadSensitiveFileUntrusted$ --sleep 6s container_id=1c6c43c13230 container_name=event-generator-test k8s_pod_name=event-generator-test k8s_ns_name=default
 ```
 
+#### Command 5: Idle Stack Resource Baseline
+```bash
+multipass exec runtimelens-vm -- bash -c "free -h && df -h && kubectl top nodes || true"
+```
+**Output (Recorded 2026-10-17 17:35:00 UTC):**
+```text
+               total        used        free      shared  buff/cache   available
+Mem:           5.8Gi       1.3Gi       184Mi        15Mi       4.5Gi       4.4Gi
+Swap:             0B          0B          0B
+
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        38G  6.7G   32G  18% /
+tmpfs           2.9G     0  2.9G   0% /dev/shm
+tmpfs           591M  1.3M  590M   1% /run
+
+error: Metrics API not available (deferred to Ticket 09a / 14 Prometheus scraper)
+```
+
 ### 3. Review & Status
-- **Review Report:** `docs/reviews/02a-1.md` (Status: CLEAN)
-- **Commit Hash:** `38b1d82725e2e8e97f4cf91d79867ce193ca8436`
+- **Review Report:** `docs/reviews/02a-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
+- **Commit Hash:** `0a13e10`
 - **Git Tag:** `02a-passed`
-- **What Failed:** None. All checks passed on local VM; no cloud fallback required.
-- **What Remains:** Snapshot `snap-02a` (pending user confirmation to stop/restart VM). Stopped at Checkpoint A for user evaluation and Go/No-Go decision.
+- **VM Snapshot:** `snap-02a` (Captured successfully on stopped instance `runtimelens-vm`)
+- **What Failed:** None. 100% of checks passed on local VM; no cloud fallback required.
+- **What Remains:** Proceeding to Segment S2: Ticket `02b` (Falco, Audit, Namespaces & Workloads), then Ticket `03`, stopping at Checkpoint B.
