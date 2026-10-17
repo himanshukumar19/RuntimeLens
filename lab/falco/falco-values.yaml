@@ -14,11 +14,6 @@ falco:
     enabled: true
     url: "http://127.0.0.1:8765/falco"
 
-  # Keep standard rules enabled alongside custom rules
-  rules_file:
-    - /etc/falco/falco_rules.yaml
-    - /etc/falco/rules.d
-
 customRules:
   runtimelens_rules.yaml: |-
     - rule: Launch Sensitive Mount Container

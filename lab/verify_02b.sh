@@ -14,14 +14,14 @@ sudo cp lab/audit/audit-policy.yaml /etc/kubernetes/policies/audit-policy.yaml
 sudo chmod 644 /etc/kubernetes/policies/audit-policy.yaml
 sudo chmod 777 /var/log/kubernetes/audit
 
-# 2. Re-create kind cluster with API server audit policy enabled
+# 2. Ensure kind cluster has API server audit policy enabled
 echo "[2/7] Ensuring kind cluster has API server auditing enabled..."
-if kind get clusters | grep -q "^runtimelens$"; then
-    echo "Recreating cluster to bind API server audit policy..."
-    kind delete cluster --name runtimelens
+if ! kind get clusters | grep -q "^runtimelens$"; then
+    echo "Creating cluster to bind API server audit policy..."
+    kind create cluster --config lab/kind/kind-config.yaml
+else
+    echo "kind cluster 'runtimelens' already exists."
 fi
-
-kind create cluster --config lab/kind/kind-config.yaml
 
 # Context verification guard
 CURRENT_CONTEXT=$(kubectl config current-context)
