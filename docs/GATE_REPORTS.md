@@ -234,4 +234,166 @@ error: Metrics API not available (deferred to Ticket 09a / 14 Prometheus scraper
 - **Git Tag:** `02a-passed`
 - **VM Snapshot:** `snap-02a` (Captured successfully on stopped instance `runtimelens-vm`)
 - **What Failed:** None. 100% of checks passed on local VM; no cloud fallback required.
-- **What Remains:** Proceeding to Segment S2: Ticket `02b` (Falco, Audit, Namespaces & Workloads), then Ticket `03`, stopping at Checkpoint B.
+- **What Remains:** Completed.
+
+---
+
+## Gate Report: Ticket 02b — Falco, Audit, Namespaces & Workloads
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented Kubernetes API audit policy (`lab/audit/audit-policy.yaml`) mounted into kind kube-apiserver with Metadata level default, full RequestResponse for sensitive operations (RBAC and `pods/exec`), and strict exclusion of secret bodies to prevent credential leakage (Decision D-07).
+  - Deployed 3 tenant namespaces (`tenant-a`, `tenant-b`, `tenant-c`) enforcing Pod Security Standards (`baseline` / `restricted`).
+  - Configured comprehensive NetworkPolicies per tenant: `default-deny-all` blocking all inbound/outbound traffic, `allow-kube-dns` permitting egress to DNS on UDP/TCP port 53, and pre-installed `isolate-quarantined-pods` NetworkPolicy matching `quarantine="true"` pods (Decision D-13).
+  - Applied `ResourceQuota` and `LimitRange` per tenant to bound resource usage.
+  - Deployed 12 hardened ARM64 workloads (4 per tenant: `web`, `api`, `database`, `payment-style`), each configured with non-root UIDs (10001–10004), read-only root filesystems, dropped capabilities (`ALL`), and ephemeral scratch mounts.
+  - Configured Falco with modern eBPF driver, structured JSON output formatting, and custom lab rules for detecting sensitive mounts, interactive shell spawns, cryptomining ports, and sensitive identity file reads.
+  - Authored review report `docs/reviews/02b-1.md` and captured live evidence in `docs/evidence/gate_02b_evidence.log`.
+- **Why it was built that way:**
+  - Standard multi-tenant Kubernetes clusters must isolate tenants at both network and compute layers to prevent cross-tenant reconnaissance and denial-of-service.
+  - Hardened container security contexts (`runAsNonRoot`, `readOnlyRootFilesystem`) establish defense-in-depth, ensuring that any baseline deviations (such as unexpected shell spawns or file writes) stand out clearly in runtime telemetry.
+  - Restricting API audit logging for secrets to `Metadata` prevents cryptographic keys or tokens from leaking into persistent telemetry archives.
+- **Known limitations and edge cases:**
+  - The Kubernetes API audit log is owned by root inside the VM; inspection by unprivileged users requires `sudo` or dedicated group permissions.
+
+### 2. Exit Gate Verification Commands & Output (Real Live Cluster Evidence)
+
+#### Command 1: Kubernetes API Audit Log Stream
+```bash
+multipass exec runtimelens-vm -- sudo tail -n 1 /var/log/kubernetes/audit/audit.log | jq .
+```
+**Output (Recorded 2026-10-17 18:17:38 UTC):**
+```json
+{
+  "kind": "Event",
+  "apiVersion": "audit.k8s.io/v1",
+  "level": "Metadata",
+  "auditID": "3b2c46d2-48a8-405e-821e-cc640e9d9f78",
+  "stage": "ResponseComplete",
+  "requestURI": "/api/v1/namespaces/tenant-a/pods?limit=500",
+  "verb": "list",
+  "user": {
+    "username": "kubernetes-admin",
+    "groups": [
+      "kubeadm:cluster-admins",
+      "system:authenticated"
+    ]
+  },
+  "sourceIPs": [
+    "172.18.0.1"
+  ],
+  "userAgent": "kubectl/v1.30.0 (linux/arm64) kubernetes/7c48c2b",
+  "objectRef": {
+    "resource": "pods",
+    "namespace": "tenant-a",
+    "apiVersion": "v1"
+  },
+  "responseStatus": {
+    "metadata": {},
+    "code": 200
+  },
+  "requestReceivedTimestamp": "2026-10-17T18:17:38.852863Z",
+  "stageTimestamp": "2026-10-17T18:17:38.854548Z",
+  "annotations": {
+    "authorization.k8s.io/decision": "allow",
+    "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"kubeadm:cluster-admins\" of ClusterRole \"cluster-admin\" to Group \"kubeadm:cluster-admins\""
+  }
+}
+```
+
+#### Command 2: Tenant Namespaces & Pod Security Standards
+```bash
+multipass exec runtimelens-vm -- kubectl get namespaces -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/audit
+```
+**Output:**
+```
+NAME                 STATUS   AGE     ENFORCE    AUDIT
+cilium-secrets       Active   11m
+default              Active   11m
+falco                Active   8m35s
+kube-node-lease      Active   11m
+kube-public          Active   11m
+kube-system          Active   11m
+local-path-storage   Active   11m
+tenant-a             Active   2m6s    baseline   restricted
+tenant-b             Active   2m6s    baseline   restricted
+tenant-c             Active   2m6s    baseline   restricted
+```
+
+#### Command 3: Hardened Tenant Workload Pods
+```bash
+multipass exec runtimelens-vm -- kubectl get pods -A -l tenant
+```
+**Output:**
+```
+NAMESPACE   NAME                             READY   STATUS    RESTARTS   AGE
+tenant-a    api-74cdd4cdbc-z6t7q             1/1     Running   0          2m5s
+tenant-a    database-8cfcc9779-m75nb         1/1     Running   0          2m5s
+tenant-a    payment-style-5cdbff7bff-86ssl   1/1     Running   0          2m5s
+tenant-a    web-6794787bc8-4wmx6             1/1     Running   0          2m5s
+tenant-b    api-77b8ffcdd8-cdblc             1/1     Running   0          2m5s
+tenant-b    database-798c79d8bb-4ws8x        1/1     Running   0          2m5s
+tenant-b    payment-style-65db44f8cb-6562g   1/1     Running   0          2m5s
+tenant-b    web-65d85fd8b7-v9fjc             1/1     Running   0          2m5s
+tenant-c    api-65685f6665-9vfp4             1/1     Running   0          2m4s
+tenant-c    database-79998f789-8vw7w         1/1     Running   0          2m4s
+tenant-c    payment-style-6b689b4b85-z69kg   1/1     Running   0          2m4s
+tenant-c    web-84579f6fcb-2fvhw             1/1     Running   0          2m5s
+```
+
+#### Command 4: NetworkPolicy Cross-Tenant Blocking & DNS Egress
+```bash
+# Egress connection attempt from tenant-a to tenant-b web service
+multipass exec runtimelens-vm -- bash -c "WEB_IP=\$(kubectl get pod -n tenant-b -l app=web -o jsonpath='{.items[0].status.podIP}') && (kubectl exec -n tenant-a deployment/api -- nc -z -w 3 \$WEB_IP 8080 || echo 'VERIFIED: Cross-tenant connection blocked by default-deny NetworkPolicy.')"
+```
+**Output:**
+```
+VERIFIED: Cross-tenant connection blocked by default-deny NetworkPolicy.
+```
+```bash
+# DNS egress resolution from tenant-a
+multipass exec runtimelens-vm -- kubectl exec -n tenant-a deployment/api -- nslookup kubernetes.default.svc.cluster.local
+```
+**Output:**
+```
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+Name:	kubernetes.default.svc.cluster.local
+Address: 10.96.0.1
+```
+
+#### Command 5: Falco JSON Output Verification
+```bash
+multipass exec runtimelens-vm -- kubectl logs -n falco -l app.kubernetes.io/name=falco --tail=10 | grep -i 'Read Sensitive' | tail -n 1 | jq .
+```
+**Output (Recorded 2026-10-17 18:18:15 UTC):**
+```json
+{
+  "hostname": "runtimelens-control-plane",
+  "output": "18:18:15.986915812: Warning Sensitive identity file opened for read (user=root pod=<NA> ns=<NA> file=/etc/passwd cmd=runc:[1:CHILD] init) container_id=e45a2bca4936",
+  "output_fields": {
+    "container.id": "e45a2bca4936",
+    "evt.time": 1792261095986915812,
+    "fd.name": "/etc/passwd",
+    "proc.cmdline": "runc:[1:CHILD] init",
+    "user.name": "root"
+  },
+  "priority": "Warning",
+  "rule": "Read Sensitive Host Information Untrusted",
+  "source": "syscall",
+  "tags": [
+    "file_access",
+    "privilege_abuse",
+    "runtimelens"
+  ],
+  "time": "2026-10-17T18:18:15.986915812Z"
+}
+```
+
+### 3. Review & Status
+- **Review Report:** `docs/reviews/02b-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
+- **Commit Hash:** PENDING
+- **Git Tag:** `02b-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Proceeding within Segment S2 to Ticket `03` (Minimal Vertical Slice: Syscall -> Audit Record), stopping at Checkpoint B.

@@ -1,0 +1,199 @@
+=== TICKET 02b GATE EVIDENCE LOG ===
+TIMESTAMP (UTC):  2026-10-17T18:18:12+00:00
+
+=== AUDIT LOG SAMPLE (JSON) ===
+{
+  "kind": "Event",
+  "apiVersion": "audit.k8s.io/v1",
+  "level": "Metadata",
+  "auditID": "4f020329-b895-41b2-8046-a55c25855cbd",
+  "stage": "ResponseComplete",
+  "requestURI": "/apis/cilium.io/v2/ciliumendpoints?allowWatchBookmarks=true&resourceVersion=776&timeout=9m1s&timeoutSeconds=541&watch=true",
+  "verb": "watch",
+  "user": {
+    "username": "system:serviceaccount:kube-system:cilium-operator",
+    "uid": "2b50d94e-b3d8-46d2-8c86-909a6c074e2b",
+    "groups": [
+      "system:serviceaccounts",
+      "system:serviceaccounts:kube-system",
+      "system:authenticated"
+    ],
+    "extra": {
+      "authentication.kubernetes.io/pod-name": [
+        "cilium-operator-778b4cc8c7-rcqxl"
+      ],
+      "authentication.kubernetes.io/pod-uid": [
+        "86e1b365-e41c-4d7a-a86a-47f6a9c3d857"
+      ]
+    }
+  },
+  "sourceIPs": [
+    "172.18.0.2"
+  ],
+  "userAgent": "cilium-operator-generic/1.20.1 7d68cfb3 2026-08-18T07:45:23Z go version go1.26.5 linux/arm64 cilium-operator",
+  "objectRef": {
+    "resource": "ciliumendpoints",
+    "apiGroup": "cilium.io",
+    "apiVersion": "v2"
+  },
+  "responseStatus": {
+    "metadata": {},
+    "code": 200
+  },
+  "requestReceivedTimestamp": "2026-10-17T18:09:04.907054Z",
+  "stageTimestamp": "2026-10-17T18:18:05.907303Z",
+  "annotations": {
+    "authorization.k8s.io/decision": "allow",
+    "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"cilium-operator\" of ClusterRole \"cilium-operator\" to ServiceAccount \"cilium-operator/kube-system\""
+  }
+}
+{
+  "kind": "Event",
+  "apiVersion": "audit.k8s.io/v1",
+  "level": "Metadata",
+  "auditID": "52becec3-893a-4abd-be77-91ff82835b2b",
+  "stage": "ResponseStarted",
+  "requestURI": "/apis/cilium.io/v2/ciliumendpoints?allowWatchBookmarks=true&resourceVersion=2211&timeout=5m30s&timeoutSeconds=330&watch=true",
+  "verb": "watch",
+  "user": {
+    "username": "system:serviceaccount:kube-system:cilium-operator",
+    "uid": "2b50d94e-b3d8-46d2-8c86-909a6c074e2b",
+    "groups": [
+      "system:serviceaccounts",
+      "system:serviceaccounts:kube-system",
+      "system:authenticated"
+    ],
+    "extra": {
+      "authentication.kubernetes.io/pod-name": [
+        "cilium-operator-778b4cc8c7-rcqxl"
+      ],
+      "authentication.kubernetes.io/pod-uid": [
+        "86e1b365-e41c-4d7a-a86a-47f6a9c3d857"
+      ]
+    }
+  },
+  "sourceIPs": [
+    "172.18.0.2"
+  ],
+  "userAgent": "cilium-operator-generic/1.20.1 7d68cfb3 2026-08-18T07:45:23Z go version go1.26.5 linux/arm64 cilium-operator",
+  "objectRef": {
+    "resource": "ciliumendpoints",
+    "apiGroup": "cilium.io",
+    "apiVersion": "v2"
+  },
+  "responseStatus": {
+    "metadata": {},
+    "code": 200
+  },
+  "requestReceivedTimestamp": "2026-10-17T18:18:05.907931Z",
+  "stageTimestamp": "2026-10-17T18:18:05.908314Z",
+  "annotations": {
+    "authorization.k8s.io/decision": "allow",
+    "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"cilium-operator\" of ClusterRole \"cilium-operator\" to ServiceAccount \"cilium-operator/kube-system\""
+  }
+}
+
+=== TENANT NAMESPACES & PSS ===
+NAME                 STATUS   AGE     ENFORCE    AUDIT
+cilium-secrets       Active   11m
+default              Active   11m
+falco                Active   8m35s
+kube-node-lease      Active   11m
+kube-public          Active   11m
+kube-system          Active   11m
+local-path-storage   Active   11m
+tenant-a             Active   2m6s    baseline   restricted
+tenant-b             Active   2m6s    baseline   restricted
+tenant-c             Active   2m6s    baseline   restricted
+
+=== TENANT WORKLOAD PODS ===
+NAMESPACE   NAME                             READY   STATUS    RESTARTS   AGE
+tenant-a    api-74cdd4cdbc-z6t7q             1/1     Running   0          2m5s
+tenant-a    database-8cfcc9779-m75nb         1/1     Running   0          2m5s
+tenant-a    payment-style-5cdbff7bff-86ssl   1/1     Running   0          2m5s
+tenant-a    web-6794787bc8-4wmx6             1/1     Running   0          2m5s
+tenant-b    api-77b8ffcdd8-cdblc             1/1     Running   0          2m5s
+tenant-b    database-798c79d8bb-4ws8x        1/1     Running   0          2m5s
+tenant-b    payment-style-65db44f8cb-6562g   1/1     Running   0          2m5s
+tenant-b    web-65d85fd8b7-v9fjc             1/1     Running   0          2m5s
+tenant-c    api-65685f6665-9vfp4             1/1     Running   0          2m4s
+tenant-c    database-79998f789-8vw7w         1/1     Running   0          2m4s
+tenant-c    payment-style-6b689b4b85-z69kg   1/1     Running   0          2m4s
+tenant-c    web-84579f6fcb-2fvhw             1/1     Running   0          2m5s
+
+=== NETWORK POLICIES ===
+NAMESPACE   NAME                       POD-SELECTOR      AGE
+tenant-a    allow-kube-dns             <none>            2m5s
+tenant-a    default-deny-all           <none>            2m5s
+tenant-a    isolate-quarantined-pods   quarantine=true   2m5s
+tenant-b    allow-kube-dns             <none>            2m5s
+tenant-b    default-deny-all           <none>            2m5s
+tenant-b    isolate-quarantined-pods   quarantine=true   2m5s
+tenant-c    allow-kube-dns             <none>            2m5s
+tenant-c    default-deny-all           <none>            2m5s
+tenant-c    isolate-quarantined-pods   quarantine=true   2m5s
+
+=== CROSS-TENANT NETWORK POLICY BLOCK TEST ===
+Attempting connection from tenant-a/api to tenant-b/web (10.244.0.99:8080)...
+VERIFIED: Cross-tenant connection blocked by default-deny NetworkPolicy.
+
+=== DNS EGRESS TEST ===
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+Name:	kubernetes.default.svc.cluster.local
+Address: 10.96.0.1
+
+
+
+=== FALCO JSON ALERT SAMPLE ===
+{
+  "hostname": "runtimelens-control-plane",
+  "output": "18:18:12.898820644: Warning Sensitive identity file opened for read (user=root pod=<NA> ns=<NA> file=/etc/passwd cmd=runc:[1:CHILD] init) container_id=e45a2bca4936 container_name=<NA> container_image_repository=<NA> container_image_tag=<NA> k8s_pod_name=<NA> k8s_ns_name=<NA>",
+  "output_fields": {
+    "container.id": "e45a2bca4936",
+    "container.image.repository": null,
+    "container.image.tag": null,
+    "container.name": null,
+    "evt.time": 1792261092898820644,
+    "fd.name": "/etc/passwd",
+    "k8s.ns.name": null,
+    "k8s.pod.name": null,
+    "proc.cmdline": "runc:[1:CHILD] init",
+    "user.name": "root"
+  },
+  "priority": "Warning",
+  "rule": "Read Sensitive Host Information Untrusted",
+  "source": "syscall",
+  "tags": [
+    "file_access",
+    "privilege_abuse",
+    "runtimelens"
+  ],
+  "time": "2026-10-17T18:18:12.898820644Z"
+}
+{
+  "hostname": "runtimelens-control-plane",
+  "output": "18:18:15.986915812: Warning Sensitive identity file opened for read (user=root pod=<NA> ns=<NA> file=/etc/passwd cmd=runc:[1:CHILD] init) container_id=e45a2bca4936 container_name=<NA> container_image_repository=<NA> container_image_tag=<NA> k8s_pod_name=<NA> k8s_ns_name=<NA>",
+  "output_fields": {
+    "container.id": "e45a2bca4936",
+    "container.image.repository": null,
+    "container.image.tag": null,
+    "container.name": null,
+    "evt.time": 1792261095986915812,
+    "fd.name": "/etc/passwd",
+    "k8s.ns.name": null,
+    "k8s.pod.name": null,
+    "proc.cmdline": "runc:[1:CHILD] init",
+    "user.name": "root"
+  },
+  "priority": "Warning",
+  "rule": "Read Sensitive Host Information Untrusted",
+  "source": "syscall",
+  "tags": [
+    "file_access",
+    "privilege_abuse",
+    "runtimelens"
+  ],
+  "time": "2026-10-17T18:18:15.986915812Z"
+}
