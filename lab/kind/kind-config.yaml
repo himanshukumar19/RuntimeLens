@@ -11,8 +11,8 @@ nodes:
     extraMounts:
       # Mount host BTF into kind node so Falco and Cilium eBPF have direct access
       - hostPath: /sys/kernel/btf/vmlinux
-        mountPath: /sys/kernel/btf/vmlinux
+        containerPath: /sys/kernel/btf/vmlinux
         readOnly: true
       - hostPath: /lib/modules
-        mountPath: /lib/modules
+        containerPath: /lib/modules
         readOnly: true
