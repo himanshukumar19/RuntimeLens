@@ -66,7 +66,7 @@ fi
 echo "SUCCESS: kind installed."
 
 # 6. Install Cilium CLI
-echo "[6/6] Installing Cilium CLI..."
+echo "[6/7] Installing Cilium CLI..."
 if ! command -v cilium &>/dev/null; then
     CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
     ARCH=$(dpkg --print-architecture)
@@ -75,6 +75,13 @@ if ! command -v cilium &>/dev/null; then
     rm -f "cilium-linux-${ARCH}.tar.gz"
 fi
 echo "SUCCESS: Cilium CLI installed."
+
+# 7. Install Helm
+echo "[7/7] Installing Helm..."
+if ! command -v helm &>/dev/null; then
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+fi
+echo "SUCCESS: Helm installed."
 
 echo "======================================================"
 echo "VM Provisioning Complete. Ready for kind cluster creation."
