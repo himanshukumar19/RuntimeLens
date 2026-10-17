@@ -32,12 +32,15 @@ fi
 echo "PASS: Context confirmed as '$REQUIRED_CONTEXT'."
 
 # 3. Install Cilium CNI with Hubble
-echo "[3/7] Installing Cilium CNI with Hubble..."
-cilium install \
-    --set kubeProxyReplacement=true \
-    --set hubble.enabled=true \
-    --set hubble.relay.enabled=true \
-    --set hubble.ui.enabled=true
+echo "[3/7] Verifying Cilium CNI with Hubble..."
+if ! cilium status --brief 2>/dev/null | grep -q "OK"; then
+    echo "Installing Cilium CNI..."
+    cilium install \
+        --set kubeProxyReplacement=true \
+        --set hubble.enabled=true \
+        --set hubble.relay.enabled=true \
+        --set hubble.ui.enabled=true
+fi
 cilium status --wait
 
 # 4. Deploy Falco with modern eBPF and JSON output
