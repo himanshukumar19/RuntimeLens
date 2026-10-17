@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://runtimelens.local/schemas/event.schema.json",
+  "title": "CanonicalEvent",
+  "description": "Versioned canonical event representation for RuntimeLens telemetry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "schema_version",
+    "event_timestamp",
+    "ingest_timestamp",
+    "workload",
+    "telemetry_source",
+    "facts",
+    "baseline",
+    "health"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ingest_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant", "namespace", "pod_name", "pod_uid", "owner_workload", "container_name", "image_digest"],
+      "properties": {
+        "tenant": { "type": "string" },
+        "namespace": { "type": "string" },
+        "pod_name": { "type": "string" },
+        "pod_uid": { "type": "string" },
+        "owner_workload": { "type": "string" },
+        "container_name": { "type": "string" },
+        "container_id": { "type": ["string", "null"] },
+        "image_digest": { "type": "string" }
+      }
+    },
+    "telemetry_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "source_event_id", "raw_event_ref"],
+      "properties": {
+        "source": { "type": "string", "enum": ["falco", "k8s_audit", "hubble", "trivy", "metrics"] },
+        "source_event_id": { "type": "string" },
+        "raw_event_ref": { "type": "string" }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_runtime_socket_mounted",
+        "sensitive_host_path_mounted",
+        "privileged_container",
+        "is_root_user",
+        "is_shell_process",
+        "has_critical_vulnerability",
+        "cpu_usage_mcores",
+        "is_cpu_abnormal",
+        "is_outbound_egress",
+        "is_cross_tenant_flow"
+      ],
+      "properties": {
+        "host_runtime_socket_mounted": { "type": "boolean" },
+        "sensitive_host_path_mounted": { "type": "boolean" },
+        "privileged_container": { "type": "boolean" },
+        "is_root_user": { "type": "boolean" },
+        "is_shell_process": { "type": "boolean" },
+        "has_critical_vulnerability": { "type": "boolean" },
+        "cpu_usage_mcores": { "type": "number" },
+        "is_cpu_abnormal": { "type": "boolean" },
+        "is_outbound_egress": { "type": "boolean" },
+        "is_cross_tenant_flow": { "type": "boolean" }
+      }
+    },
+    "runtime": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "process_name": { "type": "string" },
+        "parent_process": { "type": "string" },
+        "command_args_sanitized": { "type": "string", "maxLength": 128 },
+        "syscall": { "type": "string" }
+      }
+    },
+    "orchestration": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "verb": { "type": "string" },
+        "resource": { "type": "string" },
+        "subresource": { "type": ["string", "null"] },
+        "request_user": { "type": "string" }
+      }
+    },
+    "network": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "destination_ip": { "type": "string" },
+        "destination_port": { "type": "integer" },
+        "protocol": { "type": "string" },
+        "verdict": { "type": "string", "enum": ["FORWARDED", "DROPPED"] },
+        "dns_query": { "type": ["string", "null"] }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_version",
+        "is_baseline_stale",
+        "shell_expected",
+        "expected_binaries",
+        "expected_peers",
+        "baseline_deviation_detected",
+        "deviations"
+      ],
+      "properties": {
+        "baseline_version": { "type": "string" },
+        "is_baseline_stale": { "type": "boolean" },
+        "shell_expected": { "type": "boolean" },
+        "expected_binaries": { "type": "array", "items": { "type": "string" } },
+        "expected_peers": { "type": "array", "items": { "type": "string" } },
+        "baseline_deviation_detected": { "type": "boolean" },
+        "deviations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_telemetry_degraded", "missing_sources"],
+      "properties": {
+        "is_telemetry_degraded": { "type": "boolean" },
+        "missing_sources": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

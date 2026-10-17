@@ -1,1 +1,51 @@
+# Secrets and Environment Variables (STRICT - NEVER COMMIT)
 .env
+.env.*
+*.key
+*.pem
+*.token
+secrets/
+credentials/
+*.secret
+*.secrets
+*credential*.json
+*secret*.json
+
+# Raw Telemetry and Partitioned Dataset Splits
+data/raw/
+datasets/splits/
+data/audit/
+data/review/
+data/scenarios/
+
+# Python & Virtual Environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build & Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Tooling Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Scratch & Temporary Files
+.scratch/
+tmp/
+*.tmp
+
+# Operating System Files
+.DS_Store
+Thumbs.db

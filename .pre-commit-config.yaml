@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: ruff-lint
+        name: Ruff Linter
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        stages: [pre-commit]
+
+      - id: ruff-format
+        name: Ruff Formatter
+        entry: uv run ruff format --check
+        language: system
+        types: [python]
+        stages: [pre-commit]
+
+      - id: secrets-guard
+        name: Secrets and Credentials Guard
+        entry: uv run python scripts/check_secrets.py
+        language: system
+        types: [file]
+        stages: [pre-commit]

@@ -1,0 +1,44 @@
+name: RuntimeLens CI (Offline)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  offline-verify:
+    name: Lint, Typecheck, Secrets Scan & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d1144026330058ca7c6be812d62551ec9dd7e909 # v1
+        with:
+          version: "0.11.13"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Dependencies
+        run: uv sync --extra dev
+
+      - name: Secrets & Credentials Scan
+        run: |
+          # Verify that no .env, key files, or raw secrets exist in the repository
+          uv run python scripts/check_secrets.py $(git ls-files)
+
+      - name: Run Ruff Linter & Formatter Check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run Mypy Strict Typecheck
+        run: |
+          uv run mypy src tests scripts
+
+      - name: Run Unit & Property-Based Tests
+        run: |
+          uv run pytest -v tests/unit/test_sanitizer.py tests/unit/test_secrets_guard.py
