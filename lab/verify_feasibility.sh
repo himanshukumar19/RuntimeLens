@@ -41,7 +41,7 @@ if ! cilium status --brief 2>/dev/null | grep -q "OK"; then
         --set kubeProxyReplacement=true \
         --set hubble.enabled=true \
         --set hubble.relay.enabled=true \
-        --set hubble.ui.enabled=true
+        --set hubble.ui.enabled=false
 fi
 
 echo "Waiting for Cilium to reach healthy status..."

@@ -39,7 +39,7 @@ if ! kubectl get daemonset -n kube-system cilium &>/dev/null; then
         --set kubeProxyReplacement=true \
         --set hubble.enabled=true \
         --set hubble.relay.enabled=true \
-        --set hubble.ui.enabled=true
+        --set hubble.ui.enabled=false
 fi
 cilium status --wait
 

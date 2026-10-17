@@ -92,9 +92,11 @@ def run_webhook_server(
     port: int = 8765,
     audit_path: Path = DEFAULT_AUDIT_PATH,
 ) -> ThreadingHTTPServer:
-    """Instantiate and start the webhook receiver bound strictly to 127.0.0.1."""
-    if host not in {"127.0.0.1", "localhost"}:
-        raise ValueError(f"Safety violation: Webhook must bind to 127.0.0.1, got {host}")
+    """Start webhook receiver bound strictly to 127.0.0.1 or internal kind bridge."""
+    if host not in {"127.0.0.1", "localhost", "172.18.0.1"}:
+        raise ValueError(
+            f"Safety violation: Webhook must bind to 127.0.0.1 or 172.18.0.1, got {host}"
+        )
 
     writer = AuditWriter(audit_path)
     FalcoWebhookHandler.audit_writer = writer

@@ -69,8 +69,8 @@ lab-up:
 	@echo "Creating kind cluster with config lab/kind/kind-config.yaml..."
 	kind create cluster --config lab/kind/kind-config.yaml
 	$(MAKE) check-kube-context
-	@echo "Installing Cilium with kubeProxyReplacement and Hubble..."
-	cilium install --set kubeProxyReplacement=true --set hubble.enabled=true --set hubble.relay.enabled=true --set hubble.ui.enabled=true
+	@echo "Installing Cilium with kubeProxyReplacement and Hubble Relay..."
+	cilium install --set kubeProxyReplacement=true --set hubble.enabled=true --set hubble.relay.enabled=true --set hubble.ui.enabled=false
 	cilium status --wait
 
 lab-verify: check-kube-context
