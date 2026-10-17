@@ -7,11 +7,15 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import httpx
+import pytest
 
-from runtimelens.collector.webhook import DEFAULT_WEBHOOK_TOKEN, run_webhook_server
+from runtimelens.collector.webhook import run_webhook_server
+
+TEST_TOKEN = "ephemeral-test-webhook-secret-token-32bytes-long"
 
 
-def test_webhook_unauthenticated_request_rejected() -> None:
+def test_webhook_unauthenticated_request_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FALCO_WEBHOOK_SECRET", TEST_TOKEN)
     with NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
         log_path = Path(f.name)
 
@@ -42,7 +46,8 @@ def test_webhook_unauthenticated_request_rejected() -> None:
             log_path.unlink()
 
 
-def test_webhook_authenticated_request_accepted() -> None:
+def test_webhook_authenticated_request_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FALCO_WEBHOOK_SECRET", TEST_TOKEN)
     with NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
         log_path = Path(f.name)
 
@@ -68,14 +73,14 @@ def test_webhook_authenticated_request_accepted() -> None:
             resp_header = client.post(
                 "/falco",
                 json=valid_payload,
-                headers={"X-Webhook-Token": DEFAULT_WEBHOOK_TOKEN},
+                headers={"X-Webhook-Token": TEST_TOKEN},
             )
             assert resp_header.status_code == 200
             assert resp_header.json()["status"] == "ok"
 
-            # 2. Via URL query parameter
+            # 2. Via URL query parameter (required by Falco C++ client)
             resp_query = client.post(
-                f"/falco?token={DEFAULT_WEBHOOK_TOKEN}",
+                f"/falco?token={TEST_TOKEN}",
                 json=valid_payload,
             )
             assert resp_query.status_code == 200
@@ -86,7 +91,8 @@ def test_webhook_authenticated_request_accepted() -> None:
             log_path.unlink()
 
 
-def test_webhook_oversized_payload_rejected() -> None:
+def test_webhook_oversized_payload_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FALCO_WEBHOOK_SECRET", TEST_TOKEN)
     with NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
         log_path = Path(f.name)
 
@@ -106,7 +112,7 @@ def test_webhook_oversized_payload_rejected() -> None:
                 content=json.dumps(huge_payload).encode("utf-8"),
                 headers={
                     "Content-Type": "application/json",
-                    "X-Webhook-Token": DEFAULT_WEBHOOK_TOKEN,
+                    "X-Webhook-Token": TEST_TOKEN,
                 },
             )
             assert resp.status_code == 413

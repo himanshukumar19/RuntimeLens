@@ -37,6 +37,46 @@ SAMPLE_STATE_TEXT = (
     "Alert: Read Sensitive Host Information Untrusted"
 )
 
+# 6 distinct realistic states for latency benchmarking (Calls 07-12)
+LATENCY_STATES = [
+    (
+        "Workload: tenant-a / web-service (owner: web)\n"
+        "Observed Process: /bin/sh -c 'uptime'\n"
+        "Baseline: shell_expected=False, allowed_binaries=[web]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+    (
+        "Workload: tenant-a / api-service (owner: api)\n"
+        "Observed Process: /usr/bin/curl -s http://internal-db:5432\n"
+        "Baseline: shell_expected=False, allowed_binaries=[api]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+    (
+        "Workload: tenant-b / web-service (owner: web)\n"
+        "Observed Process: /bin/sh -c 'date'\n"
+        "Baseline: shell_expected=False, allowed_binaries=[web]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+    (
+        "Workload: tenant-b / database-service (owner: database)\n"
+        "Observed Process: /usr/local/bin/redis-cli ping\n"
+        "Baseline: shell_expected=False, allowed_binaries=[database]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+    (
+        "Workload: tenant-c / web-service (owner: web)\n"
+        "Observed Process: /bin/sh -c 'hostname'\n"
+        "Baseline: shell_expected=False, allowed_binaries=[web]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+    (
+        "Workload: tenant-c / payment-service (owner: payment-style)\n"
+        "Observed Process: /bin/sh -c 'id'\n"
+        "Baseline: shell_expected=False, allowed_binaries=[payment-style]\n"
+        "Fact: host_runtime_socket_mounted=False, privileged_container=False"
+    ),
+]
+
 PAIRED_DEBUG_STATE_TEXT = (
     "Workload: tenant-a / debug-pod (owner: debug)\n"
     "Observed Process: /bin/sh -i (spawned by authenticated developer on-call)\n"
@@ -133,16 +173,32 @@ def test_live_scaledown_14_call_matrix() -> None:
 
     call_count = 0
 
+    # Local in-memory response cache to demonstrate and test cache bypass
+    local_response_cache: dict[str, Any] = {}
+
     def make_call(
         call_id: str,
         payload: dict[str, Any],
         expect_status: int = 200,
         extra_headers: dict[str, str] | None = None,
+        bypass_local_cache: bool = False,
     ) -> tuple[int, float, Any]:
         nonlocal call_count
         call_count += 1
         if call_count > HARD_CALL_CAP:
             pytest.fail(f"HARD SAFETY CAP EXCEEDED: Attempted call {call_count} > {HARD_CALL_CAP}")
+
+        cache_key = json.dumps(payload, sort_keys=True)
+        if not bypass_local_cache and cache_key in local_response_cache:
+            # Local cache hit
+            cached_resp = local_response_cache[cache_key]
+            recorded_results["calls"][call_id] = {
+                "status_code": 200,
+                "latency_ms": 0.05,
+                "source": "local_cache_hit",
+                "response": cached_resp,
+            }
+            return 200, 0.05, cached_resp
 
         req_headers = dict(headers)
         if extra_headers:
@@ -165,12 +221,13 @@ def test_live_scaledown_14_call_matrix() -> None:
         except Exception:
             body = resp.text
 
-        # Extract allowlisted response headers only (never log Authorization or keys)
+        if resp.status_code == 200 and isinstance(body, dict):
+            local_response_cache[cache_key] = body
+
         safe_resp_headers = {
             k.lower(): v for k, v in resp.headers.items() if k.lower() in ALLOWLISTED_HEADERS
         }
 
-        # Extract token usage if provided in response
         token_usage = body.get("usage") if isinstance(body, dict) else None
 
         recorded_results["calls"][call_id] = {
@@ -185,7 +242,7 @@ def test_live_scaledown_14_call_matrix() -> None:
     print("\n=== Executing ScaleDown Classify-1 Smoke Test Matrix (14 calls, Cap: 20) ===")
 
     # 1. Call 1: Choice Only
-    status, lat, data = make_call(
+    status, lat, _ = make_call(
         "call_01_choice_only",
         {
             "model": "classify-1",
@@ -196,7 +253,7 @@ def test_live_scaledown_14_call_matrix() -> None:
     print(f"Call 01 (Choice Only): Status {status} | Latency {lat:.1f} ms")
 
     # 2. Call 2: Score Only
-    status, lat, data = make_call(
+    status, lat, _ = make_call(
         "call_02_score_only",
         {
             "model": "classify-1",
@@ -207,7 +264,7 @@ def test_live_scaledown_14_call_matrix() -> None:
     print(f"Call 02 (Score Only): Status {status} | Latency {lat:.1f} ms")
 
     # 3. Call 3: Noul Only
-    status, lat, data = make_call(
+    status, lat, _ = make_call(
         "call_03_noul_only",
         {
             "model": "classify-1",
@@ -243,16 +300,17 @@ def test_live_scaledown_14_call_matrix() -> None:
                 "mapping_holds": mapping_holds,
             }
 
-    # 5. Call 5: Cache Bypass & Determinism Test (Bypasses local/remote cache via header)
-    status, lat_cache, data_cache = make_call(
+    # 5. Call 5: Cache Bypass & Determinism Test (Bypasses local cache in code AND header)
+    status, lat_cache, _ = make_call(
         "call_05_cache_bypass",
         all_payload,
         extra_headers={"Cache-Control": "no-cache"},
+        bypass_local_cache=True,  # Explicitly forces real network roundtrip
     )
-    print(f"Call 05 (Cache Bypass): Status {status} | Latency {lat_cache:.1f} ms")
+    print(f"Call 05 (Cache Bypass in Code): Status {status} | Latency {lat_cache:.1f} ms")
 
     # 6. Call 6: Deliberately Invalid Request (Error Shape Test)
-    status_err, lat_err, data_err = make_call(
+    status_err, lat_err, _ = make_call(
         "call_06_deliberate_invalid",
         {
             "model": "classify-1",
@@ -263,12 +321,17 @@ def test_live_scaledown_14_call_matrix() -> None:
     )
     print(f"Call 06 (Deliberate Invalid Request): Status {status_err} | Latency {lat_err:.1f} ms")
 
-    # 7–12. Calls 7-12: Latency Benchmark Suite (6 repeated calls)
+    # 7–12. Calls 7-12: Latency Benchmark Suite across 6 distinct states
     latencies: list[float] = []
-    print("Calls 07-12 (Latency Distribution Suite):")
-    for i in range(7, 13):
-        call_name = f"call_{i:02d}_latency"
-        s, l_ms, _ = make_call(call_name, all_payload)
+    print("Calls 07-12 (Latency Distribution on 6 Distinct States):")
+    for idx, distinct_state in enumerate(LATENCY_STATES, start=7):
+        call_name = f"call_{idx:02d}_latency"
+        distinct_payload = {
+            "model": "classify-1",
+            "state": {"text": distinct_state},
+            "questions": all_questions,
+        }
+        s, l_ms, _ = make_call(call_name, distinct_payload, bypass_local_cache=True)
         latencies.append(l_ms)
         print(f"  - {call_name}: {l_ms:.1f} ms (Status {s})")
 

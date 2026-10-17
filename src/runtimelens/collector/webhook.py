@@ -21,7 +21,6 @@ logger = logging.getLogger("runtimelens.webhook")
 
 DEFAULT_AUDIT_PATH = Path("data/audit/decisions.jsonl")
 MAX_PAYLOAD_BYTES = 65536  # 64 KB limit
-DEFAULT_WEBHOOK_TOKEN = "runtimelens-lab-pre-shared-webhook-token-v1"
 
 # In-memory sliding window rate limiter
 RATE_LIMIT_WINDOW_SECONDS = 1.0
@@ -42,8 +41,14 @@ def is_rate_limited() -> bool:
 
 
 def get_expected_webhook_token() -> str:
-    """Retrieve the expected shared webhook token from environment."""
-    return os.environ.get("FALCO_WEBHOOK_SECRET") or DEFAULT_WEBHOOK_TOKEN
+    """Retrieve the expected shared webhook token strictly from environment variable."""
+    token = os.environ.get("FALCO_WEBHOOK_SECRET")
+    if not token or not token.strip():
+        raise RuntimeError(
+            "Security violation: FALCO_WEBHOOK_SECRET is not configured. "
+            "Webhook receiver refuses to operate without authentication."
+        )
+    return token.strip()
 
 
 def process_falco_payload(
