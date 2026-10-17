@@ -8,6 +8,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from pydantic import BaseModel, ConfigDict
+
 from runtimelens.models.event import (
     BaselineContext,
     CanonicalEvent,
@@ -17,7 +19,11 @@ from runtimelens.models.event import (
     TelemetrySourceRef,
     WorkloadIdentity,
 )
-from runtimelens.sanitizer import sanitize_untrusted_input
+from runtimelens.sanitizer import (
+    HOST_RUNTIME_SOCKET_PATTERNS,
+    SENSITIVE_HOST_PATH_PATTERNS,
+    sanitize_untrusted_input,
+)
 
 ALPINE_319_ARM64_DIGEST: Final[str] = (
     "docker.io/library/alpine@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1"
@@ -29,21 +35,60 @@ PINNED_IMAGE_DIGESTS: Final[dict[str, str]] = {
     "docker.io/library/alpine:3.19": ALPINE_319_ARM64_DIGEST,
 }
 
-# Declarative registry of lab workloads that mount host resources in their pod spec.
-# Standard tenant workloads (web, api, database, payment-style) mount ZERO host paths.
-WORKLOADS_WITH_HOST_MOUNTS: Final[frozenset[str]] = frozenset(
-    {
-        "falco",
-        "cilium",
-        "cilium-operator",
-        "kube-apiserver",
-        "kube-controller-manager",
-        "kube-scheduler",
-        "etcd",
-        "attacker-escape-socket",  # Synthetic lab attack pod in SC-ESC-01
-        "attacker-escape-path",  # Synthetic lab attack pod in SC-ESC-02
-    }
-)
+
+class PodSpecInfo(BaseModel):
+    """Deterministic security facts derived strictly from the Kubernetes Pod specification."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    has_host_runtime_socket_mount: bool = False
+    has_sensitive_host_path_mount: bool = False
+    is_privileged: bool = False
+    host_pid: bool = False
+    host_network: bool = False
+
+
+def extract_pod_spec_facts(pod_spec: dict[str, Any] | None) -> PodSpecInfo:
+    """Extract deterministic host mount and privilege facts directly from pod specification."""
+    if not pod_spec:
+        return PodSpecInfo()
+
+    has_sock = False
+    has_host_path = False
+
+    # 1. Inspect volumes for hostPath volume mounts
+    volumes = pod_spec.get("volumes", [])
+    if isinstance(volumes, list):
+        for vol in volumes:
+            if isinstance(vol, dict) and "hostPath" in vol:
+                hp = vol.get("hostPath")
+                if isinstance(hp, dict):
+                    hp_path = str(hp.get("path", "")).lower()
+                    if any(sock in hp_path for sock in HOST_RUNTIME_SOCKET_PATTERNS):
+                        has_sock = True
+                    if any(sens in hp_path for sens in SENSITIVE_HOST_PATH_PATTERNS):
+                        has_host_path = True
+
+    # 2. Inspect containers for privileged mode
+    is_priv = False
+    containers = pod_spec.get("containers", [])
+    if isinstance(containers, list):
+        for c in containers:
+            if isinstance(c, dict):
+                sec = c.get("securityContext", {})
+                if isinstance(sec, dict) and sec.get("privileged") is True:
+                    is_priv = True
+
+    h_pid = bool(pod_spec.get("hostPID", False))
+    h_net = bool(pod_spec.get("hostNetwork", False))
+
+    return PodSpecInfo(
+        has_host_runtime_socket_mount=has_sock,
+        has_sensitive_host_path_mount=has_host_path,
+        is_privileged=is_priv,
+        host_pid=h_pid,
+        host_network=h_net,
+    )
 
 
 def resolve_image_digest(repo: str, tag: str, raw_digest: str | None) -> str:
@@ -64,7 +109,10 @@ def resolve_image_digest(repo: str, tag: str, raw_digest: str | None) -> str:
     return f"{repo}@sha256:{synthetic_hash}"
 
 
-def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
+def normalize_falco_event(
+    raw_falco: dict[str, Any],
+    pod_spec: PodSpecInfo | dict[str, Any] | None = None,
+) -> CanonicalEvent:
     """Normalize raw Falco JSON event into versioned CanonicalEvent."""
     fields: dict[str, Any] = raw_falco.get("output_fields", {})
 
@@ -122,24 +170,13 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
     fd_name = fields.get("fd.name") or ""
     sanitized = sanitize_untrusted_input(cmdline)
 
-    # Deterministic facts must derive from the workload's pod specification
-    # A standard tenant workload (web, api, database, payment-style) has NO host mounts.
-    pod_has_host_mount_spec = owner_workload in WORKLOADS_WITH_HOST_MOUNTS
-
-    host_runtime_socket_mounted = pod_has_host_mount_spec and (
-        "docker.sock" in fd_name
-        or "containerd.sock" in fd_name
-        or "crio.sock" in fd_name
-        or sanitized.has_runtime_socket_reference
-    )
-
-    sensitive_host_path_mounted = pod_has_host_mount_spec and (
-        "/etc/kubernetes" in fd_name
-        or "/proc/sys" in fd_name
-        or "/dev/mem" in fd_name
-        or "/dev/kmem" in fd_name
-        or sanitized.has_sensitive_host_path_reference
-    )
+    # Deterministic facts derive strictly from the actual pod specification
+    if isinstance(pod_spec, PodSpecInfo):
+        spec_facts = pod_spec
+    elif isinstance(pod_spec, dict):
+        spec_facts = extract_pod_spec_facts(pod_spec)
+    else:
+        spec_facts = PodSpecInfo()
 
     is_root = fields.get("user.name") == "root" or fields.get("user.uid") == 0
 
@@ -149,9 +186,9 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
     )
 
     facts = DeterministicFacts(
-        host_runtime_socket_mounted=host_runtime_socket_mounted,
-        sensitive_host_path_mounted=sensitive_host_path_mounted,
-        privileged_container=False,
+        host_runtime_socket_mounted=spec_facts.has_host_runtime_socket_mount,
+        sensitive_host_path_mounted=spec_facts.has_sensitive_host_path_mount,
+        privileged_container=spec_facts.is_privileged,
         is_root_user=is_root,
         is_shell_process=is_shell,
         has_critical_vulnerability=False,
@@ -175,6 +212,7 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
         deviations.append("unexpected_shell_execution")
     if sanitized.has_shell_metacharacters:
         deviations.append("shell_metacharacters_detected")
+
     has_identity_access = (
         sanitized.has_identity_file_reference
         or "/etc/shadow" in fd_name
@@ -182,7 +220,7 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
     )
     if has_identity_access:
         deviations.append("sensitive_identity_file_access")
-    if host_runtime_socket_mounted:
+    if spec_facts.has_host_runtime_socket_mount:
         deviations.append("host_runtime_socket_access")
 
     baseline = BaselineContext(

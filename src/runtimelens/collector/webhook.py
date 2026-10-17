@@ -77,25 +77,29 @@ class FalcoWebhookHandler(BaseHTTPRequestHandler):
     audit_writer: AuditWriter
 
     def _is_authenticated(self) -> bool:
-        """Verify pre-shared webhook token from header or query parameter."""
-        expected = get_expected_webhook_token()
+        """Verify pre-shared webhook token using constant-time comparison."""
+        import hmac
+
+        expected = get_expected_webhook_token().encode("utf-8")
 
         # Check headers (X-Webhook-Token or Authorization: Bearer)
         header_token = self.headers.get("X-Webhook-Token")
-        if header_token and header_token.strip() == expected:
+        if header_token and hmac.compare_digest(header_token.strip().encode("utf-8"), expected):
             return True
 
         auth_header = self.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            bearer_token = auth_header[7:].strip()
-            if bearer_token == expected:
+            bearer_token = auth_header[7:].strip().encode("utf-8")
+            if hmac.compare_digest(bearer_token, expected):
                 return True
 
-        # Check URL query parameter (?token=...)
+        # Fallback query parameter specifically required by Falco native C++ http_output
         parsed_url = urllib.parse.urlparse(self.path)
         query_params = urllib.parse.parse_qs(parsed_url.query)
         token_list = query_params.get("token")
-        return bool(token_list and token_list[0].strip() == expected)
+        if not token_list:
+            return False
+        return hmac.compare_digest(token_list[0].strip().encode("utf-8"), expected)
 
     def _send_json_error(self, status: int, message: str) -> None:
         """Send an RFC-compliant JSON error response."""

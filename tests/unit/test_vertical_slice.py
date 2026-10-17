@@ -136,6 +136,43 @@ def test_pod_without_host_mounts_never_produces_host_mount_facts() -> None:
             log_path.unlink()
 
 
+def test_pod_spec_host_mount_derivation() -> None:
+    """Verify that host-mount facts derive strictly from pod spec, not from pod name."""
+    from runtimelens.normalizer.falco import normalize_falco_event
+
+    raw_event = {
+        "output": "Test event",
+        "output_fields": {
+            "k8s.ns.name": "tenant-a",
+            "k8s.pod.name": "custom-workload-pod",
+            "proc.cmdline": "test",
+            "time": "2026-10-18T00:00:00Z",
+        },
+    }
+
+    # Case A: Pod with dummy host socket mount
+    pod_spec_with_socket = {
+        "volumes": [{"name": "docker-sock", "hostPath": {"path": "/var/run/docker.sock"}}]
+    }
+    event_sock = normalize_falco_event(raw_event, pod_spec=pod_spec_with_socket)
+    assert event_sock.facts.host_runtime_socket_mounted is True
+    assert event_sock.facts.sensitive_host_path_mounted is False
+
+    # Case B: Pod with dummy host path mount (/etc/kubernetes)
+    pod_spec_with_path = {
+        "volumes": [{"name": "k8s-conf", "hostPath": {"path": "/etc/kubernetes"}}]
+    }
+    event_path = normalize_falco_event(raw_event, pod_spec=pod_spec_with_path)
+    assert event_path.facts.host_runtime_socket_mounted is False
+    assert event_path.facts.sensitive_host_path_mounted is True
+
+    # Case C: Pod with emptyDir volume (no host mounts)
+    pod_spec_no_host = {"volumes": [{"name": "tmp", "emptyDir": {}}]}
+    event_no_host = normalize_falco_event(raw_event, pod_spec=pod_spec_no_host)
+    assert event_no_host.facts.host_runtime_socket_mounted is False
+    assert event_no_host.facts.sensitive_host_path_mounted is False
+
+
 def test_command_args_unescaped_in_event_and_escaped_for_model() -> None:
     """Assert canonical event stores raw unescaped text; escaping is deferred to model."""
     raw_event = {

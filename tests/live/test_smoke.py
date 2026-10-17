@@ -1,4 +1,4 @@
-"""Live smoke test for ScaleDown Classify-1 Decisions API (12-Call Matrix, Hard Cap <= 20).
+"""Live smoke test for ScaleDown Classify-1 Decisions API (14-Call Pre-Registered Matrix).
 
 Runs on Mac only via explicit user invocation ('make test-live-api').
 Zero logging or printing of API keys, headers, or environment variables.
@@ -19,6 +19,16 @@ LIVE_ENDPOINT = "https://api.scaledown.xyz/v1/scaledown"
 FIXTURE_PATH = Path("tests/fixtures/scaledown/live_smoke_responses.json")
 HARD_CALL_CAP = 20
 
+ALLOWLISTED_HEADERS = frozenset(
+    {
+        "x-request-id",
+        "x-ratelimit-remaining",
+        "x-ratelimit-reset",
+        "model-version",
+        "content-type",
+    }
+)
+
 SAMPLE_STATE_TEXT = (
     "Workload: tenant-a / web-service (owner: web)\n"
     "Observed Process: /bin/sh -c 'cat /etc/shadow'\n"
@@ -27,21 +37,39 @@ SAMPLE_STATE_TEXT = (
     "Alert: Read Sensitive Host Information Untrusted"
 )
 
+PAIRED_DEBUG_STATE_TEXT = (
+    "Workload: tenant-a / debug-pod (owner: debug)\n"
+    "Observed Process: /bin/sh -i (spawned by authenticated developer on-call)\n"
+    "Baseline: shell_expected=True, allowed_binaries=[sh, bash, curl, nc, gdb]\n"
+    "Fact: host_runtime_socket_mounted=False, privileged_container=False\n"
+    "Alert: Interactive Shell Spawned in Container"
+)
+
+PAIRED_PAYMENT_STATE_TEXT = (
+    "Workload: tenant-a / payment-processor (owner: payment-style)\n"
+    "Observed Process: /bin/sh -i (spawned by unprivileged service worker)\n"
+    "Baseline: shell_expected=False, allowed_binaries=[payment-worker]\n"
+    "Fact: host_runtime_socket_mounted=False, privileged_container=False\n"
+    "Alert: Interactive Shell Spawned in Non-Debug Container"
+)
+
 QUESTION_CHOICE = {
     "type": "choice",
-    "instructions": "Which single category best describes the observed Kubernetes activity?",
+    "instructions": ("Which single category best describes the observed Kubernetes activity?"),
     "criteria": {
-        "benign": "Expected workload operation, routine maintenance, or normal deployment.",
-        "container_escape": "Suspicious interaction with the host kernel or runtime sockets.",
-        "privilege_abuse": "Misuse of permissions or unexpected process execution into container.",
-        "cryptomining": "Sustained abnormal compute coupled with suspicious mining pool flows.",
+        "benign": ("Expected workload operation, routine maintenance, or normal deployment."),
+        "container_escape": ("Suspicious interaction with the host kernel or runtime sockets."),
+        "privilege_abuse": (
+            "Misuse of permissions or unexpected process execution into container."
+        ),
+        "cryptomining": ("Sustained abnormal compute coupled with suspicious mining pool flows."),
         "unknown": "Telemetry is conflicting, truncated, or insufficient.",
     },
 }
 
 QUESTION_SCORE = {
     "type": "score",
-    "instructions": "Evaluate the operational and security severity of this runtime event.",
+    "instructions": ("Evaluate the operational and security severity of this runtime event."),
     "criteria": [
         "Informational: Standard expected activity or benign baseline event.",
         "Low: Minor anomaly with high likelihood of benign intent.",
@@ -70,7 +98,7 @@ QUESTIONS_NOUL = {
     },
     "resource_abuse": {
         "type": "noul",
-        "instructions": "Is the observed compute and network behaviour consistent with mining?",
+        "instructions": ("Is the observed compute and network behaviour consistent with mining?"),
     },
 }
 
@@ -86,8 +114,8 @@ def _get_api_key() -> str:
     os.environ.get("RUN_LIVE_API_TESTS") != "1",
     reason="RUN_LIVE_API_TESTS != '1'. Live API tests run only on explicit user invocation.",
 )
-def test_live_scaledown_12_call_matrix() -> None:
-    """Execute the pre-registered 12-call test matrix against ScaleDown Classify-1."""
+def test_live_scaledown_14_call_matrix() -> None:
+    """Execute the pre-registered 14-call test matrix against ScaleDown Classify-1."""
     api_key = _get_api_key()
     headers = {
         "Content-Type": "application/json",
@@ -106,31 +134,55 @@ def test_live_scaledown_12_call_matrix() -> None:
     call_count = 0
 
     def make_call(
-        call_id: str, payload: dict[str, Any], expect_status: int = 200
+        call_id: str,
+        payload: dict[str, Any],
+        expect_status: int = 200,
+        extra_headers: dict[str, str] | None = None,
     ) -> tuple[int, float, Any]:
         nonlocal call_count
         call_count += 1
         if call_count > HARD_CALL_CAP:
             pytest.fail(f"HARD SAFETY CAP EXCEEDED: Attempted call {call_count} > {HARD_CALL_CAP}")
 
+        req_headers = dict(headers)
+        if extra_headers:
+            req_headers.update(extra_headers)
+
         t0 = time.perf_counter()
         with httpx.Client(timeout=10.0) as client:
-            resp = client.post(LIVE_ENDPOINT, json=payload, headers=headers)
+            resp = client.post(LIVE_ENDPOINT, json=payload, headers=req_headers)
         t_ms = (time.perf_counter() - t0) * 1000.0
+
+        # Abort immediately on unexpected non-2xx status (no retries on 4xx)
+        if expect_status == 200 and resp.status_code >= 400:
+            err_msg = (
+                f"ABORT: Unexpected non-2xx status {resp.status_code} at {call_id}: {resp.text}"
+            )
+            pytest.fail(err_msg)
 
         try:
             body = resp.json()
         except Exception:
             body = resp.text
 
+        # Extract allowlisted response headers only (never log Authorization or keys)
+        safe_resp_headers = {
+            k.lower(): v for k, v in resp.headers.items() if k.lower() in ALLOWLISTED_HEADERS
+        }
+
+        # Extract token usage if provided in response
+        token_usage = body.get("usage") if isinstance(body, dict) else None
+
         recorded_results["calls"][call_id] = {
             "status_code": resp.status_code,
             "latency_ms": round(t_ms, 2),
+            "headers": safe_resp_headers,
+            "usage": token_usage,
             "response": body,
         }
         return resp.status_code, t_ms, body
 
-    print("\n=== Executing ScaleDown Classify-1 Smoke Test Matrix (Hard Cap: 20 calls) ===")
+    print("\n=== Executing ScaleDown Classify-1 Smoke Test Matrix (14 calls, Cap: 20) ===")
 
     # 1. Call 1: Choice Only
     status, lat, data = make_call(
@@ -141,7 +193,6 @@ def test_live_scaledown_12_call_matrix() -> None:
             "questions": {"attack_type": QUESTION_CHOICE},
         },
     )
-    assert status == 200
     print(f"Call 01 (Choice Only): Status {status} | Latency {lat:.1f} ms")
 
     # 2. Call 2: Score Only
@@ -153,7 +204,6 @@ def test_live_scaledown_12_call_matrix() -> None:
             "questions": {"severity": QUESTION_SCORE},
         },
     )
-    assert status == 200
     print(f"Call 02 (Score Only): Status {status} | Latency {lat:.1f} ms")
 
     # 3. Call 3: Noul Only
@@ -165,7 +215,6 @@ def test_live_scaledown_12_call_matrix() -> None:
             "questions": {"baseline_deviation": QUESTIONS_NOUL["baseline_deviation"]},
         },
     )
-    assert status == 200
     print(f"Call 03 (Noul Only): Status {status} | Latency {lat:.1f} ms")
 
     # 4. Call 4: All Three Question Types Together
@@ -176,43 +225,45 @@ def test_live_scaledown_12_call_matrix() -> None:
         "questions": all_questions,
     }
     status, lat, all_data = make_call("call_04_all_three", all_payload)
-    assert status == 200
     print(f"Call 04 (All Three Together): Status {status} | Latency {lat:.1f} ms")
 
-    # Score + 1.0 observation and reporting (Report only, do not hard-assert)
+    # Report Score + 1.0 mapping without asserting
     if "answers" in all_data and "severity" in all_data["answers"]:
         raw_score = all_data["answers"]["severity"].get("score")
         if raw_score is not None:
             mapped_sev = float(raw_score) + 1.0
-            mapping_valid = 1.0 <= mapped_sev <= 5.0
+            mapping_holds = 1.0 <= mapped_sev <= 5.0
             print(
                 f"  -> [SCORE REPORT] Raw Score: {raw_score} | Mapped Severity: {mapped_sev:.2f} "
-                f"| Mapping [1.0, 5.0] Valid: {mapping_valid}"
+                f"| Mapping [1.0, 5.0] Valid: {mapping_holds}"
             )
             recorded_results["score_mapping_observation"] = {
                 "raw_score": raw_score,
                 "mapped_severity": mapped_sev,
-                "mapping_valid": mapping_valid,
+                "mapping_holds": mapping_holds,
             }
 
-    # 5. Call 5: Determinism / Cache Test (Repeat identical Call 4)
-    status, lat_cache, data_cache = make_call("call_05_cache_repeat", all_payload)
-    assert status == 200
-    print(f"Call 05 (Cache Repeat of Call 4): Status {status} | Latency {lat_cache:.1f} ms")
+    # 5. Call 5: Cache Bypass & Determinism Test (Bypasses local/remote cache via header)
+    status, lat_cache, data_cache = make_call(
+        "call_05_cache_bypass",
+        all_payload,
+        extra_headers={"Cache-Control": "no-cache"},
+    )
+    print(f"Call 05 (Cache Bypass): Status {status} | Latency {lat_cache:.1f} ms")
 
     # 6. Call 6: Deliberately Invalid Request (Error Shape Test)
     status_err, lat_err, data_err = make_call(
-        "call_06_invalid_request",
+        "call_06_deliberate_invalid",
         {
             "model": "classify-1",
             "state": {"text": SAMPLE_STATE_TEXT},
-            "questions": {"bad": {"type": "unsupported"}},
+            "questions": {"invalid_q": {"type": "unsupported_question_type"}},
         },
         expect_status=400,
     )
-    print(f"Call 06 (Invalid Request): Status {status_err} | Latency {lat_err:.1f} ms")
+    print(f"Call 06 (Deliberate Invalid Request): Status {status_err} | Latency {lat_err:.1f} ms")
 
-    # 7. Calls 7-12: Latency Benchmark Suite (6 repeated calls)
+    # 7–12. Calls 7-12: Latency Benchmark Suite (6 repeated calls)
     latencies: list[float] = []
     print("Calls 07-12 (Latency Distribution Suite):")
     for i in range(7, 13):
@@ -222,20 +273,47 @@ def test_live_scaledown_12_call_matrix() -> None:
         print(f"  - {call_name}: {l_ms:.1f} ms (Status {s})")
 
     latencies.sort()
-    p50 = latencies[len(latencies) // 2]
-    p95 = latencies[int(len(latencies) * 0.95)]
-    min_lat = min(latencies)
-    max_lat = max(latencies)
-    print(
-        f"Latency Summary (ms): Min={min_lat:.1f}, p50={p50:.1f}, p95={p95:.1f}, Max={max_lat:.1f}"
-    )
+    min_lat = latencies[0]
+    median_lat = (latencies[2] + latencies[3]) / 2.0  # Median of 6 elements
+    max_lat = latencies[-1]
+    print(f"Latency Summary (ms): Min={min_lat:.1f}, Median={median_lat:.1f}, Max={max_lat:.1f}")
 
     recorded_results["latency_summary_ms"] = {
         "min": round(min_lat, 2),
-        "p50": round(p50, 2),
-        "p95": round(p95, 2),
+        "median": round(median_lat, 2),
         "max": round(max_lat, 2),
     }
+
+    # 13. Call 13: Paired Scenario A (Authorized interactive shell in debug container)
+    status, lat_debug, data_debug = make_call(
+        "call_13_paired_debug_authorized",
+        {
+            "model": "classify-1",
+            "state": {"text": PAIRED_DEBUG_STATE_TEXT},
+            "questions": all_questions,
+        },
+    )
+    print(f"Call 13 (Paired: Debug Authorized): Status {status} | Latency {lat_debug:.1f} ms")
+    if "answers" in data_debug and "attack_type" in data_debug["answers"]:
+        choice_debug = data_debug["answers"]["attack_type"].get("choice")
+        conf_debug = data_debug["answers"]["attack_type"].get("confidence")
+        print(f"  -> Predicted: {choice_debug} (conf: {conf_debug})")
+
+    # 14. Call 14: Paired Scenario B (Unauthorized interactive shell in payment-style container)
+    status, lat_payment, data_payment = make_call(
+        "call_14_paired_payment_unauthorized",
+        {
+            "model": "classify-1",
+            "state": {"text": PAIRED_PAYMENT_STATE_TEXT},
+            "questions": all_questions,
+        },
+    )
+    print(f"Call 14 (Paired: Payment Unauthorized): Status {status} | Latency {lat_payment:.1f} ms")
+    if "answers" in data_payment and "attack_type" in data_payment["answers"]:
+        choice_pay = data_payment["answers"]["attack_type"].get("choice")
+        conf_pay = data_payment["answers"]["attack_type"].get("confidence")
+        print(f"  -> Predicted: {choice_pay} (conf: {conf_pay})")
+
     recorded_results["total_calls_executed"] = call_count
 
     # Save redacted response fixtures to disk
