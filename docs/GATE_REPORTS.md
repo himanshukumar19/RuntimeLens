@@ -393,7 +393,7 @@ multipass exec runtimelens-vm -- kubectl logs -n falco -l app.kubernetes.io/name
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/02b-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `d941e56a422013f9ae2361b2b80a2b535d259c76`
 - **Git Tag:** `02b-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Proceeding within Segment S2 to Ticket `03` (Minimal Vertical Slice: Syscall -> Audit Record), stopping at Checkpoint B.
