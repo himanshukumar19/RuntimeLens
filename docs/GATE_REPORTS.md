@@ -16,6 +16,7 @@
   - **APPROVED:** Remove Hubble UI (keep Hubble Relay).
   - **APPROVED:** Capture snapshot `snap-02b` after post-restart health checks.
   - **TICKET 11 GOVERNANCE:** Prepare only the smoke-test script and offline tests; do not call the real API and do not ask to paste the key in chat. Stop and notify user when ready so key can be provided via terminal environment.
+  - **VM LIFECYCLE:** `runtimelens-vm` stopped cleanly on user instruction (`multipass stop runtimelens-vm`). Snapshots `snap-02a` and `snap-02b` verified. Cluster execution paused for session handover.
 
 ---
 
