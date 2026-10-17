@@ -33,7 +33,7 @@ typecheck:
 	uv run mypy src tests scripts
 
 test:
-	uv run pytest tests/unit/test_sanitizer.py tests/unit/test_secrets_guard.py
+	uv run pytest tests/unit/
 
 pre-commit-install:
 	uv run pre-commit install
