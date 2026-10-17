@@ -33,7 +33,7 @@ echo "PASS: Context confirmed as '$REQUIRED_CONTEXT'."
 
 # 3. Install Cilium CNI with Hubble
 echo "[3/7] Verifying Cilium CNI with Hubble..."
-if ! cilium status --brief 2>/dev/null | grep -q "OK"; then
+if ! kubectl get daemonset -n kube-system cilium &>/dev/null; then
     echo "Installing Cilium CNI..."
     cilium install \
         --set kubeProxyReplacement=true \
