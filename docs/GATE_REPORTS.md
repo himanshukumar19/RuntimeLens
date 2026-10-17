@@ -113,7 +113,7 @@ uv run python scripts/check_secrets.py pyproject.toml README.md src/runtimelens/
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/01-1.md` (Status: CLEAN)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `9ce91ff9ae6d2661ecfcac61383e167484da27e5`
 - **Git Tag:** `01-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Proceeding within Segment S1 to Ticket `02a` (Lab VM & eBPF Feasibility Gate), stopping at Checkpoint A.
