@@ -209,7 +209,7 @@ Sat Oct 17 17:00:18 2026: One ring buffer every '2' CPUs.
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/02a-1.md` (Status: CLEAN)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `38b1d82725e2e8e97f4cf91d79867ce193ca8436`
 - **Git Tag:** `02a-passed`
 - **What Failed:** None. All checks passed on local VM; no cloud fallback required.
 - **What Remains:** Snapshot `snap-02a` (pending user confirmation to stop/restart VM). Stopped at Checkpoint A for user evaluation and Go/No-Go decision.
