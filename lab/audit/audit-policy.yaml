@@ -1,0 +1,71 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+# Enforce least-privilege, privacy-preserving Kubernetes API auditing (Decision D-07)
+omitStages:
+  - "RequestReceived"
+rules:
+  # 1. Ignore routine high-volume, low-risk system noise
+  - level: None
+    users:
+      - "system:apiserver"
+      - "system:kube-controller-manager"
+      - "system:kube-scheduler"
+      - "system:kube-proxy"
+      - "system:nodes"
+    verbs: ["get", "list", "watch"]
+
+  - level: None
+    userGroups: ["system:nodes"]
+    verbs: ["get", "list", "watch"]
+
+  - level: None
+    nonResourceURLs:
+      - "/healthz*"
+      - "/version"
+      - "/swagger*"
+      - "/livez*"
+      - "/readyz*"
+
+  - level: None
+    resources:
+      - group: ""
+        resources: ["events", "endpoints", "leases"]
+      - group: "coordination.k8s.io"
+        resources: ["leases"]
+      - group: "discovery.k8s.io"
+        resources: ["endpointslices"]
+
+  # 2. Strict Privacy Guard: Audit Secrets and ConfigMaps at Metadata level ONLY
+  # Explicitly forbid RequestResponse to prevent token/secret leakage into audit records
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets", "configmaps"]
+
+  # 3. High Severity: Full RequestResponse for sensitive container operations & privilege escalation
+  - level: RequestResponse
+    resources:
+      - group: ""
+        resources: ["pods/exec", "pods/attach", "pods/portforward", "pods/proxy"]
+
+  # 4. High Severity: Full RequestResponse for RBAC role and binding changes
+  - level: RequestResponse
+    resources:
+      - group: "rbac.authorization.k8s.io"
+        resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+
+  # 5. Core Workload & Orchestration Mutations at Metadata level
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["pods", "services", "namespaces", "serviceaccounts"]
+      - group: "apps"
+        resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+      - group: "networking.k8s.io"
+        resources: ["networkpolicies", "ingresses"]
+      - group: "cilium.io"
+        resources: ["ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies"]
+    verbs: ["create", "update", "patch", "delete"]
+
+  # 6. Default Fallback
+  - level: Metadata

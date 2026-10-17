@@ -2,8 +2,8 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: runtimelens
 networking:
-  disableDefaultCNI: true      # Required for Cilium CNI
-  kubeProxyMode: "none"        # Cilium kubeProxyReplacement=true
+  disableDefaultCNI: true       # Required for Cilium CNI
+  kubeProxyMode: "none"         # Cilium kubeProxyReplacement=true
   apiServerAddress: "127.0.0.1" # Strictly bound to localhost
   apiServerPort: 6443
 nodes:
@@ -16,3 +16,30 @@ nodes:
       - hostPath: /lib/modules
         containerPath: /lib/modules
         readOnly: true
+      # Mount Kubernetes API Audit Policy
+      - hostPath: /etc/kubernetes/policies
+        containerPath: /etc/kubernetes/policies
+        readOnly: true
+      # Mount destination directory for Kubernetes API Audit Logs
+      - hostPath: /var/log/kubernetes/audit
+        containerPath: /var/log/kubernetes/audit
+        readOnly: false
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+            audit-log-path: /var/log/kubernetes/audit/audit.log
+            audit-log-maxage: "7"
+            audit-log-maxbackup: "3"
+            audit-log-maxsize: "100"
+          extraVolumes:
+            - name: audit-policies
+              hostPath: /etc/kubernetes/policies
+              mountPath: /etc/kubernetes/policies
+              readOnly: true
+            - name: audit-logs
+              hostPath: /var/log/kubernetes/audit
+              mountPath: /var/log/kubernetes/audit
+              readOnly: false

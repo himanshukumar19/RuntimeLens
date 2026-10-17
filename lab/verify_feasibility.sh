@@ -8,7 +8,7 @@ echo "=========================================================="
 REQUIRED_CONTEXT="kind-runtimelens"
 
 # 1. BTF Check
-echo "[Check 1/4] Verifying /sys/kernel/btf/vmlinux..."
+echo "[Check 1/5] Verifying /sys/kernel/btf/vmlinux..."
 if [ ! -f /sys/kernel/btf/vmlinux ]; then
     echo "FAIL: /sys/kernel/btf/vmlinux is missing!"
     exit 1
@@ -17,7 +17,7 @@ ls -lh /sys/kernel/btf/vmlinux
 echo "PASS: Kernel BTF is present and accessible."
 
 # 2. kind cluster creation
-echo "[Check 2/4] Initializing kind cluster (kind-runtimelens)..."
+echo "[Check 2/5] Initializing kind cluster (kind-runtimelens)..."
 if ! kind get clusters | grep -q "^runtimelens$"; then
     kind create cluster --config lab/kind/kind-config.yaml
 else
@@ -25,7 +25,7 @@ else
 fi
 
 # 3. Context Verification Guard
-echo "[Check 3/4] Verifying kubectl context..."
+echo "[Check 3/5] Verifying kubectl context..."
 CURRENT_CONTEXT=$(kubectl config current-context)
 if [ "$CURRENT_CONTEXT" != "$REQUIRED_CONTEXT" ]; then
     echo "SAFETY REFUSAL: Current context is '$CURRENT_CONTEXT', expected '$REQUIRED_CONTEXT'!"
@@ -68,7 +68,7 @@ kubectl run event-generator-test \
     --image=falcosecurity/event-generator:latest \
     --restart=Never \
     --namespace=default \
-    -- run syscall --loop=false || true
+    -- run syscall --loop=false
 
 echo "Waiting for event-generator test to complete..."
 kubectl wait --for=condition=Ready pod/event-generator-test --timeout=60s || true

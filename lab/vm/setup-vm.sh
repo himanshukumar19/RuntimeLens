@@ -44,24 +44,30 @@ fi
 echo "SUCCESS: Docker installed."
 
 # 4. Install kubectl
-echo "[4/6] Installing kubectl..."
+echo "[4/7] Installing kubectl..."
 if ! command -v kubectl &>/dev/null; then
     KUBECTL_VERSION="v1.30.0"
     ARCH=$(dpkg --print-architecture)
     curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl"
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl.sha256"
+    echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-    rm -f kubectl
+    rm -f kubectl kubectl.sha256
 fi
 echo "SUCCESS: kubectl installed."
 
 # 5. Install kind
-echo "[5/6] Installing kind..."
+echo "[5/7] Installing kind..."
 if ! command -v kind &>/dev/null; then
     KIND_VERSION="v0.22.0"
     ARCH=$(dpkg --print-architecture)
     curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${ARCH}"
+    curl -Lo ./kind.sha256sum "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-${ARCH}.sha256sum"
+    sed -i "s/kind-linux-${ARCH}/kind/" ./kind.sha256sum
+    sha256sum --check ./kind.sha256sum
     chmod +x ./kind
     sudo mv ./kind /usr/local/bin/kind
+    rm -f ./kind.sha256sum
 fi
 echo "SUCCESS: kind installed."
 
@@ -71,15 +77,24 @@ if ! command -v cilium &>/dev/null; then
     CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
     ARCH=$(dpkg --print-architecture)
     curl -L --fail --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${ARCH}.tar.gz"
+    curl -L --fail --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${ARCH}.tar.gz.sha256sum"
+    sha256sum --check "cilium-linux-${ARCH}.tar.gz.sha256sum"
     sudo tar xzvfC "cilium-linux-${ARCH}.tar.gz" /usr/local/bin
-    rm -f "cilium-linux-${ARCH}.tar.gz"
+    rm -f "cilium-linux-${ARCH}.tar.gz" "cilium-linux-${ARCH}.tar.gz.sha256sum"
 fi
 echo "SUCCESS: Cilium CLI installed."
 
 # 7. Install Helm
 echo "[7/7] Installing Helm..."
 if ! command -v helm &>/dev/null; then
-    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    HELM_VERSION="v3.14.4"
+    ARCH=$(dpkg --print-architecture)
+    curl -LO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz"
+    curl -LO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum"
+    sha256sum --check "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum"
+    tar -zxvf "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz"
+    sudo mv "linux-${ARCH}/helm" /usr/local/bin/helm
+    rm -rf "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz"* "linux-${ARCH}"
 fi
 echo "SUCCESS: Helm installed."
 
