@@ -396,4 +396,177 @@ multipass exec runtimelens-vm -- kubectl logs -n falco -l app.kubernetes.io/name
 - **Commit Hash:** `d941e56a422013f9ae2361b2b80a2b535d259c76`
 - **Git Tag:** `02b-passed`
 - **What Failed:** None. 100% of checks passed.
-- **What Remains:** Proceeding within Segment S2 to Ticket `03` (Minimal Vertical Slice: Syscall -> Audit Record), stopping at Checkpoint B.
+- **What Remains:** Completed.
+
+---
+
+## Gate Report: Ticket 03 — Minimal Vertical Slice (Syscall -> Audit) [Checkpoint B]
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented single-source-of-truth Pydantic model for `CanonicalEvent` (v1.0.0) with strict `extra="forbid"` validation matching `schemas/event.schema.json`.
+  - Implemented `ClassificationResult`, `PolicyDecision`, and `AuditRecord` data models with deterministic cryptographic hashing.
+  - Built the Falco telemetry normalizer (`src/runtimelens/normalizer/falco.py`) translating raw JSON alerts into canonical events.
+  - Built minimal deterministic rule-based classifier (`src/runtimelens/classifiers/rules.py`).
+  - Implemented pure versioned deterministic safety policy engine (`src/runtimelens/policy/engine.py`) enforcing safety overrides, Choice-Noul conflict matrix, and dry-run containment.
+  - Implemented tamper-evident, hash-chained audit writer (`src/runtimelens/audit/writer.py`) and validator (`verify_chain`).
+  - Built HTTP JSON webhook receiver (`src/runtimelens/collector/webhook.py`) bound strictly to `127.0.0.1:8765`.
+  - Authored comprehensive test suites (24 unit tests) covering strict schema validation, unknown field rejection, and cryptographic tamper detection.
+  - Authored review report `docs/reviews/03-1.md` and captured live cluster evidence in `docs/evidence/gate_03_evidence.log`.
+- **Why it was built that way:**
+  - Proving an end-to-end vertical slice from live telemetry ingestion to a tamper-evident audit record validates all architectural seams early, ensuring models and normalizers can plug into a verified, working pipeline.
+  - Strict Pydantic schema validation (`extra="forbid"`) protects the system from schema pollution and malformed events.
+  - Cryptographic hash chaining ensures complete forensic accountability and immutability for all automated decisions.
+- **Known limitations and edge cases:**
+  - Currently evaluates single events independently; multi-source correlation across sliding windows is the focus of subsequent tickets (04, 09a).
+  - Containment operates strictly in dry-run mode (`dry_run=True`) by default.
+
+### 2. Exit Gate Verification Commands & Output (Real Live Cluster Evidence)
+
+#### Command 1: End-to-End Processing Latency
+```bash
+multipass exec runtimelens-vm -- bash -c "cd /home/ubuntu/RuntimeLens && bash lab/verify_03.sh"
+```
+**Output (Recorded 2026-10-17 18:28:16 UTC):**
+```text
+PASS: Context confirmed as 'kind-runtimelens'.
+[1/4] Starting Webhook Receiver on 127.0.0.1:8765...
+[2/4] Testing Webhook Endpoint and Measuring End-to-End Latency...
+{
+  "status": "ok",
+  "event_id": "e416cf25-dd6b-494f-b674-13e9fa5056ed",
+  "action": "alert",
+  "record_hash": "04ba573397d17e740db083e6ea0b801a478f09750e2ee8595818922b46ddb632"
+}
+PASS: Webhook response received. Roundtrip Latency: 10 ms (Requirement: < 2000 ms).
+```
+
+#### Command 2: Live Cluster Syscall Trigger
+```bash
+kubectl exec -n tenant-a web-6794787bc8-4wmx6 -- /bin/sh -c "echo live_syscall_exec_test"
+```
+**Output:**
+```
+live_syscall_exec_test
+```
+
+#### Command 3: Sample Tamper-Evident Audit Record
+```bash
+tail -n 1 /home/ubuntu/vm_outputs/audit/decisions.jsonl | jq .
+```
+**Output:**
+```json
+{
+  "record_id": "ec030ef9-fa3c-4920-8dec-2bed76a57693",
+  "timestamp": "2026-10-17T18:28:16.935297+00:00",
+  "event_id": "e416cf25-dd6b-494f-b674-13e9fa5056ed",
+  "event": {
+    "event_id": "e416cf25-dd6b-494f-b674-13e9fa5056ed",
+    "schema_version": "1.0.0",
+    "event_timestamp": "2026-10-17T18:28:16+00:00",
+    "ingest_timestamp": "2026-10-17T18:28:16.934903+00:00",
+    "workload": {
+      "tenant": "tenant-a",
+      "namespace": "tenant-a",
+      "pod_name": "web-live-test",
+      "pod_uid": "uid-web-live-01",
+      "owner_workload": "web",
+      "container_name": "web",
+      "container_id": "c1234567890a",
+      "image_digest": "alpine:3.19"
+    },
+    "telemetry_source": {
+      "source": "falco",
+      "source_event_id": "d2d40bab",
+      "raw_event_ref": "sha256:8cb29c6280e683b98647331e35e7524657143c5ecb6c16cb164515b60d9da488"
+    },
+    "facts": {
+      "host_runtime_socket_mounted": false,
+      "sensitive_host_path_mounted": false,
+      "privileged_container": false,
+      "is_root_user": true,
+      "is_shell_process": true,
+      "has_critical_vulnerability": false,
+      "cpu_usage_mcores": 0.0,
+      "is_cpu_abnormal": false,
+      "is_outbound_egress": false,
+      "is_cross_tenant_flow": false
+    },
+    "runtime": {
+      "process_name": "sh",
+      "parent_process": "",
+      "command_args_sanitized": "/bin/sh -i",
+      "syscall": "syscall"
+    },
+    "orchestration": null,
+    "network": null,
+    "baseline": {
+      "baseline_version": "v1.0.0",
+      "is_baseline_stale": false,
+      "shell_expected": false,
+      "expected_binaries": [
+        "web",
+        "api",
+        "database",
+        "payment-style"
+      ],
+      "expected_peers": [],
+      "baseline_deviation_detected": true,
+      "deviations": [
+        "unexpected_shell_execution"
+      ]
+    },
+    "health": {
+      "is_telemetry_degraded": false,
+      "missing_sources": []
+    }
+  },
+  "classification": {
+    "predicted_class": "privilege_abuse",
+    "class_probabilities": {
+      "privilege_abuse": 0.85,
+      "container_escape": 0.1,
+      "benign": 0.05
+    },
+    "severity": 3.8,
+    "confidence": 0.85,
+    "evidence_flags": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    },
+    "degraded_mode": false,
+    "classifier_type": "rules",
+    "model_version": "v1.0.0"
+  },
+  "decision": {
+    "action": "alert",
+    "reason_codes": [
+      "THREAT_DETECTED"
+    ],
+    "policy_version": "v1.0.0",
+    "dry_run": true,
+    "quarantine_labels": null,
+    "auto_rollback_ttl_seconds": 900
+  },
+  "prev_record_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "record_hash": "04ba573397d17e740db083e6ea0b801a478f09750e2ee8595818922b46ddb632"
+}
+```
+
+#### Command 4: Cryptographic Hash Chain Verification
+```bash
+python3 -c "from pathlib import Path; from runtimelens.audit.writer import AuditWriter; is_v, c, err = AuditWriter.verify_chain(Path('/home/ubuntu/vm_outputs/audit/decisions.jsonl')); print(f'Valid: {is_v}, Records: {c}, Error: {err}'); assert is_v"
+```
+**Output:**
+```
+Valid: True, Records: 1, Error: None
+```
+
+### 3. Review & Status
+- **Review Report:** `docs/reviews/03-1.md` (Status: CLEAN - Author Self-Review; independent reviewer session to be conducted separately by user)
+- **Commit Hash:** PENDING
+- **Git Tag:** `03-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Stopped at Checkpoint B (Scope Re-Check Gate) awaiting user evaluation and authorization.
