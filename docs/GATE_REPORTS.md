@@ -122,4 +122,94 @@ uv run python scripts/check_secrets.py pyproject.toml README.md src/runtimelens/
 - **Commit Hash:** `9ce91ff9ae6d2661ecfcac61383e167484da27e5`
 - **Git Tag:** `01-passed`
 - **What Failed:** None. 100% of checks passed.
-- **What Remains:** Proceeding within Segment S1 to Ticket `02a` (Lab VM & eBPF Feasibility Gate), stopping at Checkpoint A.
+- **What Remains:** Completed.
+
+---
+
+## Gate Report: Ticket 02a — Lab VM & eBPF Feasibility Gate (Checkpoint A)
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Provisioned Ubuntu 24.04 ARM64 VM (`runtimelens-vm`) on macOS using Canonical Multipass (4 vCPUs, 6 GB RAM, 40 GB disk).
+  - Verified genuine Linux 6.8 ARM64 kernel with compiled-in BTF (`/sys/kernel/btf/vmlinux`, 6.7 MB).
+  - Implemented air-gapped code ingestion using `git archive HEAD` and `multipass transfer` without folder mounting.
+  - Installed Docker Engine, kubectl, kind, Cilium CLI, and Helm inside the VM.
+  - Provisioned `kind` cluster (`kind-runtimelens`) with CNI disabled, `kubeProxyMode="none"`, localhost-only API server (`127.0.0.1:6443`), and host BTF extraMounts.
+  - Deployed Cilium CNI with `kubeProxyReplacement=true`, Hubble relay, and Hubble UI.
+  - Deployed Falco with modern eBPF driver (`driver.kind=modern_ebpf`) and executed `falcosecurity/event-generator` to verify live eBPF syscall detection on the cluster.
+  - Authored review report `docs/reviews/02a-1.md` and captured live evidence in `docs/evidence/gate_02a_evidence.log`.
+- **Why it was built that way:**
+  - Standard macOS cannot run eBPF or Cilium natively; a standard Ubuntu 24.04 ARM64 kernel with BTF provides the genuine Linux environment required by modern eBPF CO-RE probes without requiring kernel module compilation.
+  - Binding the API server and UIs strictly to `127.0.0.1` ensures complete cluster network isolation on the host.
+  - The air-gapped Git transport guarantees zero accidental leakage of `.env`, Mac credentials, or untracked files into the VM.
+- **Known limitations and edge cases:**
+  - Multipass snapshotting requires the instance to be temporarily stopped. Snapshot `snap-02a` is pending user confirmation to stop/restart the VM.
+
+### 2. Exit Gate Verification Commands & Output (Real Live Cluster Evidence)
+
+#### Command 1: Kernel & BTF Verification
+```bash
+multipass exec runtimelens-vm -- bash -c "uname -r && ls -lh /sys/kernel/btf/vmlinux"
+```
+**Output:**
+```
+6.8.0-142-generic
+-r--r--r-- 1 root root 6.7M Oct 17 22:17 /sys/kernel/btf/vmlinux
+```
+
+#### Command 2: kind Cluster & Nodes
+```bash
+multipass exec runtimelens-vm -- kubectl get nodes -o wide
+```
+**Output:**
+```
+NAME                        STATUS   ROLES           AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION      CONTAINER-RUNTIME
+runtimelens-control-plane   Ready    control-plane   5m43s   v1.29.2   172.18.0.2    <none>        Debian GNU/Linux 12 (bookworm)   6.8.0-142-generic   containerd://1.7.13
+```
+
+#### Command 3: Cilium & Hubble Health Check
+```bash
+multipass exec runtimelens-vm -- cilium status
+```
+**Output:**
+```
+    /¯¯\
+ /¯¯\__/¯¯\    Cilium:              OK
+ \__/¯¯\__/    Operator:            OK
+ /¯¯\__/¯¯\    Envoy DaemonSet:     OK
+ \__/¯¯\__/    Hubble Relay:        OK
+    \__/       ClusterMesh:         disabled
+
+DaemonSet              cilium                   Desired: 1, Ready: 1/1, Available: 1/1
+DaemonSet              cilium-envoy             Desired: 1, Ready: 1/1, Available: 1/1
+Deployment             cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
+Deployment             hubble-relay             Desired: 1, Ready: 1/1, Available: 1/1
+Deployment             hubble-ui                Desired: 1, Ready: 1/1, Available: 1/1
+Containers:            cilium                   Running: 1
+                       cilium-envoy             Running: 1
+                       cilium-operator          Running: 1
+                       clustermesh-apiserver
+                       hubble-relay             Running: 1
+                       hubble-ui                Running: 1
+Cluster Pods:          6/6 managed by Cilium
+Helm chart version:    1.20.1
+```
+
+#### Command 4: Falco Modern eBPF & Event Generator Detection
+```bash
+multipass exec runtimelens-vm -- kubectl logs -n falco -l app.kubernetes.io/name=falco --tail=15
+```
+**Output:**
+```
+Sat Oct 17 17:00:18 2026: Opening 'syscall' source with modern BPF probe.
+Sat Oct 17 17:00:18 2026: One ring buffer every '2' CPUs.
+17:00:53.593081249: Critical Executing binary not part of base image | proc_exe=mount container_id=1c6c43c13230 container_name=event-generator-test k8s_pod_name=event-generator-test k8s_ns_name=default
+17:00:59.960468335: Warning Sensitive file opened for reading by trusted program after startup | file=/etc/shadow pcmdline=event-generator run syscall --loop=false process=httpd proc_exepath=/usr/bin/event-generator command=httpd --loglevel info run ^syscall.ReadSensitiveFileUntrusted$ --sleep 6s container_id=1c6c43c13230 container_name=event-generator-test k8s_pod_name=event-generator-test k8s_ns_name=default
+```
+
+### 3. Review & Status
+- **Review Report:** `docs/reviews/02a-1.md` (Status: CLEAN)
+- **Commit Hash:** PENDING
+- **Git Tag:** `02a-passed`
+- **What Failed:** None. All checks passed on local VM; no cloud fallback required.
+- **What Remains:** Snapshot `snap-02a` (pending user confirmation to stop/restart VM). Stopped at Checkpoint A for user evaluation and Go/No-Go decision.
