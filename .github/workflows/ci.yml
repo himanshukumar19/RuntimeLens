@@ -30,6 +30,11 @@ jobs:
           # Verify that no .env, key files, or raw secrets exist in the repository
           uv run python scripts/check_secrets.py $(git ls-files)
 
+      - name: Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Ruff Linter & Formatter Check
         run: |
           uv run ruff check .

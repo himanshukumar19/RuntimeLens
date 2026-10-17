@@ -2,6 +2,12 @@
 
 ## Log of User Approvals
 - **2026-10-17:** Explicit approval received: `"APPROVED: START IMPLEMENTATION"`. Scope: Ticket `01`, then Ticket `02a` only, stopping at Checkpoint A.
+- **2026-10-17:** Lab VM Provisioning Approvals & Conditions:
+  - **APPROVED:** `brew install --cask multipass`
+  - **APPROVED:** `multipass launch 24.04 --name runtimelens-vm --cpus 4 --memory 6G --disk 40G`
+  - **DENIED:** Step 3 (`multipass mount`). `multipass mount` strictly forbidden.
+  - **APPROVED TRANSFER METHOD:** Tracked files only into VM via `git archive HEAD` / `multipass transfer` (no tokens/credentials in VM). VM outputs copied back explicitly via `multipass transfer`.
+  - **VM GOVERNANCE:** VM name `runtimelens-vm`. Never stop/restart without notice; never delete/purge without explicit approval. On restart after manual stop: run `make lab-up` and `make lab-verify`. Password typed by user in terminal if prompted.
 
 ---
 
