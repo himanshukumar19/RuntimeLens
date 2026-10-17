@@ -12,20 +12,20 @@ GENESIS_HASH = "0" * 64
 
 
 class AuditWriter:
-    """Appends decisions to an atomic, hash-chained audit JSONL log."""
+    """Appends decisions to an atomic, hash-chained tamper-evident audit JSONL log."""
 
     def __init__(self, log_path: Path) -> None:
         self.log_path = log_path
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.last_hash = self._get_tail_hash()
 
-    def _get_tail_hash(self) -> str:
-        """Find the record_hash of the most recent record or return GENESIS_HASH."""
-        if not self.log_path.exists() or self.log_path.stat().st_size == 0:
+    @staticmethod
+    def _get_tail_hash_from_path(path: Path) -> str:
+        if not path.exists() or path.stat().st_size == 0:
             return GENESIS_HASH
 
         try:
-            with open(self.log_path, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 last_line = ""
                 for line in f:
                     stripped = line.strip()
@@ -37,6 +37,10 @@ class AuditWriter:
         except Exception:
             return GENESIS_HASH
         return GENESIS_HASH
+
+    def _get_tail_hash(self) -> str:
+        """Find the record_hash of the most recent record or return GENESIS_HASH."""
+        return self._get_tail_hash_from_path(self.log_path)
 
     def write_record(
         self,
@@ -102,5 +106,27 @@ class AuditWriter:
 
                 expected_prev = record.record_hash
                 count += 1
+
+        return True, count, None
+
+    @staticmethod
+    def verify_chain_against_head(
+        log_path: Path, expected_head_hash: str
+    ) -> tuple[bool, int, str | None]:
+        """Verify the hash integrity and assert that the head matches the anchored hash.
+
+        Detects tail truncation (where an adversary drops the last N records).
+        """
+        is_valid, count, error = AuditWriter.verify_chain(log_path)
+        if not is_valid:
+            return False, count, error
+
+        tail_hash = AuditWriter._get_tail_hash_from_path(log_path)
+        if tail_hash != expected_head_hash:
+            msg = (
+                f"Truncation detected: log tail hash {tail_hash} != "
+                f"anchored head hash {expected_head_hash}"
+            )
+            return False, count, msg
 
         return True, count, None

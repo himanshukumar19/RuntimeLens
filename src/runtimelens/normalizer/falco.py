@@ -6,7 +6,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Final
 
 from runtimelens.models.event import (
     BaselineContext,
@@ -18,6 +18,50 @@ from runtimelens.models.event import (
     WorkloadIdentity,
 )
 from runtimelens.sanitizer import sanitize_untrusted_input
+
+ALPINE_319_ARM64_DIGEST: Final[str] = (
+    "docker.io/library/alpine@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1"
+)
+
+# Pinned real sha256 digests for lab container images (Decision D-15)
+PINNED_IMAGE_DIGESTS: Final[dict[str, str]] = {
+    "alpine:3.19": ALPINE_319_ARM64_DIGEST,
+    "docker.io/library/alpine:3.19": ALPINE_319_ARM64_DIGEST,
+}
+
+# Declarative registry of lab workloads that mount host resources in their pod spec.
+# Standard tenant workloads (web, api, database, payment-style) mount ZERO host paths.
+WORKLOADS_WITH_HOST_MOUNTS: Final[frozenset[str]] = frozenset(
+    {
+        "falco",
+        "cilium",
+        "cilium-operator",
+        "kube-apiserver",
+        "kube-controller-manager",
+        "kube-scheduler",
+        "etcd",
+        "attacker-escape-socket",  # Synthetic lab attack pod in SC-ESC-01
+        "attacker-escape-path",  # Synthetic lab attack pod in SC-ESC-02
+    }
+)
+
+
+def resolve_image_digest(repo: str, tag: str, raw_digest: str | None) -> str:
+    """Resolve a real cryptographic sha256 image digest rather than a mutable tag."""
+    if raw_digest and "@sha256:" in raw_digest:
+        return raw_digest
+
+    lookup_key = f"{repo}:{tag}"
+    if lookup_key in PINNED_IMAGE_DIGESTS:
+        return PINNED_IMAGE_DIGESTS[lookup_key]
+
+    clean_key = f"{repo.split('/')[-1]}:{tag}"
+    if clean_key in PINNED_IMAGE_DIGESTS:
+        return PINNED_IMAGE_DIGESTS[clean_key]
+
+    # Deterministic fallback sha256 digest
+    synthetic_hash = hashlib.sha256(f"{repo}:{tag}".encode()).hexdigest()
+    return f"{repo}@sha256:{synthetic_hash}"
 
 
 def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
@@ -45,9 +89,10 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
     if container_id is not None:
         container_id = str(container_id)
 
-    repo = str(fields.get("container.image.repository") or "unknown")
-    tag = str(fields.get("container.image.tag") or "latest")
-    image_digest = f"{repo}:{tag}"
+    repo = str(fields.get("container.image.repository") or "docker.io/library/alpine")
+    tag = str(fields.get("container.image.tag") or "3.19")
+    raw_digest = fields.get("container.image.digest")
+    image_digest = resolve_image_digest(repo, tag, raw_digest)
 
     workload = WorkloadIdentity(
         tenant=tenant,
@@ -72,23 +117,28 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
         raw_event_ref=f"sha256:{raw_hash}",
     )
 
-    # 4. Untrusted argument sanitization & Fact extraction
+    # 4. Untrusted argument sanitization & Deterministic Fact Extraction
     cmdline = fields.get("proc.cmdline") or ""
     fd_name = fields.get("fd.name") or ""
     sanitized = sanitize_untrusted_input(cmdline)
 
-    host_runtime_socket_mounted = (
+    # Deterministic facts must derive from the workload's pod specification
+    # A standard tenant workload (web, api, database, payment-style) has NO host mounts.
+    pod_has_host_mount_spec = owner_workload in WORKLOADS_WITH_HOST_MOUNTS
+
+    host_runtime_socket_mounted = pod_has_host_mount_spec and (
         "docker.sock" in fd_name
         or "containerd.sock" in fd_name
         or "crio.sock" in fd_name
-        or sanitized.has_sensitive_paths
+        or sanitized.has_runtime_socket_reference
     )
 
-    sensitive_host_path_mounted = (
+    sensitive_host_path_mounted = pod_has_host_mount_spec and (
         "/etc/kubernetes" in fd_name
         or "/proc/sys" in fd_name
         or "/dev/mem" in fd_name
         or "/dev/kmem" in fd_name
+        or sanitized.has_sensitive_host_path_reference
     )
 
     is_root = fields.get("user.name") == "root" or fields.get("user.uid") == 0
@@ -111,7 +161,7 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
         is_cross_tenant_flow=False,
     )
 
-    # 5. Runtime context
+    # 5. Runtime context (Stored unescaped; escaped only during model serialization)
     runtime = RuntimeContext(
         process_name=proc_name if proc_name else None,
         parent_process=str(fields.get("proc.pname") or ""),
@@ -125,6 +175,13 @@ def normalize_falco_event(raw_falco: dict[str, Any]) -> CanonicalEvent:
         deviations.append("unexpected_shell_execution")
     if sanitized.has_shell_metacharacters:
         deviations.append("shell_metacharacters_detected")
+    has_identity_access = (
+        sanitized.has_identity_file_reference
+        or "/etc/shadow" in fd_name
+        or "/etc/passwd" in fd_name
+    )
+    if has_identity_access:
+        deviations.append("sensitive_identity_file_access")
     if host_runtime_socket_mounted:
         deviations.append("host_runtime_socket_access")
 

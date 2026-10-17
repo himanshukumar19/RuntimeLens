@@ -1,4 +1,10 @@
-"""Offline contract test suite for ScaleDown Classify-1 Decisions API."""
+"""Offline contract test suite for ScaleDown Classify-1 Decisions API.
+
+Uses mock fixture tests/fixtures/scaledown/mock_response.json [ASSUMED FIXTURE].
+Will be supplemented by verified real fixtures after user executes live smoke test.
+"""
+
+from __future__ import annotations
 
 import json
 from pathlib import Path

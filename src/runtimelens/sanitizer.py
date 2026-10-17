@@ -12,19 +12,25 @@ MAX_SANITIZED_LENGTH: Final[int] = 128
 
 SHELL_METACHARACTERS: Final[frozenset[str]] = frozenset("&|;$`><(){}\"'*\n\r\\")
 
-SENSITIVE_PATTERNS: Final[tuple[str, ...]] = (
+HOST_RUNTIME_SOCKET_PATTERNS: Final[tuple[str, ...]] = (
     "/var/run/docker.sock",
     "/var/run/containerd/containerd.sock",
     "/var/run/crio/crio.sock",
     "/run/containerd/containerd.sock",
-    "/etc/shadow",
-    "/etc/passwd",
+)
+
+SENSITIVE_HOST_PATH_PATTERNS: Final[tuple[str, ...]] = (
     "/etc/kubernetes",
     "/proc/sys",
     "/sys/fs/cgroup",
     "/dev/mem",
     "/dev/kmem",
-    "/root",
+)
+
+SENSITIVE_IDENTITY_PATTERNS: Final[tuple[str, ...]] = (
+    "/etc/shadow",
+    "/etc/passwd",
+    "/root/.ssh",
 )
 
 PROMPT_INJECTION_KEYWORDS: Final[tuple[str, ...]] = (
@@ -70,7 +76,7 @@ class SanitizedInput(BaseModel):
     sanitized_text: str = Field(
         ...,
         max_length=MAX_SANITIZED_LENGTH,
-        description="Sanitized and truncated text string, safe for model prompt inclusion.",
+        description="Sanitized and truncated text string, unescaped for canonical event storage.",
     )
     raw_sha256: str = Field(
         ...,
@@ -85,9 +91,17 @@ class SanitizedInput(BaseModel):
         ...,
         description="Whether raw input contained shell metacharacters (&, |, ;, $, etc.).",
     )
-    has_sensitive_paths: bool = Field(
+    has_runtime_socket_reference: bool = Field(
         ...,
-        description="Whether raw input referenced sensitive host filesystem or socket paths.",
+        description="Whether raw input referenced container runtime sockets (e.g. docker.sock).",
+    )
+    has_sensitive_host_path_reference: bool = Field(
+        ...,
+        description="Whether raw input referenced sensitive host paths (e.g. /etc/kubernetes).",
+    )
+    has_identity_file_reference: bool = Field(
+        ...,
+        description="Whether raw input referenced sensitive identity files (e.g. /etc/shadow).",
     )
     has_delimiter_breakout: bool = Field(
         ...,
@@ -99,23 +113,33 @@ class SanitizedInput(BaseModel):
     )
 
 
+def escape_state_delimiters(text: str) -> str:
+    """Escape XML-like delimiters for safe inclusion in model state templates.
+
+    Applied exclusively when state text is serialized for LLM consumption,
+    never in the canonical event.
+    """
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def sanitize_untrusted_input(raw_input: str | None) -> SanitizedInput:
     """Sanitize untrusted input strings with defense-in-depth controls.
 
     1. Extracts deterministic security facts from raw string BEFORE truncation.
     2. Performs Unicode NFKC normalization.
     3. Strips control characters, bidi overrides, and zero-width spaces.
-    4. Escapes XML-like delimiters (<, >) to prevent state template breakout.
-    5. Truncates final output strictly to MAX_SANITIZED_LENGTH (128 characters).
+    4. Truncates final output strictly to MAX_SANITIZED_LENGTH (128 characters).
+    5. Delimiter escaping is deferred to escape_state_delimiters() during model serialization.
     """
-    # 1. Deterministic feature extraction on raw input prior to any alteration
     raw_text = "" if raw_input is None else str(raw_input)
     raw_length = len(raw_text)
     raw_sha256 = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
     raw_lower = raw_text.lower()
 
     has_shell_meta = any(char in SHELL_METACHARACTERS for char in raw_text)
-    has_sens_paths = any(path in raw_lower for path in SENSITIVE_PATTERNS)
+    has_sock_ref = any(sock in raw_lower for sock in HOST_RUNTIME_SOCKET_PATTERNS)
+    has_host_ref = any(path in raw_lower for path in SENSITIVE_HOST_PATH_PATTERNS)
+    has_ident_ref = any(path in raw_lower for path in SENSITIVE_IDENTITY_PATTERNS)
     has_breakout = "<untrusted_args>" in raw_lower or "</untrusted_args>" in raw_lower
     has_injection = any(keyword in raw_lower for keyword in PROMPT_INJECTION_KEYWORDS)
 
@@ -129,10 +153,7 @@ def sanitize_untrusted_input(raw_input: str | None) -> SanitizedInput:
         if cp in DISALLOWED_CODEPOINTS:
             continue
         cat = unicodedata.category(char)
-        # Strip categories: Control (Cc), Format (Cf), Surrogate (Cs),
-        # Private-use (Co), Unassigned (Cn)
         if cat in {"Cc", "Cf", "Cs", "Co", "Cn"}:
-            # Replace inline newline/tab with space if not at end of whitespace
             if char in {"\n", "\r", "\t"}:
                 cleaned_chars.append(" ")
             continue
@@ -140,14 +161,11 @@ def sanitize_untrusted_input(raw_input: str | None) -> SanitizedInput:
 
     filtered_text = "".join(cleaned_chars)
 
-    # 4. Delimiter escaping to prevent breakout from <untrusted_args>...</untrusted_args>
-    # Replace '<' and '>' with HTML-safe entity escapes
-    escaped_text = filtered_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
     # Collapse repeated whitespace
-    normalized_spaces = " ".join(escaped_text.split())
+    normalized_spaces = " ".join(filtered_text.split())
 
-    # 5. Strict truncation to MAX_SANITIZED_LENGTH (128 characters)
+    # 4. Strict truncation to MAX_SANITIZED_LENGTH (128 characters)
+    # Stored unescaped in canonical event
     sanitized_text = normalized_spaces[:MAX_SANITIZED_LENGTH]
 
     return SanitizedInput(
@@ -155,7 +173,9 @@ def sanitize_untrusted_input(raw_input: str | None) -> SanitizedInput:
         raw_sha256=raw_sha256,
         raw_length=raw_length,
         has_shell_metacharacters=has_shell_meta,
-        has_sensitive_paths=has_sens_paths,
+        has_runtime_socket_reference=has_sock_ref,
+        has_sensitive_host_path_reference=has_host_ref,
+        has_identity_file_reference=has_ident_ref,
         has_delimiter_breakout=has_breakout,
         has_prompt_injection_indicators=has_injection,
     )

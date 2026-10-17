@@ -610,9 +610,9 @@ Valid: True, Records: 1, Error: None
   - Tampered with Record 2 (modified `predicted_class`).
   - Chain validation immediately flagged forgery:
     `Hash mismatch at record 2: recorded 8c8248c87617... != calculated 2811a485c8cd...`
-- **Chain Head Anchoring:** The chain head hash is anchored outside the log file in three immutable locations:
+- **Chain Head Anchoring:** The chain head hash is anchored outside the log file in three tamper-evident external locations:
   1. In Git commits: committed into Git repository checkpoints (`docs/evidence/` and `datasets/splits/manifest_v1.json`).
-  2. In SRE response action receipts: included as an immutable payload in webhook notifications.
+  2. In SRE response action receipts: included as a tamper-evident payload in webhook notifications.
   3. In the persistent review queue (`data/review/queue.jsonl`): stored as a forensic cross-reference.
 
 ### 3. Workload Images & Scenario Workloads
