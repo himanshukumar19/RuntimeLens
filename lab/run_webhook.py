@@ -15,11 +15,18 @@ logging.basicConfig(
 
 if __name__ == "__main__":
     audit_file = Path("/home/ubuntu/vm_outputs/audit/decisions.jsonl")
+    host = "172.18.0.1"
+    port = 8765
+
     if len(sys.argv) > 1:
         audit_file = Path(sys.argv[1])
+    if len(sys.argv) > 2:
+        host = sys.argv[2]
+    if len(sys.argv) > 3:
+        port = int(sys.argv[3])
 
     audit_file.parent.mkdir(parents=True, exist_ok=True)
-    server = run_webhook_server(host="127.0.0.1", port=8765, audit_path=audit_file)
+    server = run_webhook_server(host=host, port=port, audit_path=audit_file)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
