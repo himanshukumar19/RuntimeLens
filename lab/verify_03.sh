@@ -18,9 +18,14 @@ AUDIT_LOG="$AUDIT_DIR/decisions.jsonl"
 mkdir -p "$AUDIT_DIR"
 rm -f "$AUDIT_LOG"
 
+PYTHON_BIN="python3"
+if [ -x "/home/ubuntu/venv/bin/python3" ]; then
+    PYTHON_BIN="/home/ubuntu/venv/bin/python3"
+fi
+
 echo "[1/4] Starting Webhook Receiver on 127.0.0.1:8765..."
 export PYTHONPATH="/home/ubuntu/RuntimeLens/src"
-python3 lab/run_webhook.py "$AUDIT_LOG" &
+"$PYTHON_BIN" lab/run_webhook.py "$AUDIT_LOG" &
 WEBHOOK_PID=$!
 trap "kill $WEBHOOK_PID 2>/dev/null || true" EXIT
 
@@ -77,7 +82,7 @@ echo "Sample Audit Record from $AUDIT_LOG:"
 tail -n 1 "$AUDIT_LOG" | jq .
 
 echo "Verifying cryptographic hash chain integrity..."
-python3 -c "
+"$PYTHON_BIN" -c "
 from pathlib import Path
 from runtimelens.audit.writer import AuditWriter
 
