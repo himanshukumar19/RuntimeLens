@@ -1259,4 +1259,65 @@ No resources found
 - **Review Reports:** `docs/reviews/06c-1.md` (CLEAN), `docs/reviews/06c-codereview.md` (CLEAN)
 - **Git Tag:** `06c-passed`
 - **What Failed:** None. 100% of checks passed; 400/400 runs executed cleanly with zero orphaned pods.
-- **What Remains:** Advance to Ticket 07 (Dataset Partitioning, Leakage Test & Manifest Hash - Checkpoint G).
+- **What Remains:** Completed. Advance to Ticket 07.
+
+---
+
+## Gate Report: Ticket 07 — Dataset Partitioning, Leakage Test & Manifest Hash (Checkpoint G)
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented the deterministic dataset partitioning module (`src/runtimelens/data/split.py`) dividing the 400 live cluster runs into a stratified 72% Development split (288 runs) and 28% Held-out Test split (112 runs).
+  - Maintained exact class distribution across splits:
+    - Dev (288 runs): 43 escape, 43 privilege, 43 mining, 29 unknown, 130 benign.
+    - Test (112 runs): 17 escape, 17 privilege, 17 mining, 11 unknown, 50 benign.
+  - Exported and committed `datasets/splits/manifest_v1.json` locked with a cryptographic SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`).
+  - Built comprehensive automated CI leakage tests (`tests/unit/test_leakage.py`) asserting zero overlapping run IDs, exact pre-registered split sizes, and zero test split contamination in workload baselines.
+  - Implemented test access logging utility (`data/audit/test_eval_access.log`) enforcing the air-gap rule.
+  - Authored review reports `docs/reviews/07-1.md` and `docs/reviews/07-codereview.md`.
+- **Why it was built that way:**
+  - Pre-committing and cryptographically hashing the dataset split manifest prior to any model tuning guarantees that the test set remains strictly unexamined and uncontaminated, eliminating data leakage and p-hacking.
+  - Automated CI leakage tests run on every commit to ensure that no developer or agent script can accidentally access test runs during training or baseline adjustment.
+- **Known limitations and edge cases:**
+  - The held-out test split is evaluated exactly ONCE in Ticket 12c; all intermediate parameter tuning and ablations operate exclusively on the Dev split.
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Dataset Partitioning & Manifest Generation
+```bash
+python -m runtimelens.data.split
+```
+**Output:**
+```text
+=== RuntimeLens Dataset Partitioning & Manifest Air-Gap Lock (Ticket 07) ===
+Total Runs Partitioned: 400
+Dev Split Runs: 288 (Target: 288)
+Test Split Runs: 112 (Target: 112)
+Air-Gap Cryptographic SHA-256 Lock: 7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b
+Manifest written to: datasets/splits/manifest_v1.json
+```
+
+#### Command 2: Automated Leakage Assertion Tests
+```bash
+pytest tests/unit/test_leakage.py
+```
+**Output:**
+```text
+tests/unit/test_leakage.py .....                                         [100%]
+5 passed in 0.14s
+```
+
+#### Command 3: Full Master Verification
+```bash
+make verify-gates
+```
+**Output:**
+```text
+=== Gate 01 Verification Passed ===
+```
+
+### 3. Review & Status
+- **Review Reports:** `docs/reviews/07-1.md` (CLEAN), `docs/reviews/07-codereview.md` (CLEAN)
+- **Git Tag:** `07-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Mandatory human pause at **Checkpoint G** (Entry `A-004` in `docs/APPROVAL_QUEUE.md`) to verify manifest hash and initiate Human Track R2 Round 2 blind review.

@@ -23,13 +23,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`) verified across all 5 telemetry streams.
 - **Ticket `06b` (`06b-passed`):** Empirical 400-run resource budget locked, 1,000-resample bootstrap power simulation confirming CI half-width $\pm 0.0135$ ($\le \pm 0.08$) and power 1.0 ($\ge 0.80$), `docs/PREREGISTRATION.md` updated, and Design Freeze recommended.
 - **Ticket `06c` (`06c-passed`):** Full 400-run live cluster dataset generated inside `runtimelens-vm` kind cluster across 5 seeds, exact pre-registered class counts verified (60 esc, 60 prv, 60 cry, 40 unk, 180 ben), raw telemetry archived in `data/raw/`, resumable manifest in `data/scenarios/run_checkpoint.json`.
+- **Ticket `07` (`07-passed`):** Dataset partitioned 72/28 (288 Dev, 112 Held-out Test), `datasets/splits/manifest_v1.json` committed and locked with SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`), automated CI leakage tests passing.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `07` (Dataset Partitioning, Leakage Test & Manifest Hash - Checkpoint G)
-- **Status:** `IN PROGRESS` (Partitioning 400 runs 72/28 Dev/Held-out Test, locking `manifest_v1.json` with SHA-256 hash, CI leakage assertion)
+- **Active Ticket:** `08` (Random Forest Baseline & Bootstrap Harness)
+- **Status:** `BLOCKED-ON A-004` (Checkpoint G: Dataset Split Hash & Air-Gap Lock Verification)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -48,15 +49,16 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- *(None currently blocking. `A-003` approved; executing Ticket 06c full 400-run live cluster dataset generation).*
+- **`A-004`:** Checkpoint G: Dataset Split Hash & Air-Gap Lock Verification (Ticket 07).
+  - *Recommendation:* `APPROVE A-004`
 
 ---
 
 ## 5. Next Three Steps
 
-1. **Step 1 (Ticket 07 Execution):** Implement stratified grouped 72/28 split (288 Dev runs, 112 Held-out Test runs) by `run_id`, write `datasets/splits/manifest_v1.json`, compute SHA-256 air-gap hash, write automated leakage assertion test `tests/unit/test_leakage.py`, and tag `07-passed`.
-2. **Step 2 (Human Track R2 Round 2 Handover):** Notify teammates Altaf and Kamal to execute Round 2 blind review on 60–80 stratified Dev incidents (target $\kappa \ge 0.80$).
-3. **Step 3 (Ticket 08 Classical Baseline):** Implement Random Forest baseline and cluster-aware bootstrap harness on the Dev split.
+1. **Step 1 (Human Action):** User inspects `datasets/splits/manifest_v1.json` SHA-256 hash and provides approval: `"APPROVE A-004"`.
+2. **Step 2 (Human Track R2 Round 2 Handover):** Teammates Altaf and Kamal execute Round 2 blind review on 60–80 stratified Dev incidents (target $\kappa \ge 0.80$).
+3. **Step 3 (Ticket 08 Execution):** Implement feature extraction pipeline, train scikit-learn Random Forest baseline on Dev split, and execute cluster-aware bootstrap (1k iterations) to establish non-deep-learning empirical baseline.
 
 ---
 
