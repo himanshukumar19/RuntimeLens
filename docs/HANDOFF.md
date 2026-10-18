@@ -22,13 +22,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `06a` (`06a-passed`):** Staged scenario runner, safety manifest linter, simulated runtime socket path in `/opt/runtimelens-dummy/`, and full 25-run live pilot execution inside `runtimelens-vm` with 100% clean teardown verified.
 - **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`) verified across all 5 telemetry streams.
 - **Ticket `06b` (`06b-passed`):** Empirical 400-run resource budget locked, 1,000-resample bootstrap power simulation confirming CI half-width $\pm 0.0135$ ($\le \pm 0.08$) and power 1.0 ($\ge 0.80$), `docs/PREREGISTRATION.md` updated, and Design Freeze recommended.
+- **Ticket `06c` (`06c-passed`):** Full 400-run live cluster dataset generated inside `runtimelens-vm` kind cluster across 5 seeds, exact pre-registered class counts verified (60 esc, 60 prv, 60 cry, 40 unk, 180 ben), raw telemetry archived in `data/raw/`, resumable manifest in `data/scenarios/run_checkpoint.json`.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `06c` (Full 400-Run Live Cluster Scenario Generation)
-- **Status:** `IN PROGRESS` (Executing 400 live runs in batches across 5 threat classes & 3 paired families in `runtimelens-vm`)
+- **Active Ticket:** `07` (Dataset Partitioning, Leakage Test & Manifest Hash - Checkpoint G)
+- **Status:** `IN PROGRESS` (Partitioning 400 runs 72/28 Dev/Held-out Test, locking `manifest_v1.json` with SHA-256 hash, CI leakage assertion)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -53,9 +54,9 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 5. Next Three Steps
 
-1. **Step 1 (Human Action):** User reviews empirical 400-run budget and power simulation results, then provides approval: `"APPROVE A-003"`.
-2. **Step 2 (Ticket 06c Execution):** Execute the 400 live cluster runs across 5 threat classes and 3 paired families in batches inside `runtimelens-vm`, maintaining resumable state manifest in `data/scenarios/run_checkpoint.json`.
-3. **Step 3 (Checkpoint G & Ticket 07):** Partition dataset 72/28 (Dev/Held-out Test), assert zero data leakage, lock `manifest_v1.json` with SHA-256 hash, and initiate Human Track R2 Round 2 blind review.
+1. **Step 1 (Ticket 07 Execution):** Implement stratified grouped 72/28 split (288 Dev runs, 112 Held-out Test runs) by `run_id`, write `datasets/splits/manifest_v1.json`, compute SHA-256 air-gap hash, write automated leakage assertion test `tests/unit/test_leakage.py`, and tag `07-passed`.
+2. **Step 2 (Human Track R2 Round 2 Handover):** Notify teammates Altaf and Kamal to execute Round 2 blind review on 60–80 stratified Dev incidents (target $\kappa \ge 0.80$).
+3. **Step 3 (Ticket 08 Classical Baseline):** Implement Random Forest baseline and cluster-aware bootstrap harness on the Dev split.
 
 ---
 

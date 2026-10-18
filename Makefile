@@ -96,7 +96,7 @@ test-live-api:
 
 capture-check:
 	@echo "=== Checking 5-Source Raw Telemetry Capture Sufficiency (Ticket 09a) ==="
-	PYTHONPATH=src uv run python -c "from runtimelens.collector.raw_capture import create_sample_raw_captures, RawTelemetryArchiver; create_sample_raw_captures(); s = RawTelemetryArchiver().verify_five_sources_present(); print('5-Source Capture Status:', s); assert all(s.values()), f'Missing sources: {s}'"
+	PYTHONPATH=src $(PYTHON_EXEC) -c "from runtimelens.collector.raw_capture import create_sample_raw_captures, RawTelemetryArchiver; create_sample_raw_captures(); s = RawTelemetryArchiver().verify_five_sources_present(); print('5-Source Capture Status:', s); assert all(s.values()), f'Missing sources: {s}'"
 	@echo "=== 5-Source Raw Capture Verification Passed ==="
 
 safety-lint:
