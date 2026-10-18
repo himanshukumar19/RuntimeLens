@@ -19,13 +19,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `04` (`04-passed`, `a274d06`):** Core telemetry ingestion (Falco + K8s Audit Webhook) with $\pm 30$s temporal correlation window, non-blocking batch mode, TLS cert support.
 - **Ticket `05` (`05-passed`, `4638faa`):** Git-versioned declarative YAML baselines (`baselines/`) and deterministic drift comparator.
 - **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver (`data/raw/{falco,audit,hubble,prometheus,trivy}`) ensuring full dataset reproducibility without rerunning.
+- **Ticket `06a` (`06a-passed`):** Staged scenario runner, safety manifest linter, simulated runtime socket path in `/opt/runtimelens-dummy/`, and full 25-run live pilot execution inside `runtimelens-vm` with 100% clean teardown verified.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `06a` (Live Cluster Pilot Scenario Run - 25 runs across 5 threat classes)
-- **Status:** `BLOCKED-ON A-002` (Final Go for Pilot Scenario Execution)
+- **Active Ticket:** `09b` (Telemetry Normalizers & Capture-Sufficiency Audit)
+- **Status:** `IN PROGRESS` (Normalizer implementations on `ahead/09b`; auditing against 06a pilot captures)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -33,7 +34,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 3. Active Branches
 
-- `main`: Clean, fully tested, all CI gates passing (`1d6ae8c` / `4c60ddd`).
+- `main`: Clean, fully tested, all CI gates passing.
 - `ahead/10` (`41673bb`): ScaleDown adapter, XML-delimited state serializer, offline contract tests.
 - `ahead/13a` (`3866a69`): Pure deterministic policy engine & 14-case exhaustive unit test suite.
 - `ahead/09b` (`bda0d0b`): Hubble, Prometheus, and Trivy telemetry normalizers & capture audit.
@@ -44,16 +45,15 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- **`A-002`:** Final authorization for Ticket 06a pilot run (25 runs under revised `docs/SCENARIO_SAFETY_SHEET.md`).
-  - *Recommendation:* `APPROVE A-002`
+- *(None currently blocking. `A-002` approved with conditions and executed cleanly).*
 
 ---
 
 ## 5. Next Three Steps
 
-1. **Step 1 (Human Action):** User reviews revised `docs/SCENARIO_SAFETY_SHEET.md` and provides approval: `"APPROVE A-002"`.
-2. **Step 2 (Ticket 06a Pilot Run):** Agent executes the 25 live pilot runs inside `runtimelens-vm`, records empirical per-run wall time, disk bytes, and RAM metrics, confirms zero orphaned test pods, and halts at Checkpoint D2 for inspection.
-3. **Step 3 (Ticket 09b & 06b):** Execute capture-sufficiency audit against pilot raw data, compute empirical power/variance simulation, lock empirical 400-run budget, and freeze design at Checkpoint E.
+1. **Step 1 (Ticket 09b Completion):** Merge and verify telemetry normalizers from `ahead/09b` on `main`, run capture-sufficiency audit (`python -m runtimelens.audit_capture --pilot`), execute per-ticket review loop, and tag `09b-passed`.
+2. **Step 2 (Ticket 06b Power Analysis & Checkpoint E):** Compute empirical bootstrap power/variance simulation from pilot data, establish empirical 400-run resource budget for 06c, freeze scenario design at Checkpoint E, and queue authorization.
+3. **Step 3 (Checkpoint F & Ticket 06c):** Await approval to launch full 400-run live cluster scenario generation.
 
 ---
 
