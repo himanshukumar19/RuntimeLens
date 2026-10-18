@@ -62,7 +62,7 @@ def check_cluster_health() -> bool:
             print("SAFETY ERROR: Node not in Ready state!")
             return False
 
-        cilium = subprocess.check_output(["cilium", "status", "--brief"], text=True)
+        cilium = subprocess.check_output(["cilium", "status"], text=True)
         if "OK" not in cilium:
             print("SAFETY ERROR: Cilium status not OK!")
             return False
