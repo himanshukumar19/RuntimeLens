@@ -178,6 +178,8 @@ def run_audit_webhook_server(
     host: str = "172.18.0.1",
     port: int = 8766,
     raw_path: Path = DEFAULT_RAW_AUDIT_PATH,
+    cert_file: Path | None = None,
+    key_file: Path | None = None,
 ) -> ThreadingHTTPServer:
     """Start the Kubernetes Audit Webhook Receiver bound strictly to internal IP."""
     if host not in {"127.0.0.1", "localhost", "172.18.0.1"}:
@@ -187,5 +189,13 @@ def run_audit_webhook_server(
 
     AuditWebhookHandler.raw_log_path = raw_path
     server = ThreadingHTTPServer((host, port), AuditWebhookHandler)
-    logger.info("Kubernetes Audit webhook receiver running on http://%s:%d", host, port)
+    if cert_file and key_file and cert_file.exists() and key_file.exists():
+        import ssl
+
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(cert_file), str(key_file))
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+        logger.info("Kubernetes Audit webhook receiver running on https://%s:%d (TLS)", host, port)
+    else:
+        logger.info("Kubernetes Audit webhook receiver running on http://%s:%d", host, port)
     return server
