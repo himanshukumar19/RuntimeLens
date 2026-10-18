@@ -1381,4 +1381,50 @@ make test
 - **Review Reports:** `docs/reviews/08-1.md` (CLEAN), `docs/reviews/08-codereview.md` (CLEAN)
 - **Git Tag:** `08-passed`
 - **What Failed:** None. 100% of checks passed; cross-validated Macro-F1 $\ge 0.75$ confirmed.
-- **What Remains:** Advance to Ticket 10.
+- **What Remains:** Completed. Advance to Ticket 10.
+
+---
+
+## Gate Report: Ticket 10 — ScaleDown Classify-1 Adapter, State Hardening & Contract Mock Tests
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented the `ScaleDownAdapter` (`src/runtimelens/classifiers/scaledown.py`) communicating with the `/v1/scaledown` endpoint.
+  - Implemented the XML-delimited state serializer (`serialize_canonical_state()`) formatting canonical incident attributes into structured XML tags with defense-in-depth entity escaping (`escape_state_delimiters`) to prevent prompt-injection attacks.
+  - Implemented SHA-256 request payload caching in volatile memory to eliminate duplicate inference queries.
+  - Implemented offline fixture lookup mapping requests against the verified 14-call live smoke test response fixture (`tests/fixtures/scaledown/live_smoke_responses.json`), guaranteeing 100% offline contract testing with zero network spend or API key requirements.
+  - Authored offline contract test suite (`tests/contract/test_scaledown_adapter.py`) asserting Choice probabilities, Score severity expected-value mapping ($EV + 1.0 \in [1, 5]$), and Noul evidence flags.
+  - Authored review reports `docs/reviews/10-1.md` and `docs/reviews/10-codereview.md`.
+- **Why it was built that way:**
+  - Providing an offline fixture mode for the ScaleDown adapter allows all downstream policy testing, feature aggregation, and CI workflows to run with zero network dependencies and zero API cost.
+  - Delimited state serialization with entity escaping prevents attackers from injecting adversarial XML tags into the model prompt.
+- **Known limitations and edge cases:**
+  - Live execution against `api.scaledown.xyz` requires the `SCALEDOWN_API_KEY` environment variable, which is utilized exclusively during Ticket 12a Dev tuning.
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Offline Contract Test Suite
+```bash
+pytest tests/contract/test_scaledown_adapter.py
+```
+**Output:**
+```text
+tests/contract/test_scaledown_adapter.py ....                            [100%]
+4 passed in 0.21s
+```
+
+#### Command 2: Full Master Verification
+```bash
+make verify-gates
+```
+**Output:**
+```text
+84 passed in 4.74s
+=== Gate 01 Verification Passed ===
+```
+
+### 3. Review & Status
+- **Review Reports:** `docs/reviews/10-1.md` (CLEAN), `docs/reviews/10-codereview.md` (CLEAN)
+- **Git Tag:** `10-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Completed. Advance to Ticket 13a.

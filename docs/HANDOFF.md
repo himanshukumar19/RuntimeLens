@@ -25,13 +25,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `06c` (`06c-passed`):** Full 400-run live cluster dataset generated inside `runtimelens-vm` kind cluster across 5 seeds, exact pre-registered class counts verified (60 esc, 60 prv, 60 cry, 40 unk, 180 ben), raw telemetry archived in `data/raw/`, resumable manifest in `data/scenarios/run_checkpoint.json`.
 - **Ticket `07` (`07-passed`):** Dataset partitioned 72/28 (288 Dev, 112 Held-out Test), `datasets/splits/manifest_v1.json` committed and locked with SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`), automated CI leakage tests passing.
 - **Ticket `08` (`08-passed`):** Numerical feature extractor (19 dimensions), scikit-learn Random Forest baseline trained on 288 Dev runs (Macro-F1 1.0, 95% Bootstrap CI `[1.0, 1.0]`), model saved to `models/rf_baseline.joblib`.
+- **Ticket `10` (`10-passed`):** `ScaleDownAdapter` with XML-delimited state serializer, prompt-injection escaping, SHA-256 caching, and offline contract tests (`tests/contract/test_scaledown_adapter.py`).
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `10` (ScaleDown Classify-1 Adapter, State Hardening & Contract Mock Tests)
-- **Status:** `IN PROGRESS` (Merging verified implementation from `ahead/10`)
+- **Active Ticket:** `13a` (Deterministic Decision Policy Engine & Conflict Resolution)
+- **Status:** `IN PROGRESS` (Merging verified implementation from `ahead/13a`)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -40,7 +41,6 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 ## 3. Active Branches
 
 - `main`: Clean, fully tested, all CI gates passing.
-- `ahead/10` (`41673bb`): ScaleDown adapter, XML-delimited state serializer, offline contract tests.
 - `ahead/12b` (`4063954`): Adversarial prompt-injection evaluation harness & 4-defense test suite.
 - `ahead/13a` (`3866a69`): Pure deterministic policy engine & 14-case exhaustive unit test suite.
 - `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
