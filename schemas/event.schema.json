@@ -55,6 +55,7 @@
       "properties": {
         "source": { "type": "string", "enum": ["falco", "k8s_audit", "hubble", "trivy", "metrics"] },
         "source_event_id": { "type": "string" },
+        "source_rule_name": { "type": ["string", "null"] },
         "raw_event_ref": { "type": "string" }
       }
     },
@@ -147,6 +148,10 @@
         "is_telemetry_degraded": { "type": "boolean" },
         "missing_sources": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "edge_case": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

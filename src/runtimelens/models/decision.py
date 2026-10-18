@@ -65,6 +65,15 @@ class AuditRecord(BaseModel):
         ):
             del data_to_hash["classification"]["rubric_version"]
 
+        # Backwards compatibility migration policy for pre-v1.0.1 schema records
+        if not self.event.edge_case and "edge_case" in data_to_hash.get("event", {}):
+            del data_to_hash["event"]["edge_case"]
+        if (
+            self.event.telemetry_source.source_rule_name is None
+            and "source_rule_name" in data_to_hash.get("event", {}).get("telemetry_source", {})
+        ):
+            del data_to_hash["event"]["telemetry_source"]["source_rule_name"]
+
         canonical_bytes = json.dumps(data_to_hash, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
         )

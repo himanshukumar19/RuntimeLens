@@ -27,6 +27,7 @@ class TelemetrySourceRef(BaseModel):
 
     source: Literal["falco", "k8s_audit", "hubble", "trivy", "metrics"]
     source_event_id: str
+    source_rule_name: str | None = None
     raw_event_ref: str
 
 
@@ -109,3 +110,4 @@ class CanonicalEvent(BaseModel):
     network: NetworkContext | None = None
     baseline: BaselineContext
     health: TelemetryHealth
+    edge_case: bool = False

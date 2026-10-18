@@ -122,3 +122,43 @@ def test_webhook_oversized_payload_rejected(monkeypatch: pytest.MonkeyPatch) -> 
         server.server_close()
         if log_path.exists():
             log_path.unlink()
+
+
+def test_webhook_request_logging_never_records_tokens(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import logging
+
+    secret_val = "sensitive-canary-secret-token-abcdef123456"
+    monkeypatch.setenv("FALCO_WEBHOOK_SECRET", secret_val)
+
+    with NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+        log_path = Path(f.name)
+
+    server = run_webhook_server("127.0.0.1", 18768, audit_path=log_path)
+    import threading
+
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    caplog.set_level(logging.INFO, logger="runtimelens.webhook")
+
+    try:
+        with httpx.Client(base_url="http://127.0.0.1:18768") as client:
+            resp = client.post(
+                f"/falco?token={secret_val}",
+                json={"output": "log_test"},
+            )
+            assert resp.status_code == 200
+
+            # Assert canary secret token NEVER appears anywhere in captured logger output
+            assert secret_val not in caplog.text
+
+            # Assert sanitized path and status DO appear
+            assert "method=POST path=/falco status=200" in caplog.text
+            assert "request_id=" in caplog.text
+    finally:
+        server.shutdown()
+        server.server_close()
+        if log_path.exists():
+            log_path.unlink()

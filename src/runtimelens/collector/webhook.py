@@ -7,6 +7,7 @@ import logging
 import os
 import time
 import urllib.parse
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -106,7 +107,19 @@ class FalcoWebhookHandler(BaseHTTPRequestHandler):
             return False
         return hmac.compare_digest(token_list[0].strip().encode("utf-8"), expected)
 
-    def _send_json_error(self, status: int, message: str) -> None:
+    def log_request_event(self, status: int, request_id: str) -> None:
+        """Log request metadata without ever leaking query strings, tokens, or credentials."""
+        parsed_url = urllib.parse.urlparse(self.path)
+        sanitized_path = parsed_url.path  # Path only! Zero query string or token!
+        logger.info(
+            "Webhook processed: method=%s path=%s status=%d request_id=%s",
+            self.command,
+            sanitized_path,
+            status,
+            request_id,
+        )
+
+    def _send_json_error(self, status: int, message: str, request_id: str = "") -> None:
         """Send an RFC-compliant JSON error response."""
         data = json.dumps({"error": message}).encode("utf-8")
         self.send_response(status)
@@ -116,33 +129,37 @@ class FalcoWebhookHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
         self.close_connection = True
+        self.log_request_event(status, request_id)
 
     def do_POST(self) -> None:  # noqa: N802
+        request_id = str(uuid.uuid4())[:8]
         content_length = int(self.headers.get("Content-Length", 0))
 
         # 1. Rate Limiting Check
         if is_rate_limited():
             if content_length > 0:
                 self.rfile.read(content_length)
-            self._send_json_error(429, "Too Many Requests: Rate limit exceeded")
+            self._send_json_error(429, "Too Many Requests: Rate limit exceeded", request_id)
             return
 
         # 2. Authentication Check
         if not self._is_authenticated():
             if content_length > 0:
                 self.rfile.read(min(content_length, MAX_PAYLOAD_BYTES))
-            self._send_json_error(401, "Unauthorized: Invalid or missing webhook token")
+            self._send_json_error(401, "Unauthorized: Invalid or missing webhook token", request_id)
             return
 
         # 3. Payload Size Limit Check
         if content_length == 0:
-            self._send_json_error(400, "Empty body")
+            self._send_json_error(400, "Empty body", request_id)
             return
 
         if content_length > MAX_PAYLOAD_BYTES:
             # Drain up to 4KB then reject
             self.rfile.read(min(content_length, 4096))
-            self._send_json_error(413, "Payload Too Large: Maximum allowed size is 64 KB")
+            self._send_json_error(
+                413, "Payload Too Large: Maximum allowed size is 64 KB", request_id
+            )
             return
 
         body = self.rfile.read(content_length)
@@ -171,9 +188,10 @@ class FalcoWebhookHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
+            self.log_request_event(200, request_id)
         except Exception as e:
             logger.exception("Failed to process webhook payload")
-            self._send_json_error(400, f"Invalid JSON payload: {e}")
+            self._send_json_error(400, f"Invalid JSON payload: {e}", request_id)
 
     def log_message(self, format: str, *args: Any) -> None:
         """Suppress default stdout access logging to prevent noisy terminal logs."""

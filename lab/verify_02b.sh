@@ -12,7 +12,8 @@ echo "[1/7] Preparing audit policy and log directories on VM host..."
 sudo mkdir -p /etc/kubernetes/policies /var/log/kubernetes/audit
 sudo cp lab/audit/audit-policy.yaml /etc/kubernetes/policies/audit-policy.yaml
 sudo chmod 644 /etc/kubernetes/policies/audit-policy.yaml
-sudo chmod 777 /var/log/kubernetes/audit
+sudo chown root:root /var/log/kubernetes/audit
+sudo chmod 0755 /var/log/kubernetes/audit
 
 # 2. Ensure kind cluster has API server audit policy enabled
 echo "[2/7] Ensuring kind cluster has API server auditing enabled..."

@@ -158,10 +158,12 @@ def normalize_falco_event(
         "utf-8"
     )
     raw_hash = hashlib.sha256(raw_canonical_bytes).hexdigest()
+    rule_name_str = str(raw_falco.get("rule") or "")
 
     telemetry_source = TelemetrySourceRef(
         source="falco",
         source_event_id=str(fields.get("evt.num") or str(uuid.uuid4())[:8]),
+        source_rule_name=rule_name_str if rule_name_str else None,
         raw_event_ref=f"sha256:{raw_hash}",
     )
 
@@ -239,6 +241,8 @@ def normalize_falco_event(
         missing_sources=[],
     )
 
+    is_edge_case = deviations == ["sensitive_identity_file_access"]
+
     return CanonicalEvent(
         event_id=str(uuid.uuid4()),
         schema_version="1.0.0",
@@ -252,4 +256,5 @@ def normalize_falco_event(
         network=None,
         baseline=baseline,
         health=health,
+        edge_case=is_edge_case,
     )
