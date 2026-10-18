@@ -1428,3 +1428,50 @@ make verify-gates
 - **Git Tag:** `10-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Completed. Advance to Ticket 13a.
+
+---
+
+## Gate Report: Ticket 13a — Deterministic Decision Policy Engine & Conflict Resolution
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented the pure deterministic policy engine (`src/runtimelens/policy/engine.py`) executing hierarchical safety decisions:
+    1. Critical safety overrides (telemetry degradation, model degradation, stale baselines, physical host socket/path facts) unconditionally forcing human review.
+    2. Choice-Noul conflict resolution matrix preventing invalid or contradictory decisions (e.g. benign class with baseline deviations, container escape without corroborating evidence).
+    3. Calibrated confidence gating (0.70 default threshold) routing low-confidence statistical model predictions to human review.
+    4. Containment action tiering enforcing dry-run quarantine with 900s auto-rollback TTL on high-severity threats in tenant namespaces, while strictly blocking quarantine in system namespaces (`kube-system`, `cilium`, `falco`).
+  - Implemented exhaustive unit test suite (`tests/unit/test_policy.py`) covering all 14 safety override, conflict matrix, confidence gating, and system namespace protection scenarios.
+  - Authored review reports `docs/reviews/13a-1.md` and `docs/reviews/13a-codereview.md`.
+- **Why it was built that way:**
+  - Separating model classification from automated actuation ensures that probabilistic model errors cannot directly trigger destructive or disruptive containment actions on critical infrastructure.
+  - Pure deterministic functions guarantee 100% reproducible policy evaluation across identical incident contexts.
+- **Known limitations and edge cases:**
+  - Containment operates strictly in dry-run mode (`dry_run=True`) by default; live quarantine actuation is gated until Ticket 13b (Checkpoint J).
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Exhaustive Policy Engine Unit Tests
+```bash
+pytest tests/unit/test_policy.py
+```
+**Output:**
+```text
+tests/unit/test_policy.py ..............                                 [100%]
+14 passed in 0.19s
+```
+
+#### Command 2: Full Master Verification
+```bash
+make verify-gates
+```
+**Output:**
+```text
+98 passed in 4.56s
+=== Gate 01 Verification Passed ===
+```
+
+### 3. Review & Status
+- **Review Reports:** `docs/reviews/13a-1.md` (CLEAN), `docs/reviews/13a-codereview.md` (CLEAN)
+- **Git Tag:** `13a-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Mandatory human pause at **Checkpoint H** (Entry `A-005` in `docs/APPROVAL_QUEUE.md`) to verify Human Track R2 Round 2 blind review ($\kappa \ge 0.80$ on Dev split) before starting Ticket 12a Dev model tuning and ablations.

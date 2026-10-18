@@ -26,14 +26,15 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `07` (`07-passed`):** Dataset partitioned 72/28 (288 Dev, 112 Held-out Test), `datasets/splits/manifest_v1.json` committed and locked with SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`), automated CI leakage tests passing.
 - **Ticket `08` (`08-passed`):** Numerical feature extractor (19 dimensions), scikit-learn Random Forest baseline trained on 288 Dev runs (Macro-F1 1.0, 95% Bootstrap CI `[1.0, 1.0]`), model saved to `models/rf_baseline.joblib`.
 - **Ticket `10` (`10-passed`):** `ScaleDownAdapter` with XML-delimited state serializer, prompt-injection escaping, SHA-256 caching, and offline contract tests (`tests/contract/test_scaledown_adapter.py`).
+- **Ticket `13a` (`13a-passed`):** Pure deterministic policy engine & 14-case exhaustive unit test suite covering all overrides, conflict matrix rows, and confidence thresholds.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `13a` (Deterministic Decision Policy Engine & Conflict Resolution)
-- **Status:** `IN PROGRESS` (Merging verified implementation from `ahead/13a`)
-- **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
+- **Active Ticket:** `12a` (Dev-Set Equal-Budget Model Tuning, Policy Sweeps & 6 Systematic Ablations)
+- **Status:** `BLOCKED-ON A-005` (Checkpoint H: Human Track R2 Round 2 Blind Review $\kappa \ge 0.80$ & Dev Tuning Authorization)
+- **State Clarification on Ticket 11 & 12a Key Governance:** The ScaleDown API key is needed for Ticket 12a Dev tuning, and must be provided exclusively via `SCALEDOWN_API_KEY` in a session initiated directly in the user's terminal.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
 ---
@@ -42,7 +43,6 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 - `main`: Clean, fully tested, all CI gates passing.
 - `ahead/12b` (`4063954`): Adversarial prompt-injection evaluation harness & 4-defense test suite.
-- `ahead/13a` (`3866a69`): Pure deterministic policy engine & 14-case exhaustive unit test suite.
 - `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
 - `ahead/16c` (`439f6db`): 5-minute live interactive demonstration script & viva defense runbook.
 
@@ -50,16 +50,16 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- **`A-004`:** Checkpoint G: Dataset Split Hash & Air-Gap Lock Verification (Ticket 07).
-  - *Recommendation:* `APPROVE A-004`
+- **`A-005`:** Checkpoint H: Human Track R2 Round 2 Blind Review Verification & Dev Tuning Authorization (Ticket 12a).
+  - *Recommendation:* `PENDING HUMAN INPUT` on R2 Round 2 kappa result ($\kappa \ge 0.80$).
 
 ---
 
 ## 5. Next Three Steps
 
-1. **Step 1 (Human Action):** User inspects `datasets/splits/manifest_v1.json` SHA-256 hash and provides approval: `"APPROVE A-004"`.
-2. **Step 2 (Human Track R2 Round 2 Handover):** Teammates Altaf and Kamal execute Round 2 blind review on 60–80 stratified Dev incidents (target $\kappa \ge 0.80$).
-3. **Step 3 (Ticket 08 Execution):** Implement feature extraction pipeline, train scikit-learn Random Forest baseline on Dev split, and execute cluster-aware bootstrap (1k iterations) to establish non-deep-learning empirical baseline.
+1. **Step 1 (Human Action - Track R2 Round 2):** Teammates Altaf and Kamal conduct blind review on 60–80 stratified Dev incidents and report Cohen's kappa $\kappa$ (requirement: $\kappa \ge 0.80$). User replies `"APPROVE A-005"` when complete.
+2. **Step 2 (Ticket 12a Dev Tuning):** In a user-initiated terminal session with `SCALEDOWN_API_KEY` set, run `python -m runtimelens.eval.run_ablations --split dev` to tune models, execute 6 ablations (Primary: Baseline on/off), and generate reliability curves.
+3. **Step 3 (Checkpoint I & Ticket 12c):** Authorize and execute the single-pass held-out test evaluation on the frozen 112 test runs.
 
 ---
 

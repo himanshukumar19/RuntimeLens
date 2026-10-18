@@ -21,4 +21,23 @@
 
 ## Active Approval Items
 
-*(None pending. All queued authorizations approved; executing Ticket 08 Random Forest baseline on Dev split).*
+### Entry `A-005` — Checkpoint H: Human Track R2 Round 2 Blind Review Verification & Dev Tuning Authorization (Ticket 12a)
+
+- **Queue ID:** `A-005`
+- **Ticket ID:** `12a` (Dev-Set Equal-Budget Model Tuning, Policy Sweeps & 6 Systematic Ablations)
+- **Status:** `PENDING HUMAN INPUT & AUTHORIZATION`
+- **What:** Verify that teammates Altaf and Kamal have completed the Human Track R2 Round 2 blind review on 60–80 stratified Dev split incidents with inter-annotator agreement meeting or exceeding the pre-registered threshold ($\kappa \ge 0.80$), and authorize beginning Ticket 12a Dev model tuning and ablations with `SCALEDOWN_API_KEY` provided via user-initiated terminal session.
+- **Specification Document:** `docs/LABELING_GUIDE.md` (Section 4) & `docs/PREREGISTRATION.md`
+- **What It Changes:**
+  - Unblocks model tuning on the 72% Development split (288 runs).
+  - Evaluates the 6 pre-registered systematic ablations (Primary: Baseline on/off).
+  - Tunes confidence thresholds and risk-coverage curves on Dev data.
+- **Undo / Rollback:**
+  - Test set remains 100% untouched and air-gapped; all tuning affects only Dev artifacts.
+- **Risk Assessment:**
+  - *Risk:* Proceeding to model tuning before annotator agreement is confirmed risks tuning against ambiguous or biased labels.
+    *Mitigation:* Checkpoint H hard stop mandates verified $\kappa \ge 0.80$ before any model parameters or confidence thresholds are fitted.
+- **Agent Recommendation:** `[RECOMMENDATION]` Awaiting user input reporting the measured Cohen's kappa $\kappa$ from Altaf and Kamal's Round 2 review. If $\kappa \ge 0.80$, `APPROVE A-005`.
+- **What It Blocks:**
+  - Ticket `12a` (Dev-Set Equal-Budget Tuning & 6 Ablations).
+  - Ticket `12c` (Single Held-Out Test Set Evaluation - Checkpoint I).
