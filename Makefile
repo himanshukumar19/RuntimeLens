@@ -1,7 +1,10 @@
 SHELL := /bin/bash
 REQUIRED_KUBE_CONTEXT := kind-runtimelens
 
-.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api capture-check safety-lint
+# Robust python runner selection across macOS (uv) and VM (/home/ubuntu/venv)
+PYTHON_EXEC := $(shell if [ -x /home/ubuntu/venv/bin/python3 ]; then echo "/home/ubuntu/venv/bin/python3"; elif which uv >/dev/null 2>&1; then echo "uv run python"; else echo "python3"; fi)
+
+.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api capture-check safety-lint run-pilot
 
 help:
 	@echo "RuntimeLens Development Automation"
@@ -98,7 +101,13 @@ capture-check:
 
 safety-lint:
 	@echo "=== Running Scenario Safety Manifest Linter (Condition 3) ==="
-	PYTHONPATH=. uv run python scripts/scenario_safety_lint.py
+	PYTHONPATH=src:. $(PYTHON_EXEC) scripts/scenario_safety_lint.py
+
+run-pilot:
+	@echo "=== Running Staged Scenario Pilot (Ticket 06a) ==="
+	PYTHONPATH=src:. $(PYTHON_EXEC) -m runtimelens.scenarios.runner --stage dry-run
+	PYTHONPATH=src:. $(PYTHON_EXEC) -m runtimelens.scenarios.runner --stage ramp-5
+	PYTHONPATH=src:. $(PYTHON_EXEC) -m runtimelens.scenarios.runner --stage full-25
 
 verify-gates:
 	@echo "=== Verifying Gate 01: Repo Foundation, Secrets CI & Skeleton ==="
