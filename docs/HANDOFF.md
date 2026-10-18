@@ -20,13 +20,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `05` (`05-passed`, `4638faa`):** Git-versioned declarative YAML baselines (`baselines/`) and deterministic drift comparator.
 - **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver (`data/raw/{falco,audit,hubble,prometheus,trivy}`) ensuring full dataset reproducibility without rerunning.
 - **Ticket `06a` (`06a-passed`):** Staged scenario runner, safety manifest linter, simulated runtime socket path in `/opt/runtimelens-dummy/`, and full 25-run live pilot execution inside `runtimelens-vm` with 100% clean teardown verified.
+- **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`) verified across all 5 telemetry streams.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `09b` (Telemetry Normalizers & Capture-Sufficiency Audit)
-- **Status:** `IN PROGRESS` (Normalizer implementations on `ahead/09b`; auditing against 06a pilot captures)
+- **Active Ticket:** `06b` (Pilot Power Analysis, CI Width Simulation & Design Freeze - Checkpoint E)
+- **Status:** `IN PROGRESS` (Running empirical bootstrap simulation from 06a pilot metrics to lock 06c resource budget)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -38,7 +39,6 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - `ahead/10` (`41673bb`): ScaleDown adapter, XML-delimited state serializer, offline contract tests.
 - `ahead/12b` (`4063954`): Adversarial prompt-injection evaluation harness & 4-defense test suite.
 - `ahead/13a` (`3866a69`): Pure deterministic policy engine & 14-case exhaustive unit test suite.
-- `ahead/09b` (`bda0d0b`): Hubble, Prometheus, and Trivy telemetry normalizers & capture audit.
 - `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
 - `ahead/16c` (`439f6db`): 5-minute live interactive demonstration script & viva defense runbook.
 
