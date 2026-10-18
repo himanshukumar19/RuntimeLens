@@ -13,12 +13,24 @@ from pathlib import Path
 from typing import Any
 
 from runtimelens.collector.per_run_capture import PerRunTelemetryCapture
-from scripts.verify_dataset import audit_run_directory
 
 logger = logging.getLogger("runtimelens.stage2_pilot")
 
 PILOT_RUNS_DIR = Path("data/raw/runs")
 METRICS_OUTPUT_FILE = Path("data/scenarios/pilot_25_metrics.json")
+
+LEAK_KEYWORDS = (
+    "SC-",
+    "privilege_abuse",
+    "container_escape",
+    "cryptomining",
+    "exfiltration",
+    "benign",
+    "run-0",
+    "run-1",
+    "run-2",
+    "run-3",
+)
 
 
 def get_available_ram_mb() -> float:
@@ -420,49 +432,129 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
 
 def verify_per_run_gate(run_dir: Path, is_mining: bool = False) -> tuple[bool, str]:
     """Audit single run directory against per-run capture gate requirements."""
-    audit = audit_run_directory(run_dir)
-    counts = audit["source_counts"]
-    leaks = audit["leak_findings"]
+    counts: dict[str, int] = {}
+    timestamps: list[float] = []
 
-    # 1. Every source must have events
+    # 1. Falco count
+    falco_f = run_dir / "falco" / "events.jsonl"
+    f_cnt = 0
+    if falco_f.exists():
+        with open(falco_f, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    f_cnt += 1
+                    try:
+                        ts = json.loads(line).get("time")
+                        if ts:
+                            timestamps.append(
+                                datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+                            )
+                    except Exception:
+                        pass
+    counts["falco"] = f_cnt
+
+    # 2. Audit count
+    audit_f = run_dir / "audit" / "events.jsonl"
+    a_cnt = 0
+    if audit_f.exists():
+        with open(audit_f, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    a_cnt += 1
+                    try:
+                        d = json.loads(line)
+                        ts = d.get("stageTimestamp") or d.get("requestReceivedTimestamp")
+                        if ts:
+                            timestamps.append(
+                                datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+                            )
+                    except Exception:
+                        pass
+    counts["audit"] = a_cnt
+
+    # 3. Hubble count
+    hubble_f = run_dir / "hubble" / "flows.jsonl"
+    h_cnt = 0
+    if hubble_f.exists():
+        with open(hubble_f, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    h_cnt += 1
+                    try:
+                        ts = json.loads(line).get("flow", {}).get("time")
+                        if ts:
+                            timestamps.append(
+                                datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+                            )
+                    except Exception:
+                        pass
+    counts["hubble"] = h_cnt
+
+    # 4. Prometheus count
+    prom_f = run_dir / "prometheus" / "metrics.json"
+    p_cnt = 0
+    samples: list[dict[str, Any]] = []
+    if prom_f.exists():
+        try:
+            p_data = json.loads(prom_f.read_text(encoding="utf-8"))
+            samples = p_data.get("samples", [])
+            p_cnt = len(samples) if samples else len(p_data.get("pod_stats", []))
+            for s in samples:
+                ts = s.get("timestamp")
+                if ts:
+                    timestamps.append(datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp())
+        except Exception:
+            pass
+    counts["prometheus"] = p_cnt
+
+    # 5. Trivy count
+    trivy_f = run_dir / "trivy" / "report.json"
+    counts["trivy"] = 1 if trivy_f.exists() else 0
+
+    # 6. Check every source has events
     for src in ["falco", "audit", "hubble", "prometheus", "trivy"]:
         if counts[src] < 1:
             return False, f"Missing telemetry from source '{src}': count={counts[src]}"
 
-    # 2. No leak keywords
-    if leaks:
-        return False, f"Telemetry leakage detected: {leaks}"
+    # 7. Leakage scan
+    for src in ["falco", "audit", "hubble", "prometheus"]:
+        src_path = run_dir / src
+        for t_file in src_path.glob("*"):
+            if t_file.is_file():
+                content = t_file.read_text(encoding="utf-8")
+                for kw in LEAK_KEYWORDS:
+                    if kw in content:
+                        rel = t_file.relative_to(run_dir)
+                        return (
+                            False,
+                            f"Telemetry leakage detected: '{kw}' in {rel}",
+                        )
 
-    # 3. For mining: at least 8 samples and duration >= 115s
+    # 8. Duration calculation
+    calc_dur = 0.0
+    if len(timestamps) >= 2:
+        calc_dur = round(max(timestamps) - min(timestamps), 2)
+
+    # 9. Mining duration & sample check
     if is_mining:
         if counts["prometheus"] < 8:
             return False, f"Mining cAdvisor samples insufficient: {counts['prometheus']} < 8"
-        if audit["calculated_duration_seconds"] < 115.0:
-            return (
-                False,
-                f"Mining duration too short: {audit['calculated_duration_seconds']}s < 120s",
-            )
+        if calc_dur < 115.0:
+            return False, f"Mining duration too short: {calc_dur}s < 120s"
 
-    # 4. cAdvisor sample gaps over 20s flagged
-    prom_file = run_dir / "prometheus" / "metrics.json"
-    if prom_file.exists():
-        try:
-            p_data = json.loads(prom_file.read_text(encoding="utf-8"))
-            samples = p_data.get("samples", [])
-            if len(samples) >= 2:
-                for idx in range(len(samples) - 1):
-                    t1 = datetime.fromisoformat(
-                        samples[idx]["timestamp"].replace("Z", "+00:00")
-                    ).timestamp()
-                    t2 = datetime.fromisoformat(
-                        samples[idx + 1]["timestamp"].replace("Z", "+00:00")
-                    ).timestamp()
-                    gap = t2 - t1
-                    if gap > 25.0:  # Allow small buffer on 20s
-                        msg = f"cAdvisor gap {gap:.1f}s > 20s at sample {idx + 1}"
-                        return False, msg
-        except Exception as e:
-            logger.warning("Could not check cAdvisor gap: %s", e)
+    # 10. cAdvisor sample gap check
+    if len(samples) >= 2:
+        for idx in range(len(samples) - 1):
+            t1 = datetime.fromisoformat(
+                samples[idx]["timestamp"].replace("Z", "+00:00")
+            ).timestamp()
+            t2 = datetime.fromisoformat(
+                samples[idx + 1]["timestamp"].replace("Z", "+00:00")
+            ).timestamp()
+            gap = t2 - t1
+            if gap > 25.0:
+                msg = f"cAdvisor gap {gap:.1f}s > 20s at sample {idx + 1}"
+                return False, msg
 
     return True, "CLEAN"
 
