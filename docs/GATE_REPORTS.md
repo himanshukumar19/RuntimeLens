@@ -750,6 +750,9 @@ tests/unit/test_baseline.py .....                                        [100%]
 
 ## Gate Report: Ticket 09a — Raw Telemetry Capture Setup (Hubble, Prometheus, Trivy)
 
+> **GATE STATUS: NEEDS RE-VERIFICATION (2026-10-18)**
+> **Investigation Finding:** `RawTelemetryArchiver` file writer is valid Python, but `make capture-check` tested only in-memory synthetic samples written by `create_sample_raw_captures()`. Neither Prometheus nor metrics-server was deployed, and Hubble flows were not queried from live pods. Requires live re-verification under Stage 1 of Remediation Plan A-006.
+
 ### 1. Plain-Language Explanation
 - **What was built:**
   - Implemented the unified `RawTelemetryArchiver` (`src/runtimelens/collector/raw_capture.py`) managing append-only, size-capped rotated JSONL telemetry archives for all five live sources (`falco/`, `audit/`, `hubble/`, `prometheus/`, `trivy/`).
@@ -1003,6 +1006,9 @@ tests/unit/test_raw_capture.py .                                         [100%]
 
 ## Gate Report: Ticket 06a — Live Cluster Pilot Scenario Run (Checkpoint D1 & D2)
 
+> **GATE STATUS: FORMALLY INVALIDATED (2026-10-18)**
+> **Investigation Finding (docs/DATASET_INVESTIGATION.md & Decision D-20):** The pilot runner executed short shell commands (1–5s) and appended synthetic single-line dictionaries to Falco only. Real multi-source daemon telemetry was not captured, and mining did not run for the 120s required by the labeling guide. Tag `06a-passed` is retained for historical traceability only. Re-run scheduled under Stage 2 of Remediation Plan A-006.
+
 ### 1. Plain-Language Explanation
 - **What was built:**
   - Implemented the staged scenario runner (`src/runtimelens/scenarios/runner.py`) executing a staged ramp: Stage 1 dry-run safety lint, Stage 2 ramp-5 (1 run per threat class), and Stage 3 full 25-run stratified pilot.
@@ -1076,6 +1082,9 @@ Cilium: OK | Operator: OK | Envoy: OK | Hubble Relay: OK | 17/17 Pods Managed
 
 ## Gate Report: Ticket 09b — Telemetry Normalizers & Capture-Sufficiency Audit
 
+> **GATE STATUS: NEEDS RE-VERIFICATION (2026-10-18)**
+> **Investigation Finding:** Normalizer code is valid and unit-tested, but `audit_capture.py` ran against synthetic in-memory samples and synthetic pilot Falco events rather than genuine cluster-collected multi-source runs. Requires re-verification under Stage 1 of Remediation Plan A-006.
+
 ### 1. Plain-Language Explanation
 - **What was built:**
   - Implemented the Hubble network flow normalizer (`src/runtimelens/normalizer/hubble.py`) parsing raw Cilium JSON events into `NetworkContext` (`destination_ip`, `destination_port`, `protocol`, `verdict`, `dns_query`) and extracting deterministic network facts (`is_cross_tenant_flow`, `is_outbound_egress`).
@@ -1132,6 +1141,9 @@ make test
 ---
 
 ## Gate Report: Ticket 06b — Pilot Analysis, Power Estimate & Design Freeze (Checkpoint E)
+
+> **GATE STATUS: FORMALLY INVALIDATED (2026-10-18)**
+> **Investigation Finding (docs/DATASET_INVESTIGATION.md & Decision D-20):** Bootstrap simulation was computed from `numpy.random.normal()` synthetic numbers rather than resampling model predictions on real pilot events. The reported CI half-width of $\pm 0.0135$ and power of 1.0 were artifacts of the synthetic normal generator. All power and CI figures are to be set after a real pilot under Stage 3 of Remediation Plan A-006. Tag `06b-passed` is retained for historical traceability only.
 
 ### 1. Plain-Language Explanation
 - **What was built:**
@@ -1197,6 +1209,9 @@ tests/unit/test_pilot_power.py ..                                        [100%]
 ---
 
 ## Gate Report: Ticket 06c — Full Live Cluster Scenario Dataset Generation (Checkpoint F)
+
+> **GATE STATUS: FORMALLY INVALIDATED (2026-10-18)**
+> **Investigation Finding (docs/DATASET_INVESTIGATION.md & Decision D-20):** Runs executed for only 1–2s, mining ran 2s instead of 120s, and telemetry was synthetically injected into Falco only, with zero collection across audit, Hubble, Prometheus, and Trivy. The dataset is invalid. All data quarantined under `data/invalid_v0/`. Tag `06c-passed` is retained for historical traceability only. Re-generation scheduled under Stage 4 of Remediation Plan A-006.
 
 ### 1. Plain-Language Explanation
 - **What was built:**
@@ -1265,6 +1280,9 @@ No resources found
 
 ## Gate Report: Ticket 07 — Dataset Partitioning, Leakage Test & Manifest Hash (Checkpoint G)
 
+> **GATE STATUS: FORMALLY INVALIDATED (2026-10-18)**
+> **Investigation Finding (docs/DATASET_INVESTIGATION.md & Decision D-20):** Manifest partition was generated from the synthetic 400-run dataset. The CI leakage test asserted set-theoretic disjointness of string IDs, but failed to test the feature extractor, which suffered 100% label and scenario metadata leakage. Tag `07-passed` is retained for historical traceability only. Re-partitioning and new manifest lock (`manifest_v2.json`) scheduled under Stage 4 of Remediation Plan A-006.
+
 ### 1. Plain-Language Explanation
 - **What was built:**
   - Implemented the deterministic dataset partitioning module (`src/runtimelens/data/split.py`) dividing the 400 live cluster runs into a stratified 72% Development split (288 runs) and 28% Held-out Test split (112 runs).
@@ -1325,6 +1343,9 @@ make verify-gates
 ---
 
 ## Gate Report: Ticket 08 — Random Forest Baseline & Bootstrap Harness
+
+> **GATE STATUS: FORMALLY INVALIDATED (2026-10-18)**
+> **Investigation Finding (docs/DATASET_INVESTIGATION.md & Decision D-20):** The feature extractor (`extractor.py`) derived features directly from `scenario_id` and `run_item["class"]` (ground truth label leakage). The model achieved Macro-F1 = 1.0 because it was handed the ground truth label. CV was un-grouped. The model and performance numbers are invalid. Tag `08-passed` is retained for historical traceability only. Re-training scheduled under Stage 4 of Remediation Plan A-006.
 
 ### 1. Plain-Language Explanation
 - **What was built:**

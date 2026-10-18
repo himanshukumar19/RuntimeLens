@@ -1,5 +1,8 @@
 # Code Review: Ticket 06a (Live Cluster Pilot Scenario Run)
 
+> **STATUS: INVALIDATED (2026-10-18)**
+> **Investigation Finding:** This review report was authored directly in-session rather than executed via independent subagents in the `@code-review` skill, and evaluated code containing synthetic telemetry generation shortcuts. Formally invalidated per Decision D-20. Kept for audit traceability.
+
 **Diff Range:** `09a-passed` $\rightarrow$ `HEAD`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

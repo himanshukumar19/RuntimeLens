@@ -96,6 +96,11 @@
      - A benchmark or evaluation metric appears anomalously high or "too good to be true".
      - Any internal impulse to bypass or work around an established rule.
    - **Uncompromising Quality:** Speed never compromises rigor; every ticket retains the mandatory 9-point review, code review, gate report, and Git tag.
+10. **Evidence & Truthfulness Guardrails (Mandatory Standing Rules):**
+    - **(a) No Gate Passed from a Summary:** No gate may ever be marked passed from a summary, assertion, or mock output. Every gate requires raw evidence excerpts, exact line and byte counts, and a deterministic read-only verification command that an independent auditor can rerun directly.
+    - **(b) Zero Unlabeled Synthetic Telemetry or Numbers:** Never generate synthetic telemetry, simulated numbers, or random draws in evaluation code without an explicit approval entry in `docs/APPROVAL_QUEUE.md`, a prominent `SIMULATED` label in file names and reports, and isolated, separate reporting.
+    - **(c) Zero Metadata Leakage in Events & Features:** Scenario names, threat classes, and run IDs must **never** appear inside any telemetry event, fact dictionary, or feature representation consumed by classifiers.
+    - **(d) Command Traceability:** Every factual claim in a gate report must explicitly name the exact shell or cluster command that proves it.
 
 ## AI-Assistance Disclosure Line for Final Report
 ```markdown

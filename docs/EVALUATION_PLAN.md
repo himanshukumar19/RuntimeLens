@@ -6,7 +6,7 @@ Before running final evaluation on the frozen held-out test set, this protocol f
 - **Primary Metric:** Macro-averaged F1 score ($\text{Macro-F1}$) across all 5 classes (`benign`, `container_escape`, `privilege_abuse`, `cryptomining`, `unknown`).
 - **Primary Hypothesis ($H_1$):** Adding per-workload behavioural baseline context to the ScaleDown typed-decision model produces a statistically significant change in Macro-F1 ($\Delta\text{Macro-F1} \neq 0$) and/or benign False Positive Rate ($\Delta\text{FPR}$) compared to the identical model without baseline context.
 - **Paired Evaluation:** The primary hypothesis evaluates a **strictly paired comparison** on identical scenario runs with baseline context ON versus OFF.
-- **Minimum Meaningful Effect Size Calibration:** The target minimum effect size (preliminarily targeted at $|\Delta\text{Macro-F1}| \ge 0.05$ or a $\ge 50\%$ benign FPR reduction) will be formally calibrated and finalized **after analyzing variance and simulation results on the 20–30 run pilot dataset**.
+- **Minimum Meaningful Effect Size Calibration:** The target minimum effect size is **to be set after a real pilot** (calibrated and finalized after analyzing variance and simulation results on the real 20–30 run pilot dataset under Remediation Plan A-006).
 - **Exploratory Designation:** If the pilot power analysis indicates that the 400-run budget provides insufficient statistical power ($<0.80$) to detect the calibrated effect size, the primary claim will be **pre-designated and reported as exploratory** rather than confirmatory, with full transparency regarding wide confidence intervals.
 - **Secondary Comparisons:**
   1. ScaleDown Classify-1 vs Scikit-Learn Classical Random Forest Baseline.

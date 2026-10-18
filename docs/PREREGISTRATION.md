@@ -13,8 +13,8 @@
 - **Core Research Question:** Does providing per-workload behavioural baseline context to a constrained typed-decision model improve detection accuracy and reduce false positives for runtime and orchestration threats in multi-tenant Kubernetes?
 - **Primary Hypothesis ($H_1$ - Paired Evaluation):** Evaluating container runtime incidents with workload baseline context yields a statistically significant improvement in Macro-averaged F1 score ($\Delta\text{Macro-F1} = \text{Macro-F1}_{\text{baseline}} - \text{Macro-F1}_{\text{no-baseline}} > 0$) and/or benign False Positive Rate ($\Delta\text{FPR} < 0$) compared to the identical classifier evaluated on the exact same runs without baseline context.
 - **Minimum Meaningful Effect Size Protocol:**
-  - The minimum meaningful effect size (preliminarily targeted at $|\Delta\text{Macro-F1}| \ge 0.05$ or a $\ge 50\%$ benign FPR reduction) is **calibrated and formally set after analyzing empirical variance on the 20–30 run pilot dataset**.
-  - **Exploratory Designation:** If simulation on the pilot dataset indicates that statistical power is insufficient ($< 0.80$) to detect the calibrated effect size within the 400-run budget, the primary research claim is **pre-committed to be marked as exploratory**, with full reporting of confidence intervals and sample size limitations.
+  - The minimum meaningful effect size (preliminarily targeted at a meaningful positive shift in Macro-F1 or a $\ge 50\%$ benign FPR reduction) is **to be set after a real pilot** (calibrated after analyzing empirical variance on the real 20–30 run pilot dataset under Remediation Plan A-006).
+  - **Exploratory Designation:** If simulation on the real pilot dataset indicates that statistical power is insufficient ($< 0.80$) to detect the calibrated effect size within the 400-run budget, the primary research claim is **pre-committed to be marked as exploratory**, with full reporting of confidence intervals and sample size limitations.
 
 ## 2. Metric Hierarchy
 
@@ -39,11 +39,11 @@
 | **Secondary 2** | ScaleDown Classify-1 (with Baseline) | Default Falco Rule-Based Engine | Incident-level McNemar test on paired held-out predictions | Holm-Bonferroni |
 
 ## 4. Dataset Partitioning, Pilot & Air-Gap Enforcement
-1. **Pilot Study & Empirical Calibration:** A stratified pilot of **25 runs** was executed on 2026-10-18 across all 5 classes and 3 paired counterfactual families. It verified unmanipulated capture across all 5 raw telemetry streams and provided empirical metrics for bootstrap simulation.
-   - **Empirical 400-Run Budget:** Mean elapsed time = 3.34s; estimated active execution time = 22.3 minutes (~0.4 hours); recommended operational envelope with buffer = 27.9 minutes (~0.5 hours); peak VM RAM = 25.2% (1.46 GiB, headroom > 4.3 GiB); estimated raw telemetry disk growth = 0.57 MB.
-   - **Bootstrap Power & CI Simulation (1,000 resamples):** 95% bootstrap CI half-width evaluates to $\pm 0.0135$ (satisfying the pre-registered requirement $\le \pm 0.08$); estimated statistical power is 1.0 (exceeding the 0.80 threshold).
-   - **Calibrated Effect Size:** Minimum meaningful effect size is formally locked at $|\Delta\text{Macro-F1}| \ge 0.05$.
-   - **Design Freeze:** Scenarios, manifests, and 5-source raw archiving architecture are permanently frozen for the 400-run dataset generation.
+1. **Pilot Study & Calibration Protocol (Remediation A-006):** A genuine live pilot of **20–30 runs** will be executed across all classes and paired counterfactuals with genuine duration execution (including 120s sustained CPU for mining) and verified live multi-source capture before running the full dataset.
+   - **Empirical 400-Run Budget:** To be set after a real pilot.
+   - **Bootstrap Power & CI Width Simulation:** To be set after a real pilot.
+   - **Calibrated Effect Size:** To be set after a real pilot.
+   - **Design Freeze:** Frozen only after human review and approval of the real pilot empirical budget.
 2. **Total Sample Size:** **400 independent live cluster runs** (yielding 400 incidents, 1 per run). Raw data from all 5 sources (Falco, audit, Hubble, Prometheus, Trivy) is archived from run 1.
 3. **Partitioning:** Grouped strictly by `run_id` and scenario variant:
    - **Dev Split:** 72% (~288 runs), used for training classical ML, prompt tuning, and threshold calibration.

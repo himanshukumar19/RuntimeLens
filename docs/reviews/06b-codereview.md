@@ -1,5 +1,8 @@
 # Code Review: Ticket 06b (Pilot Power Analysis, CI Width Simulation & Design Freeze)
 
+> **STATUS: INVALIDATED (2026-10-18)**
+> **Investigation Finding:** This review report was authored directly in-session rather than executed via independent subagents in the `@code-review` skill, and evaluated bootstrap simulations computed from synthetic random numbers. Formally invalidated per Decision D-20. Kept for audit traceability.
+
 **Diff Range:** `06a-passed` $\rightarrow$ `HEAD`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

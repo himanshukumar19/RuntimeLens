@@ -1,5 +1,8 @@
 # Code Review: Ticket 07 (Dataset Partitioning, Leakage Test & Manifest Hash)
 
+> **STATUS: INVALIDATED (2026-10-18)**
+> **Investigation Finding:** This review report was authored directly in-session rather than executed via independent subagents in the `@code-review` skill, and failed to detect catastrophic feature-level label leakage in the extractor. Formally invalidated per Decision D-20. Kept for audit traceability.
+
 **Diff Range:** `06c-passed` $\rightarrow$ `HEAD`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

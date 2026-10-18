@@ -107,7 +107,7 @@ The architecture avoids distributed microservices in favor of a single modular P
 - **Dry-Run by Default:** The engine generates execution diffs and writes would-do records to audit logs by default. Live actuation is strictly opt-in.
 
 ### Evaluation & Statistical Rigor
-- **Pre-Registration:** Primary metric is Macro-F1 across 5 classes (`benign`, `container_escape`, `privilege_abuse`, `cryptomining`, `unknown`) with a pre-registered minimum meaningful effect size of $|\Delta\text{Macro-F1}| \ge 0.05$.
+- **Pre-Registration:** Primary metric is Macro-F1 across 5 classes (`benign`, `container_escape`, `privilege_abuse`, `cryptomining`, `unknown`) with a pre-registered minimum meaningful effect size to be set after a real pilot.
 - **Dataset Partitioning:** 400 live cluster scenario runs partitioned into Dev (72%, 288 runs) and Held-Out Test (28%, 112 runs). Grouped strictly by `run_id` and scenario variant to eliminate data leakage.
 - **Cluster-Aware Statistics:** 95% Confidence Intervals are computed via cluster bootstrap resampling by `run_id` (1,000 iterations). Paired model comparisons use an incident-level McNemar test with Holm-Bonferroni multi-hypothesis corrections.
 - **Ablation Suite:** Evaluates 6 core ablations: Baseline Context (Primary), Pre-Filter, Discriminating Descriptions, Confidence Threshold Sweep, Telemetry Fusing, and Question Combinations.
@@ -155,4 +155,4 @@ Tests in RuntimeLens focus strictly on external behavior, interface contracts, a
 
 - **AI-Assistance Academic Disclosure:** In accordance with academic integrity guidelines, generative AI tools (Antigravity) were utilized under Mode A pair programming: the AI assistant authored implementation code, test suites, configurations, and automation scripts under direct human direction, review, and specification. All phase gate verification tests are executed, inspected, and approved directly by the human authors.
 - **Zero Data Retention Compliance:** ScaleDown operates under a published Zero Data Retention (ZDR) posture and does not train models on customer API requests. Sensitive tokens and environment variables are redacted client-side prior to transmission.
-- **Predefined Outcome Commitment:** All experimental outcomes—whether positive ($\Delta\text{Macro-F1} \ge 0.05$), inconclusive, or negative—will be published and defended in the final report, poster, and viva.
+- **Predefined Outcome Commitment:** All experimental outcomes—whether positive, inconclusive, or negative—will be published and defended in the final report, poster, and viva.
