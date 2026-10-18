@@ -49,7 +49,7 @@ def run_proof_execution() -> int:
     t0_benign_iso = t0_benign.isoformat().replace("+00:00", "Z")
     print(f"  t_start: {t0_benign_iso}")
 
-    # Real exec command on live tenant pod
+    # Real exec command on live tenant pod (with DNS ping to trigger Hubble flow)
     cmd_benign = [
         "kubectl",
         "exec",
@@ -59,7 +59,7 @@ def run_proof_execution() -> int:
         "--",
         "/bin/sh",
         "-c",
-        "uptime",
+        "uptime && nc -z -w 1 10.96.0.10 53 || true",
     ]
     res_b = subprocess.run(cmd_benign, capture_output=True, text=True, check=False)
     print(f"  Exec Output: {res_b.stdout.strip()}")
@@ -114,9 +114,9 @@ def run_proof_execution() -> int:
     print(f"  t_start: {t0_mining_iso}")
 
     # Genuine 120-second CPU busy loop throttled by container cgroup quota to 500m
-    # Connecting to port 3333
+    # Connecting to cluster service port 3333 to emit network flow
     cmd_mining = (
-        "nc -z -w 2 127.0.0.1 3333 || true; "
+        "nc -z -w 2 10.96.0.1 3333 || true; "
         "while true; do :; done & PID=$!; "
         "sleep 120; kill $PID 2>/dev/null || true"
     )
