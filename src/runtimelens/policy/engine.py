@@ -79,8 +79,12 @@ def evaluate_policy(
             dry_run=dry_run,
         )
 
-    if c_class == "benign" and (
-        flags.get("baseline_deviation", 0.0) > 0.6 or flags.get("resource_exposure", 0.0) > 0.6
+    if (
+        not event.edge_case
+        and c_class == "benign"
+        and (
+            flags.get("baseline_deviation", 0.0) > 0.6 or flags.get("resource_exposure", 0.0) > 0.6
+        )
     ):
         return PolicyDecision(
             action="human_review",
@@ -116,11 +120,21 @@ def evaluate_policy(
         )
 
     # 3. Confidence & Severity Action Tiers
-    # Low confidence (< 0.70) routes to human review (applies only to statistical ML/SLM models)
+    # Low confidence (< 0.70) routes to human review (applies only to calibrated models;
+    # confidence=None for rule baselines bypasses this gate)
     if classification.confidence is not None and classification.confidence < 0.70:
         return PolicyDecision(
             action="human_review",
             reason_codes=["LOW_CONFIDENCE_GATE"],
+            policy_version="v1.0.0",
+            dry_run=dry_run,
+        )
+
+    # Low-priority alert for unconfirmed identity file read (fires BEFORE benign log action)
+    if "sensitive_identity_file_access" in baseline.deviations and classification.severity <= 2.5:
+        return PolicyDecision(
+            action="alert",
+            reason_codes=["LOW_SEVERITY_IDENTITY_READ_ALERT"],
             policy_version="v1.0.0",
             dry_run=dry_run,
         )

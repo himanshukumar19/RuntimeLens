@@ -48,9 +48,19 @@ cilium status --wait
 echo "[4/7] Deploying Falco with modern eBPF and JSON output..."
 helm repo add falcosecurity https://falcosecurity.github.io/charts
 helm repo update
+
+# Ensure Kubernetes Secret exists for Falco webhook token
+if ! kubectl get secret -n falco falco-webhook-token &>/dev/null; then
+    kubectl create namespace falco --dry-run=client -o yaml | kubectl apply -f -
+    NEW_TOKEN=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    kubectl create secret generic falco-webhook-token -n falco --from-literal=token="$NEW_TOKEN"
+fi
+FALCO_TOKEN=$(kubectl get secret -n falco falco-webhook-token -o jsonpath='{.data.token}' | base64 -d)
+
 helm upgrade --install falco falcosecurity/falco \
     --namespace falco --create-namespace \
-    --values lab/falco/falco-values.yaml
+    --values lab/falco/falco-values.yaml \
+    --set falco.http_output.url="http://172.18.0.1:8765/falco?token=${FALCO_TOKEN}"
 kubectl rollout status daemonset/falco -n falco --timeout=180s
 
 # 5. Deploy Tenant Namespaces, Quotas, and NetworkPolicies

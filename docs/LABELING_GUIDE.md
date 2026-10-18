@@ -29,13 +29,16 @@ RuntimeLens operates a dual-level labeling structure:
 ### 2.2 `container_escape`
 - **Definition:** Actions attempting to access or compromise the underlying host kernel, host filesystems, container runtime daemons, or unshared host namespaces.
 - **Observable Evidence:**
-  - Accessing host runtime socket (`/var/run/docker.sock`, `containerd.sock`) or host filesystem paths (`/proc/sys`, `/etc/shadow`, `/sys/kernel`, `/dev/kmem`).
-  - Container executing with `privileged: true` or invoking namespace traversal (`setns`, `nsenter`).
+  - Evidence derived strictly from verified pod-spec facts:
+    - Volume mounts referencing host runtime sockets (`/var/run/docker.sock`, `containerd.sock`) via `hostPath`.
+    - Volume mounts referencing sensitive host filesystems (`/proc/sys`, `/sys/kernel`, `/dev/kmem`, host `/etc/kubernetes`) via `hostPath`.
+    - Container executing with `privileged: true` or unshared host namespaces (`hostPID: true`, `hostNetwork: true`).
+    - Verified namespace traversal syscalls (`setns`, `unshare`).
   - Verified Falco rule triggers from pinned ruleset:
-    - `Launch Sensitive Mount Container`
-    - `Read sensitive file untrusted`
-    - `Change thread namespace`
-    - `Write below etc`
+    - `Detect release_agent File Container Escapes`
+    - `Debugfs Launched in Privileged Container`
+    - `Linux Kernel Module Injection Detected`
+    - Custom lab rule: `Launch Sensitive Mount Container` (specifically tagging verified host socket mounts in lab escape scenarios)
 
 ### 2.3 `privilege_abuse`
 - **Definition:** Misuse of Kubernetes orchestration-layer permissions, unauthorized service account token reads, cross-tenant Secret exfiltration, or unauthorized pod exec.
@@ -45,7 +48,14 @@ RuntimeLens operates a dual-level labeling structure:
   - Invoking `pods/exec` into a pod belonging to another tenant or unauthorized workload.
   - Kubernetes Audit log captures: `403 Forbidden` on sensitive verbs or unexpected `200 OK` on unauthorized cross-tenant resources.
 
-### 2.4 `cryptomining`
+### 2.4 Diagnostic Edge-Case Family: `reconnaissance-unconfirmed` (Isolated Sensitive File Reads)
+- **Constraint on Unknown:** The `unknown` label is reserved strictly for incomplete, dropped, or corrupted telemetry (`missing_sources`, `telemetry_degraded`).
+- **Ground Truth Rule:** A plain read of `/etc/shadow` or `/etc/passwd` inside an unprivileged container with no host mounts and no shell deviation is unconfirmed container reconnaissance. It does NOT constitute `container_escape` (no host access) nor `privilege_abuse` (no cluster orchestration privilege misuse).
+- **Reporting Protocol:** It is tagged via the `edge_case: true` flag in the schema, partitioned into a separate diagnostic edge-case family (`reconnaissance-unconfirmed`, Severity 2.0 / Low), and reported **apart from the primary 5-class evaluation metrics**.
+- **Command Execution Note:** The exact execution syntax in a scenario changes the classification: invoking `/bin/sh -c "cat /etc/shadow"` spawns an interactive shell process (triggering shell rules and baseline deviation), whereas invoking `/bin/cat /etc/shadow` directly spawns `cat` with zero shell process involvement, isolating the file read.
+- **Escalation Requirements:** It is labeled `privilege_abuse` only when accompanied by unauthorized service account token extraction or Kubernetes API credential misuse. It is labeled `container_escape` only if the file was mounted from the host via a verified `hostPath` volume.
+
+### 2.5 `cryptomining`
 - **Definition:** Unauthorized compute resource exhaustion coupled with anomalous execution and unauthorized egress communication.
 - **Multi-Signal Requirement:** To prevent false positives and trivial heuristic shortcuts, **at least two (2) out of the following three (3) corroborating signals are strictly required** for the `cryptomining` label:
   1. *Relative CPU Anomaly:* Sustained container CPU rate exceeding the workload baseline envelope by $\ge 3\times$ or sustained $>80\%$ of container CPU quota where baseline average is $<25\%$.
@@ -53,7 +63,7 @@ RuntimeLens operates a dual-level labeling structure:
   3. *Unauthorized Egress:* Outbound network connection to an IP/host not present in `baseline.expected_peers`.
 - **Anti-Shortcut / Port Guardrail:** Port numbers (e.g. 3333, 4444, 8333) alone are **NEVER** accepted as sole evidence of cryptomining. Paired benign scenarios run on identical ports (e.g. benign analytics worker connecting on port 3333) to verify that classification models cannot rely on port numbers as a shortcut.
 
-### 2.5 `unknown`
+### 2.6 `unknown`
 - **Definition:** Telemetry is incomplete, degraded, dropped, or corrupted **by design**, such that the evidence is insufficient to render a verified threat classification. (Conflict-based scenarios are excluded from `unknown`; genuine conflicting evidence routes to human review under policy, not threat-class re-labeling).
 - **Observable Evidence (Strictly Telemetry Impairment):**
   - Collector failure, sensor disconnected, or dropped audit stream (`missing_sources: ["k8s_audit"]`, `telemetry_degraded: true`).

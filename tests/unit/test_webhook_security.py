@@ -153,10 +153,11 @@ def test_webhook_request_logging_never_records_tokens(
 
             # Assert canary secret token NEVER appears anywhere in captured logger output
             assert secret_val not in caplog.text
+            assert all(secret_val not in r.message for r in caplog.records)
 
             # Assert sanitized path and status DO appear
-            assert "method=POST path=/falco status=200" in caplog.text
-            assert "request_id=" in caplog.text
+            assert any("method=POST path=/falco status=200" in r.message for r in caplog.records)
+            assert any("request_id=" in r.message for r in caplog.records)
     finally:
         server.shutdown()
         server.server_close()

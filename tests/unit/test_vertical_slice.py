@@ -125,9 +125,14 @@ def test_pod_without_host_mounts_never_produces_host_mount_facts() -> None:
         assert record.event.facts.sensitive_host_path_mounted is False
         assert "OVERRIDE_HOST_PATH_MOUNTED" not in record.decision.reason_codes
 
-        # Correct classification is privilege_abuse (unauthorized identity file read), not escape
-        assert record.classification.predicted_class == "privilege_abuse"
+        # Correct classification for unconfirmed reconnaissance is benign (severity 2.0 / low)
+        assert record.classification.predicted_class == "benign"
+        assert record.classification.severity == 2.0
         assert "sensitive_identity_file_access" in record.event.baseline.deviations
+
+        # Low-severity identity-read alert fires before benign log
+        assert record.decision.action == "alert"
+        assert record.decision.reason_codes == ["LOW_SEVERITY_IDENTITY_READ_ALERT"]
 
         # Image digest contains real sha256, not raw tag
         assert "@sha256:" in record.event.workload.image_digest
@@ -290,3 +295,113 @@ def test_audit_hash_chain_tamper_detection() -> None:
     finally:
         if log_path.exists():
             log_path.unlink()
+
+
+def test_policy_confidence_none_bypasses_gate() -> None:
+    """Prove confidence=None does not trigger LOW_CONFIDENCE_GATE and evaluates threat class."""
+    from runtimelens.models.decision import ClassificationResult
+    from runtimelens.normalizer.falco import normalize_falco_event
+    from runtimelens.policy.engine import evaluate_policy
+
+    raw_event = {
+        "output": "Test shell execution",
+        "output_fields": {"k8s.ns.name": "tenant-a", "proc.cmdline": "/bin/sh"},
+        "time": "2026-10-18T00:00:00Z",
+    }
+    event = normalize_falco_event(raw_event)
+    classification = ClassificationResult(
+        predicted_class="privilege_abuse",
+        severity=3.8,
+        confidence=None,  # Rule heuristic (None)
+        classifier_type="rules",
+        model_version="rules_context_v1",
+        evidence_flags={"baseline_deviation": 1.0, "shell_unexpected": 1.0},
+    )
+    decision = evaluate_policy(classification, event, dry_run=True)
+    assert decision.action == "alert"
+    assert "LOW_CONFIDENCE_GATE" not in decision.reason_codes
+
+
+def test_policy_identity_read_alert_order() -> None:
+    """Prove identity-read alert fires for benign classification before the log-only action."""
+    from runtimelens.models.decision import ClassificationResult
+    from runtimelens.normalizer.falco import normalize_falco_event
+    from runtimelens.policy.engine import evaluate_policy
+
+    raw_event = {
+        "output": "Test identity file read",
+        "output_fields": {
+            "k8s.ns.name": "tenant-a",
+            "proc.cmdline": "cat /etc/shadow",
+            "fd.name": "/etc/shadow",
+        },
+        "time": "2026-10-18T00:00:00Z",
+    }
+    event = normalize_falco_event(raw_event)
+    assert "sensitive_identity_file_access" in event.baseline.deviations
+
+    classification = ClassificationResult(
+        predicted_class="benign",
+        severity=2.0,
+        confidence=None,
+        classifier_type="rules",
+        model_version="rules_context_v1",
+    )
+    decision = evaluate_policy(classification, event, dry_run=True)
+    assert decision.action == "alert"
+    assert decision.reason_codes == ["LOW_SEVERITY_IDENTITY_READ_ALERT"]
+
+
+def test_policy_baseline_in_scope_and_identity_read_alert() -> None:
+    """Prove baseline is in scope and directly drives the identity-read alert."""
+    from runtimelens.models.decision import ClassificationResult
+    from runtimelens.normalizer.falco import normalize_falco_event
+    from runtimelens.policy.engine import evaluate_policy
+
+    raw_event = {
+        "output": "Test baseline in scope",
+        "output_fields": {
+            "k8s.ns.name": "tenant-a",
+            "proc.cmdline": "cat /etc/shadow",
+            "fd.name": "/etc/shadow",
+        },
+        "time": "2026-10-18T00:00:00Z",
+    }
+    event = normalize_falco_event(raw_event)
+    classification = ClassificationResult(
+        predicted_class="benign",
+        severity=2.0,
+        confidence=None,
+        classifier_type="rules",
+        model_version="rules_context_v1",
+    )
+    # If baseline is in scope, it must evaluate event.baseline.deviations and trigger alert
+    decision = evaluate_policy(classification, event, dry_run=True)
+    assert decision.action == "alert"
+    assert "LOW_SEVERITY_IDENTITY_READ_ALERT" in decision.reason_codes
+
+
+def test_policy_rules_benign_with_none_confidence_logs() -> None:
+    """Prove benign rule output with confidence=None logs normally without routing to review."""
+    from runtimelens.models.decision import ClassificationResult
+    from runtimelens.normalizer.falco import normalize_falco_event
+    from runtimelens.policy.engine import evaluate_policy
+
+    raw_event = {
+        "output": "Test benign operation",
+        "output_fields": {"k8s.ns.name": "tenant-a", "proc.cmdline": "nc -l 8080"},
+        "time": "2026-10-18T00:00:00Z",
+    }
+    event = normalize_falco_event(raw_event)
+    event.baseline.deviations = []  # No deviations
+
+    classification = ClassificationResult(
+        predicted_class="benign",
+        severity=1.0,
+        confidence=None,
+        classifier_type="rules",
+        model_version="rules_context_v1",
+    )
+    decision = evaluate_policy(classification, event, dry_run=True)
+    assert decision.action == "log"
+    assert decision.reason_codes == ["BENIGN_VERIFIED"]
