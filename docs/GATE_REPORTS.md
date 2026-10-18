@@ -705,7 +705,7 @@ head -n 1 /home/ubuntu/vm_outputs/audit/live_audit_webhook_events.jsonl | jq '{k
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/04-1.md` (Status: CLEAN)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `a274d06a9282367d383b19c2bb6f0d92257d07e6`
 - **Git Tag:** `04-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Proceeding within Segment S4 to Ticket `05` (Declarative YAML Baselines & Drift Detector).
