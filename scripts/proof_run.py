@@ -49,6 +49,9 @@ def run_proof_execution() -> int:
     t0_benign_iso = t0_benign.isoformat().replace("+00:00", "Z")
     print(f"  t_start: {t0_benign_iso}")
 
+    # Capture initial cAdvisor sample before exec
+    collector.capture_cadvisor_metrics("web", "tenant-a", run_dir_benign)
+
     # Real exec command on live tenant pod (with DNS ping to trigger Hubble flow)
     cmd_benign = [
         "kubectl",
