@@ -116,9 +116,8 @@ def test_audit_webhook_logging_never_records_tokens(
             assert all(secret_canary not in r.message for r in caplog.records)
 
             # Metadata must be logged
-            assert any(
-                "method=POST path=/k8s-audit status=200" in r.message for r in caplog.records
-            )
+            assert "method=POST path=/k8s-audit status=200" in caplog.text
+            assert "request_id=" in caplog.text
     finally:
         server.shutdown()
         server.server_close()
