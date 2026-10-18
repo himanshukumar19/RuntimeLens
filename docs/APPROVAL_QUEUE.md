@@ -21,23 +21,32 @@
 
 ## Active Approval Items
 
-### Entry `A-005` — Checkpoint H: Human Track R2 Round 2 Blind Review Verification & Dev Tuning Authorization (Ticket 12a)
+### Entry `A-006` — Comprehensive Dataset & Pipeline Remediation Plan (Tickets 06a, 06b, 06c, 07, 08, 12b)
 
-- **Queue ID:** `A-005`
-- **Ticket ID:** `12a` (Dev-Set Equal-Budget Model Tuning, Policy Sweeps & 6 Systematic Ablations)
-- **Status:** `PENDING HUMAN INPUT & AUTHORIZATION`
-- **What:** Verify that teammates Altaf and Kamal have completed the Human Track R2 Round 2 blind review on 60–80 stratified Dev split incidents with inter-annotator agreement meeting or exceeding the pre-registered threshold ($\kappa \ge 0.80$), and authorize beginning Ticket 12a Dev model tuning and ablations with `SCALEDOWN_API_KEY` provided via user-initiated terminal session.
-- **Specification Document:** `docs/LABELING_GUIDE.md` (Section 4) & `docs/PREREGISTRATION.md`
+- **Queue ID:** `A-006`
+- **Ticket ID:** `06a-08 Remediation` (Pillars 1 to 5)
+- **Status:** `PENDING HUMAN REVIEW & DECISION`
+- **Specification Document:** `docs/DATASET_INVESTIGATION.md`
+- **What:** Authorize executing the comprehensive 5-pillar dataset and pipeline remediation plan:
+  1. *Genuine Multi-Source Live Telemetry Runner:* Real container execution for authentic durations (120s sustained CPU for cryptomining; 15–30s for standard probes) writing directly into **per-run directories** (`data/raw/runs/<run_id>/<source>/`) from live cluster daemons (Falco logs, audit webhook stream, Hubble observe flows, Prometheus cAdvisor metrics, Trivy scan reports).
+  2. *Enforced Per-Run Capture-Sufficiency Gate:* Automated assertion verifying minimum real event counts across all 5 streams before advancing to the next run.
+  3. *Enforced Dataset-Validity & Anti-Leakage Gate:*
+     - Feature extractor accepts only `CanonicalEvent` and `BaselineContext` objects (zero access to scenario IDs, ground truth labels, or metadata).
+     - Automated label-permutation test asserting $F1 \approx \text{chance}$ (baseline validity).
+     - Group-wise cross-validation (`GroupKFold`) grouped strictly by scenario variant.
+     - Single-feature predictive ceiling ($\le 0.65$ Macro-F1).
+  4. *Empirical Budgeting on New Pilot:* Execute a genuine 25-run pilot with 120s cryptomining runs and measure authentic wall-clock time, disk bytes per run, and RAM utilization under sustained load.
+  5. *Documented Pre-Registration Deviation:* Record remediation in `docs/PREREGISTRATION.md`, generate a new manifest (`manifest_v2.json`) with new SHA-256 air-gap lock, and evaluate test split strictly once at 12c.
 - **What It Changes:**
-  - Unblocks model tuning on the 72% Development split (288 runs).
-  - Evaluates the 6 pre-registered systematic ablations (Primary: Baseline on/off).
-  - Tunes confidence thresholds and risk-coverage curves on Dev data.
+  - Discards synthetic single-file logs in favor of authentic per-run multi-source telemetry directories.
+  - Re-architects feature extraction to eliminate ground truth label leakage.
+  - Establishes genuine empirical baselines for classical ML and SLM evaluation.
 - **Undo / Rollback:**
-  - Test set remains 100% untouched and air-gapped; all tuning affects only Dev artifacts.
+  - Current synthetic data quarantined safely under `data/invalid_v0/` (git-ignored); zero historical tags or commits deleted.
+  - VM state can be rolled back to clean baseline snapshot `snap-s4`.
 - **Risk Assessment:**
-  - *Risk:* Proceeding to model tuning before annotator agreement is confirmed risks tuning against ambiguous or biased labels.
-    *Mitigation:* Checkpoint H hard stop mandates verified $\kappa \ge 0.80$ before any model parameters or confidence thresholds are fitted.
-- **Agent Recommendation:** `[RECOMMENDATION]` Awaiting user input reporting the measured Cohen's kappa $\kappa$ from Altaf and Kamal's Round 2 review. If $\kappa \ge 0.80$, `APPROVE A-005`.
+  - *Risk:* 400 genuine runs including 60 mining runs (120s each) will require ~2.5 to 3.0 hours of total cluster execution.
+    *Mitigation:* Batched execution of 50 runs with per-run health checks, memory auto-stop at 85% RAM / 80% disk, and atomic per-run directory writes.
+- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-006`. This plan completely cures the synthetic shortcuts, restores absolute academic integrity, and guarantees verified empirical science.
 - **What It Blocks:**
-  - Ticket `12a` (Dev-Set Equal-Budget Tuning & 6 Ablations).
-  - Ticket `12c` (Single Held-Out Test Set Evaluation - Checkpoint I).
+  - All dataset re-generation (Ticket 06a-rem, 06c-rem), classical ML training (Ticket 08-rem), and model evaluation.

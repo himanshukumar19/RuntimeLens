@@ -13,6 +13,7 @@ credentials/
 
 # Raw Telemetry and Partitioned Dataset Splits
 data/raw/
+data/invalid_v0/
 datasets/splits/*
 !datasets/splits/manifest_v1.json
 data/audit/

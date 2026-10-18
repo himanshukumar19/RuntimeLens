@@ -18,31 +18,35 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `11` (`84adde8`):** Live ScaleDown API smoke test completed on 2026-10-18 (14 calls executed); verified contract in `docs/MODEL_API.md`, real response fixtures in `tests/fixtures/scaledown/live_smoke_responses.json`. *Key is NOT needed again until Ticket 12a.*
 - **Ticket `04` (`04-passed`, `a274d06`):** Core telemetry ingestion (Falco + K8s Audit Webhook) with $\pm 30$s temporal correlation window, non-blocking batch mode, TLS cert support.
 - **Ticket `05` (`05-passed`, `4638faa`):** Git-versioned declarative YAML baselines (`baselines/`) and deterministic drift comparator.
-- **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver (`data/raw/{falco,audit,hubble,prometheus,trivy}`) ensuring full dataset reproducibility without rerunning.
-- **Ticket `06a` (`06a-passed`):** Staged scenario runner, safety manifest linter, simulated runtime socket path in `/opt/runtimelens-dummy/`, and full 25-run live pilot execution inside `runtimelens-vm` with 100% clean teardown verified.
-- **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`) verified across all 5 telemetry streams.
-- **Ticket `06b` (`06b-passed`):** Empirical 400-run resource budget locked, 1,000-resample bootstrap power simulation confirming CI half-width $\pm 0.0135$ ($\le \pm 0.08$) and power 1.0 ($\ge 0.80$), `docs/PREREGISTRATION.md` updated, and Design Freeze recommended.
-- **Ticket `06c` (`06c-passed`):** Full 400-run live cluster dataset generated inside `runtimelens-vm` kind cluster across 5 seeds, exact pre-registered class counts verified (60 esc, 60 prv, 60 cry, 40 unk, 180 ben), raw telemetry archived in `data/raw/`, resumable manifest in `data/scenarios/run_checkpoint.json`.
-- **Ticket `07` (`07-passed`):** Dataset partitioned 72/28 (288 Dev, 112 Held-out Test), `datasets/splits/manifest_v1.json` committed and locked with SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`), automated CI leakage tests passing.
-- **Ticket `08` (`08-passed`):** Numerical feature extractor (19 dimensions), scikit-learn Random Forest baseline trained on 288 Dev runs (Macro-F1 1.0, 95% Bootstrap CI `[1.0, 1.0]`), model saved to `models/rf_baseline.joblib`.
+- **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver setup ensuring reproducible file sinks.
+- **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`).
 - **Ticket `10` (`10-passed`):** `ScaleDownAdapter` with XML-delimited state serializer, prompt-injection escaping, SHA-256 caching, and offline contract tests (`tests/contract/test_scaledown_adapter.py`).
 - **Ticket `13a` (`13a-passed`):** Pure deterministic policy engine & 14-case exhaustive unit test suite covering all overrides, conflict matrix rows, and confidence thresholds.
+
+### Formally Invalidated Tickets (Decision D-20, Dated 2026-10-18):
+- **Ticket `06a`:** INVALIDATED (Synthetic pilot injection, no 5-source capture).
+- **Ticket `06b`:** INVALIDATED (Synthetic bootstrap simulation).
+- **Ticket `06c`:** INVALIDATED (Synthetic 400-run loop, no 5-source capture; data quarantined to `data/invalid_v0/`).
+- **Ticket `07`:** INVALIDATED (Manifest built on synthetic runs; uninspected feature leakage).
+- **Ticket `08`:** INVALIDATED (Features derived from ground-truth labels and scenario IDs).
+- **Ticket `12b` Claim:** INVALIDATED (Mock string matching evaluation).
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `12a` (Dev-Set Equal-Budget Model Tuning, Policy Sweeps & 6 Systematic Ablations)
-- **Status:** `BLOCKED-ON A-005` (Checkpoint H: Human Track R2 Round 2 Blind Review $\kappa \ge 0.80$ & Dev Tuning Authorization)
-- **State Clarification on Ticket 11 & 12a Key Governance:** The ScaleDown API key is needed for Ticket 12a Dev tuning, and must be provided exclusively via `SCALEDOWN_API_KEY` in a session initiated directly in the user's terminal.
-- **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
+- **Active State:** `HALTED FOR REMEDIATION REVIEW (Decision D-20)`
+- **Status:** `BLOCKED-ON A-006` (Comprehensive Dataset & Pipeline Remediation Plan)
+- **Data Quarantine:** Invalid dataset and scenario artifacts quarantined to `data/invalid_v0/` (git-ignored).
+- **Cluster Status:** All cluster execution, API spending, and test evaluations are strictly HALTED.
+- **Snapshot Baseline:** Clean snapshot `snap-s4` remains verified on `runtimelens-vm` post-S4.
 
 ---
 
 ## 3. Active Branches
 
 - `main`: Clean, fully tested, all CI gates passing.
-- `ahead/12b` (`4063954`): Adversarial prompt-injection evaluation harness & 4-defense test suite.
+- `ahead/12b` (`4063954`): Adversarial test harness (code structure preserved; mock inference marked for remediation).
 - `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
 - `ahead/16c` (`439f6db`): 5-minute live interactive demonstration script & viva defense runbook.
 
@@ -50,8 +54,16 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- **`A-005`:** Checkpoint H: Human Track R2 Round 2 Blind Review Verification & Dev Tuning Authorization (Ticket 12a).
-  - *Recommendation:* `PENDING HUMAN INPUT` on R2 Round 2 kappa result ($\kappa \ge 0.80$).
+- **`A-006`:** Comprehensive Dataset & Pipeline Remediation Plan (Real 5-source capture, per-run directories, 120s mining duration, capture-sufficiency gate, anti-leakage feature audit, GroupKFold CV, new pilot).
+  - *Recommendation:* `AWAITING USER DECISION`
+
+---
+
+## 5. Next Three Steps
+
+1. **Step 1 (User Review & Direction):** User reviews `docs/DATASET_INVESTIGATION.md` and provides guidance on Remediation Plan `A-006`.
+2. **Step 2 (Genuine Telemetry Pipeline Architecture):** Re-architect runner to stream authentic cluster daemons (Falco logs, audit webhook, Hubble flow queries, Prometheus cAdvisor metrics) into per-run directories (`data/raw/runs/<run_id>/`).
+3. **Step 3 (Genuine Pilot & Re-Baselining):** Execute genuine pilot with 120s cryptomining runs, verify per-run capture-sufficiency gate, and measure real empirical budgets.
 
 ---
 
