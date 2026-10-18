@@ -1128,3 +1128,68 @@ make test
 - **Git Tag:** `09b-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Completed. Advance to Ticket 06b (Checkpoint E: Pilot Power Analysis & Design Freeze).
+
+---
+
+## Gate Report: Ticket 06b — Pilot Analysis, Power Estimate & Design Freeze (Checkpoint E)
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented the pilot analysis and bootstrap simulation engine (`src/runtimelens/eval/pilot_power.py`).
+  - Derived empirical 400-run resource budgets directly from the 25 real pilot runs in `data/scenarios/pilot_metrics.json`.
+  - Executed 1,000-resample cluster bootstrap simulations calculating the 95% confidence interval width for paired macro-F1 differences ($\Delta\text{Macro-F1}$) and statistical power across $N=400$ runs.
+  - Confirmed empirical CI half-width of $\pm 0.0135$, comfortably meeting the pre-registered requirement of $\le \pm 0.08$.
+  - Confirmed statistical power of 1.0, exceeding the 0.80 minimum power threshold for the calibrated effect size $|\Delta\text{Macro-F1}| \ge 0.05$.
+  - Formally updated `docs/PREREGISTRATION.md` locking the empirical 400-run budget and calibrated effect size.
+  - Enforced mandatory pause at Checkpoint E to review empirical budgets and authorize design freeze before Ticket 06c.
+  - Authored review reports `docs/reviews/06b-1.md` and `docs/reviews/06b-codereview.md`.
+- **Why it was built that way:**
+  - Estimating statistical power and confidence interval widths empirically from real pilot cluster runs guarantees that the study is adequately powered before embarking on long-running dataset generation, preventing underpowered confirmatory claims.
+  - Locking resource budgets based on measured run times ensures that the 400-run dataset generation executes safely within VM memory and disk limits.
+- **Known limitations and edge cases:**
+  - The bootstrap simulation assumes that the variance observed in the 25 pilot runs is representative of the broader 400-run scenario corpus; conservative operational buffers (25% time buffer, 74.8% RAM headroom) protect against variance spikes.
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Pilot Power Analysis & Budget Calculator
+```bash
+python -m runtimelens.eval.pilot_power
+```
+**Output:**
+```text
+=== RuntimeLens Pilot Power Analysis & Design Freeze (Ticket 06b) ===
+
+[EMPIRICAL 400-RUN RESOURCE BUDGET]
+  Pilot Sample Size: 25 runs
+  Mean Per-Run Time: 3.34s (Min: 2.13s, Max: 5.21s)
+  Estimated 400-Run Active Time: 22.3m (~0.4h)
+  Recommended Operational Budget: 27.9m (~0.5h)
+  Peak VM RAM Observed: 25.2% (Headroom: 74.8%)
+  Estimated Telemetry Disk Footprint: 0.57 MB
+
+[BOOTSTRAP POWER & CI WIDTH SIMULATION (1,000 Resamples)]
+  Simulated Delta Macro-F1: 0.1194
+  95% Bootstrap CI: [0.1057, 0.1327]
+  CI Half-Width: +- 0.0135 (Target: <= +-0.08)
+  CI Width Threshold Satisfied: True
+  Estimated Statistical Power: 1.0 (Target: >= 0.80)
+  Power Threshold Satisfied: True
+
+DESIGN FREEZE RECOMMENDATION: APPROVED
+```
+
+#### Command 2: Unit Test Suite
+```bash
+pytest tests/unit/test_pilot_power.py
+```
+**Output:**
+```text
+tests/unit/test_pilot_power.py ..                                        [100%]
+2 passed in 0.19s
+```
+
+### 3. Review & Status
+- **Review Reports:** `docs/reviews/06b-1.md` (CLEAN), `docs/reviews/06b-codereview.md` (CLEAN)
+- **Git Tag:** `06b-passed`
+- **What Failed:** None. 100% of checks passed; CI width $\le \pm 0.08$ and power $\ge 0.80$ confirmed.
+- **What Remains:** Mandatory human approval at Checkpoint E (Entry `A-003` in `docs/APPROVAL_QUEUE.md`) to authorize Design Freeze and launch Ticket 06c.

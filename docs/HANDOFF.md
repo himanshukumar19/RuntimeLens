@@ -21,13 +21,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver (`data/raw/{falco,audit,hubble,prometheus,trivy}`) ensuring full dataset reproducibility without rerunning.
 - **Ticket `06a` (`06a-passed`):** Staged scenario runner, safety manifest linter, simulated runtime socket path in `/opt/runtimelens-dummy/`, and full 25-run live pilot execution inside `runtimelens-vm` with 100% clean teardown verified.
 - **Ticket `09b` (`09b-passed`):** Hubble network flow, Prometheus cAdvisor resource, and Trivy vulnerability normalizers with capture-sufficiency audit (`audit_capture.py`) verified across all 5 telemetry streams.
+- **Ticket `06b` (`06b-passed`):** Empirical 400-run resource budget locked, 1,000-resample bootstrap power simulation confirming CI half-width $\pm 0.0135$ ($\le \pm 0.08$) and power 1.0 ($\ge 0.80$), `docs/PREREGISTRATION.md` updated, and Design Freeze recommended.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `06b` (Pilot Power Analysis, CI Width Simulation & Design Freeze - Checkpoint E)
-- **Status:** `IN PROGRESS` (Running empirical bootstrap simulation from 06a pilot metrics to lock 06c resource budget)
+- **Active Ticket:** `06c` (Full 400-Run Live Cluster Scenario Generation)
+- **Status:** `BLOCKED-ON A-003` (Checkpoint E: Design Freeze & 400-Run Dataset Launch Authorization)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -46,15 +47,16 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- *(None currently blocking. `A-002` approved with conditions and executed cleanly).*
+- **`A-003`:** Checkpoint E Design Freeze & Launch Authorization for Full 400-Run Dataset (Ticket 06c).
+  - *Recommendation:* `APPROVE A-003`
 
 ---
 
 ## 5. Next Three Steps
 
-1. **Step 1 (Ticket 09b Completion):** Merge and verify telemetry normalizers from `ahead/09b` on `main`, run capture-sufficiency audit (`python -m runtimelens.audit_capture --pilot`), execute per-ticket review loop, and tag `09b-passed`.
-2. **Step 2 (Ticket 06b Power Analysis & Checkpoint E):** Compute empirical bootstrap power/variance simulation from pilot data, establish empirical 400-run resource budget for 06c, freeze scenario design at Checkpoint E, and queue authorization.
-3. **Step 3 (Checkpoint F & Ticket 06c):** Await approval to launch full 400-run live cluster scenario generation.
+1. **Step 1 (Human Action):** User reviews empirical 400-run budget and power simulation results, then provides approval: `"APPROVE A-003"`.
+2. **Step 2 (Ticket 06c Execution):** Execute the 400 live cluster runs across 5 threat classes and 3 paired families in batches inside `runtimelens-vm`, maintaining resumable state manifest in `data/scenarios/run_checkpoint.json`.
+3. **Step 3 (Checkpoint G & Ticket 07):** Partition dataset 72/28 (Dev/Held-out Test), assert zero data leakage, lock `manifest_v1.json` with SHA-256 hash, and initiate Human Track R2 Round 2 blind review.
 
 ---
 
