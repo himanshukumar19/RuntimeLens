@@ -708,4 +708,40 @@ head -n 1 /home/ubuntu/vm_outputs/audit/live_audit_webhook_events.jsonl | jq '{k
 - **Commit Hash:** `a274d06a9282367d383b19c2bb6f0d92257d07e6`
 - **Git Tag:** `04-passed`
 - **What Failed:** None. 100% of checks passed.
-- **What Remains:** Proceeding within Segment S4 to Ticket `05` (Declarative YAML Baselines & Drift Detector).
+- **What Remains:** Completed.
+
+---
+
+## Gate Report: Ticket 05 — Declarative YAML Baselines & Drift Detector
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Defined declarative, Git-versioned YAML baseline profiles for the 4 lab workloads (`baselines/web.yaml`, `baselines/api.yaml`, `baselines/database.yaml`, `baselines/payment-style.yaml`).
+  - Implemented the read-only baseline loader (`src/runtimelens/baseline/loader.py`) with 30-day staleness tracking.
+  - Implemented the deterministic drift comparator (`src/runtimelens/baseline/comparator.py`) that evaluates incoming events against workload baseline profiles, computing `baseline_deviation_detected` and granular deviations (`unexpected_shell_execution`, `unauthorized_binary:<name>`, `unauthorized_external_egress`, `cpu_envelope_exceeded`).
+  - Authored unit test suite (`tests/unit/test_baseline.py`) verifying unauthorized binary detection, authorized binary matching, unexpected shell detection, and missing baseline handling.
+  - Authored review report `docs/reviews/05-1.md`.
+- **Why it was built that way:**
+  - In multi-tenant Kubernetes, routine operations for one workload (such as shell execution in an authorized maintenance container) represent critical compromises in an unprivileged payment pod. Declarative baselines provide the ground-truth behavioral envelope without statistical training noise.
+  - Baselines are strictly read-only and version-controlled via Git to eliminate slow-boil baseline poisoning attacks.
+- **Known limitations and edge cases:**
+  - Baselines for `debug` and `analytics` paired workloads will be added when their respective scenario tickets begin.
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Baseline Unit & Drift Detection Tests
+```bash
+pytest tests/unit/test_baseline.py
+```
+**Output:**
+```text
+tests/unit/test_baseline.py .....                                        [100%]
+5 passed in 0.14s
+```
+
+### 3. Review & Status
+- **Review Report:** `docs/reviews/05-1.md` (Status: CLEAN)
+- **Commit Hash:** PENDING
+- **Git Tag:** `05-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Proceeding within Segment S4 to Ticket `09a` (Raw Telemetry Capture Setup: Hubble, Prometheus, Trivy).

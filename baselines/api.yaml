@@ -1,0 +1,42 @@
+version: "v1.0.0"
+metadata:
+  workload: "api"
+  created_at: "2026-10-18T00:00:00Z"
+  approved_by: "himanshu"
+  description: "Declarative baseline for microservice API worker."
+
+runtime:
+  shell_allowed: false
+  allowed_binaries:
+    - "/usr/local/bin/python"
+    - "/usr/local/bin/uvicorn"
+    - "/bin/busybox"
+  allowed_parent_processes:
+    - "containerd-shim"
+    - "init"
+  permitted_capabilities: []
+  allowed_volume_mounts:
+    - "/var/run/secrets/kubernetes.io/serviceaccount"
+    - "/tmp"
+  disallowed_mount_patterns:
+    - "/var/run/*.sock"
+    - "/proc/*"
+    - "/sys/*"
+
+network:
+  allowed_inbound_ports:
+    - 8000
+  allowed_peers:
+    - "database.tenant-a.svc.cluster.local"
+    - "database.tenant-b.svc.cluster.local"
+    - "database.tenant-c.svc.cluster.local"
+    - "payment-style.tenant-a.svc.cluster.local"
+  allow_external_egress: false
+  allowed_dns_domains:
+    - "kube-dns"
+
+resources:
+  cpu_baseline_mcores: 50
+  cpu_max_envelope_mcores: 200
+  memory_baseline_mb: 64
+  memory_max_envelope_mb: 256

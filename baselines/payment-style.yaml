@@ -1,0 +1,39 @@
+version: "v1.0.0"
+metadata:
+  workload: "payment-style"
+  created_at: "2026-10-18T00:00:00Z"
+  approved_by: "himanshu"
+  description: "Declarative baseline for high-security payment processing transaction worker."
+
+runtime:
+  shell_allowed: false
+  allowed_binaries:
+    - "/usr/local/bin/payment-worker"
+  allowed_parent_processes:
+    - "containerd-shim"
+    - "init"
+  permitted_capabilities: []
+  allowed_volume_mounts:
+    - "/var/run/secrets/kubernetes.io/serviceaccount"
+    - "/tmp"
+  disallowed_mount_patterns:
+    - "/var/run/*.sock"
+    - "/proc/*"
+    - "/sys/*"
+
+network:
+  allowed_inbound_ports:
+    - 9000
+  allowed_peers:
+    - "api.tenant-a.svc.cluster.local"
+    - "api.tenant-b.svc.cluster.local"
+    - "api.tenant-c.svc.cluster.local"
+  allow_external_egress: false
+  allowed_dns_domains:
+    - "kube-dns"
+
+resources:
+  cpu_baseline_mcores: 25
+  cpu_max_envelope_mcores: 100
+  memory_baseline_mb: 64
+  memory_max_envelope_mb: 256

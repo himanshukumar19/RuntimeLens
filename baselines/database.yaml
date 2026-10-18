@@ -1,0 +1,42 @@
+version: "v1.0.0"
+metadata:
+  workload: "database"
+  created_at: "2026-10-18T00:00:00Z"
+  approved_by: "himanshu"
+  description: "Declarative baseline for datastore / key-value storage engine worker."
+
+runtime:
+  shell_allowed: false
+  allowed_binaries:
+    - "/usr/local/bin/redis-server"
+    - "/usr/local/bin/redis-cli"
+    - "/bin/busybox"
+  allowed_parent_processes:
+    - "containerd-shim"
+    - "init"
+  permitted_capabilities: []
+  allowed_volume_mounts:
+    - "/var/run/secrets/kubernetes.io/serviceaccount"
+    - "/tmp"
+    - "/data"
+  disallowed_mount_patterns:
+    - "/var/run/*.sock"
+    - "/proc/*"
+    - "/sys/*"
+
+network:
+  allowed_inbound_ports:
+    - 6379
+  allowed_peers:
+    - "api.tenant-a.svc.cluster.local"
+    - "api.tenant-b.svc.cluster.local"
+    - "api.tenant-c.svc.cluster.local"
+  allow_external_egress: false
+  allowed_dns_domains:
+    - "kube-dns"
+
+resources:
+  cpu_baseline_mcores: 50
+  cpu_max_envelope_mcores: 250
+  memory_baseline_mb: 128
+  memory_max_envelope_mb: 512
