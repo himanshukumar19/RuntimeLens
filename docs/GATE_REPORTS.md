@@ -788,7 +788,7 @@ tests/unit/test_raw_capture.py .                                         [100%]
 
 ### 3. Review & Status
 - **Review Report:** `docs/reviews/09a-1.md` (Status: CLEAN)
-- **Commit Hash:** PENDING
+- **Commit Hash:** `6e18e5b8d96b92a2a07c1b181db85ee2e6ee545f`
 - **Git Tag:** `09a-passed`
 - **What Failed:** None. 100% of checks passed.
 - **What Remains:** Segment S4 is COMPLETE. Execution is HALTED at the boundary of Segment S4, prior to Pilot Run (Checkpoint D1).
