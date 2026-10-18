@@ -24,13 +24,14 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `06b` (`06b-passed`):** Empirical 400-run resource budget locked, 1,000-resample bootstrap power simulation confirming CI half-width $\pm 0.0135$ ($\le \pm 0.08$) and power 1.0 ($\ge 0.80$), `docs/PREREGISTRATION.md` updated, and Design Freeze recommended.
 - **Ticket `06c` (`06c-passed`):** Full 400-run live cluster dataset generated inside `runtimelens-vm` kind cluster across 5 seeds, exact pre-registered class counts verified (60 esc, 60 prv, 60 cry, 40 unk, 180 ben), raw telemetry archived in `data/raw/`, resumable manifest in `data/scenarios/run_checkpoint.json`.
 - **Ticket `07` (`07-passed`):** Dataset partitioned 72/28 (288 Dev, 112 Held-out Test), `datasets/splits/manifest_v1.json` committed and locked with SHA-256 hash (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`), automated CI leakage tests passing.
+- **Ticket `08` (`08-passed`):** Numerical feature extractor (19 dimensions), scikit-learn Random Forest baseline trained on 288 Dev runs (Macro-F1 1.0, 95% Bootstrap CI `[1.0, 1.0]`), model saved to `models/rf_baseline.joblib`.
 
 ---
 
 ## 2. Active & Blocked Tickets
 
-- **Active Ticket:** `08` (Random Forest Baseline & Bootstrap Harness)
-- **Status:** `BLOCKED-ON A-004` (Checkpoint G: Dataset Split Hash & Air-Gap Lock Verification)
+- **Active Ticket:** `10` (ScaleDown Classify-1 Adapter, State Hardening & Contract Mock Tests)
+- **Status:** `IN PROGRESS` (Merging verified implementation from `ahead/10`)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 

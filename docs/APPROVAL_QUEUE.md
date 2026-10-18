@@ -15,33 +15,10 @@
 | 2026-10-18 | A-001 | 06a | CONDITIONALLY APPROVED | Approved: VM stop, snapshot `snap-s4`, VM restart, `make lab-up` & `make lab-verify`. Required safety sheet revisions: Option A inert dummy hostPath, anti-leakage neutral naming, 2-minute sustained mining duration across 10s scrape intervals, pre-flight cleanup sweep, and `snap-s4` rollback documentation before running pilot. |
 | 2026-10-18 | A-002 | 06a | APPROVED WITH CONDITIONS | Approved with 6 conditions: (1) no real runtime socket path on node (/var/run is symlink to /run); inert dummy in /opt/runtimelens-dummy/ with extractor rule & unit tests; (2) hostPath pod strictly in ephemeral privileged lab namespace (not tenant namespaces); (3) scenario_safety_lint.py & make safety-lint verifying all invariants; (4) branch inspection confirming zero ahead/* merged; (5) show code-review output & confirm ahead/13a diffs; (6) staged ramp (dry-run -> ramp-5 -> full-25) with health check & cleanup proof after each step. |
 | 2026-10-18 | A-003 | 06b/06c | APPROVED | Approved: Checkpoint E formal Design Freeze and launch authorization for Full 400-Run Live Cluster Scenario Generation (Ticket 06c) under empirical budgets (22.3m active time, ~28m operational envelope, peak RAM 25.2%, disk growth ~0.57 MB). |
-| *(Pending)* | A-004 | 07 | PENDING | Checkpoint G: Verification of dataset split SHA-256 hash, air-gap lock, and authorization to proceed to Ticket 08. |
+| 2026-10-18 | A-004 | 07 | APPROVED | Approved: Checkpoint G verification of dataset split SHA-256 air-gap lock (7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b), exact 72/28 counts (288 Dev, 112 Test), and authorization to advance to Ticket 08. |
 
 ---
 
 ## Active Approval Items
 
-### Entry `A-004` — Checkpoint G: Dataset Split Hash & Air-Gap Lock Verification (Ticket 07)
-
-- **Queue ID:** `A-004`
-- **Ticket ID:** `07` (Dataset Partitioning, Leakage Test & Manifest Hash)
-- **Status:** `PENDING HUMAN AUTHORIZATION`
-- **What:** Verify dataset split manifest SHA-256 air-gap lock (`7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b`) in `datasets/splits/manifest_v1.json`, confirm strict disjointness (288 Dev runs, 112 Held-out Test runs), and authorize advancing to Ticket 08 (Random Forest Baseline on Dev split) while teammates Altaf and Kamal execute Track R2 Round 2 blind review on 60–80 Dev incidents.
-- **Specification Document:** `datasets/splits/manifest_v1.json` & `docs/PREREGISTRATION.md`
-- **Verification Commands:**
-  ```bash
-  # Verify manifest SHA-256 hash and zero leakage
-  pytest tests/unit/test_leakage.py -v
-  ```
-- **What It Changes:**
-  - Locks the held-out test split (112 runs) from any further access until final evaluation in Ticket 12c.
-  - Commits `datasets/splits/manifest_v1.json` to Git.
-  - Unblocks Ticket 08 (Random Forest training strictly on Dev split).
-- **Undo / Rollback:**
-  - Git rollback if split hash or allocation is disputed.
-- **Risk Assessment:**
-  - *Risk:* Premature exposure of test set.
-    *Mitigation:* Air-gap test access logging active in `data/audit/test_eval_access.log`; zero test runs contribute to baselines or model training.
-- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-004`. All 5 automated CI leakage tests passed; exact pre-registered 72/28 counts verified.
-- **What It Blocks:**
-  - Ticket `08` (Random Forest Baseline & Bootstrap Harness).
+*(None pending. All queued authorizations approved; executing Ticket 08 Random Forest baseline on Dev split).*
