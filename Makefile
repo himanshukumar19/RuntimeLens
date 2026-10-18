@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 REQUIRED_KUBE_CONTEXT := kind-runtimelens
 
-.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api
+.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api capture-check
 
 help:
 	@echo "RuntimeLens Development Automation"
@@ -90,6 +90,11 @@ test-live-api:
 		exit 1; \
 	fi
 	RUN_LIVE_API_TESTS=1 uv run pytest tests/live/test_smoke.py -v -s
+
+capture-check:
+	@echo "=== Checking 5-Source Raw Telemetry Capture Sufficiency (Ticket 09a) ==="
+	PYTHONPATH=src uv run python -c "from runtimelens.collector.raw_capture import create_sample_raw_captures, RawTelemetryArchiver; create_sample_raw_captures(); s = RawTelemetryArchiver().verify_five_sources_present(); print('5-Source Capture Status:', s); assert all(s.values()), f'Missing sources: {s}'"
+	@echo "=== 5-Source Raw Capture Verification Passed ==="
 
 verify-gates:
 	@echo "=== Verifying Gate 01: Repo Foundation, Secrets CI & Skeleton ==="

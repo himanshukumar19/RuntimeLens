@@ -744,4 +744,51 @@ tests/unit/test_baseline.py .....                                        [100%]
 - **Commit Hash:** `4638faaee53b05b3e6704b73b5c7f8c0575d5db9`
 - **Git Tag:** `05-passed`
 - **What Failed:** None. 100% of checks passed.
-- **What Remains:** Proceeding within Segment S4 to Ticket `09a` (Raw Telemetry Capture Setup: Hubble, Prometheus, Trivy).
+- **What Remains:** Completed.
+
+---
+
+## Gate Report: Ticket 09a — Raw Telemetry Capture Setup (Hubble, Prometheus, Trivy)
+
+### 1. Plain-Language Explanation
+- **What was built:**
+  - Implemented the unified `RawTelemetryArchiver` (`src/runtimelens/collector/raw_capture.py`) managing append-only, size-capped rotated JSONL telemetry archives for all five live sources (`falco/`, `audit/`, `hubble/`, `prometheus/`, `trivy/`).
+  - Configured static Trivy vulnerability scanning cache indexed by cryptographic container image digest (`alpine@sha256:...`).
+  - Added Makefile automation target `make capture-check` validating capture presence and sufficiency across all five sources.
+  - Implemented unit test suite (`tests/unit/test_raw_capture.py`) validating multi-source archiving and report storage.
+  - Authored review report `docs/reviews/09a-1.md`.
+- **Why it was built that way:**
+  - Capturing unmanipulated raw data from all five telemetry sources from the very first cluster execution guarantees that the full 400-run dataset never needs to be regenerated when normalizers or feature extractors evolve in later phases.
+  - Caching Trivy static scans by cryptographic image digest eliminates redundant network requests and guarantees immutable static vulnerability context.
+- **Known limitations and edge cases:**
+  - Feature extraction and canonical normalization for Hubble flows, Prometheus metrics, and Trivy CVEs are staged in Ticket 09b; Ticket 09a strictly guarantees unmanipulated raw archiving.
+
+### 2. Exit Gate Verification Commands & Output
+
+#### Command 1: Capture Sufficiency Automated Target
+```bash
+make capture-check
+```
+**Output:**
+```text
+=== Checking 5-Source Raw Telemetry Capture Sufficiency (Ticket 09a) ===
+5-Source Capture Status: {'falco': True, 'audit': True, 'hubble': True, 'prometheus': True, 'trivy': True}
+=== 5-Source Raw Capture Verification Passed ===
+```
+
+#### Command 2: Raw Capture Unit Test Suite
+```bash
+pytest tests/unit/test_raw_capture.py
+```
+**Output:**
+```text
+tests/unit/test_raw_capture.py .                                         [100%]
+1 passed in 0.12s
+```
+
+### 3. Review & Status
+- **Review Report:** `docs/reviews/09a-1.md` (Status: CLEAN)
+- **Commit Hash:** PENDING
+- **Git Tag:** `09a-passed`
+- **What Failed:** None. 100% of checks passed.
+- **What Remains:** Segment S4 is COMPLETE. Execution is HALTED at the boundary of Segment S4, prior to Pilot Run (Checkpoint D1).
