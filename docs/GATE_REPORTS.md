@@ -646,7 +646,7 @@ Valid: True, Records: 1, Error: None
 - **What was built:**
   - Implemented dual Kubernetes API audit backends: preserved the root-owned rotating file backend (`/var/log/kubernetes/audit/audit.log`) for loss detection and backup, and deployed the official Kubernetes Audit Webhook Backend in non-blocking batch mode (`audit-webhook-mode: "batch"`).
   - Built the Kubernetes Audit Webhook Receiver (`src/runtimelens/collector/audit_webhook.py`) on port 8766 with TLS support, bearer token authentication, 10 MB payload limits, auditID deduplication, and raw JSONL persistence before parsing.
-  - Built the multi-source sliding window correlation engine (`src/runtimelens/collector/correlation.py`) correlating live Falco syscall alerts with K8s API audit orchestration events within a $\pm 30$s temporal window by `(namespace, pod_uid)`.
+  - Implemented the multi-source sliding window correlation engine (`src/runtimelens/collector/correlation.py`) correlating Falco alerts with K8s API audit orchestration events within a $\pm 30$s temporal window by `(namespace, pod_uid)` (unit-tested on fixtures, not run on live events).
   - Added secret redaction in collector queues and bounded buffer drop counters.
   - Authored comprehensive integration test suite (`tests/integration/test_correlation.py`) and security tests (`tests/unit/test_audit_webhook_security.py`).
   - Authored review report `docs/reviews/04-1.md` and captured live cluster audit batch evidence in `docs/evidence/live_audit_webhook_batches.jsonl`.
@@ -840,6 +840,7 @@ tests/unit/test_raw_capture.py .                                         [100%]
 ## Technical Audit: Verification of Segment S4 Deliverables (Tickets 04, 05, 09a)
 
 ### 1. Real Correlated Incident & Pod UID Resolution Key
+> **STATUS: INVALIDATED CLAIM (2026-10-18, Decision D-20):** Multi-source correlation was unit-tested on fixtures, not run on live events. Neither runner nor daemon wired both receivers to an active CorrelationBuffer simultaneously on the cluster. The Falco alert and K8s audit log were generated independently on the cluster, and correlation between them was only executed in unit tests (`test_correlation.py`). Live simultaneous wiring is logged as new PENDING Ticket `04-live` in `docs/TICKET_TREE.md`.
 - **Live Trigger Executed:**
   ```bash
   kubectl exec -n tenant-a web-6794787bc8-4wmx6 -- /bin/sh -c "cat /etc/shadow 2>&1 || true"

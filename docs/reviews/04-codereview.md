@@ -19,7 +19,7 @@
 - **Deliverables Adherence:** Implements 100% of Ticket 04 requirements:
   - Dual audit backends: root-owned rotating file backup and non-blocking batch webhook.
   - TLS support for audit webhook receiver with CA certificate verification.
-  - Sliding temporal correlation window ($\pm 30$s) grouping multi-source events by pod UID.
+  - Sliding temporal correlation window ($\pm 30$s) grouping multi-source events by pod UID (unit-tested on fixtures, not run on live events).
   - Integration tests verifying multi-source incident aggregation and non-blocking API server behavior.
 - **Scope Creep:** None observed.
 

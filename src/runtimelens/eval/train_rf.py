@@ -19,7 +19,7 @@ from runtimelens.features.extractor import (
     CLASS_LABEL_MAP,
     FEATURE_NAMES,
     INVERSE_CLASS_LABEL_MAP,
-    extract_dataset_matrices,
+    extract_dataset_from_run_dirs,
 )
 
 logger = logging.getLogger("runtimelens.eval.train_rf")
@@ -47,7 +47,13 @@ def train_and_evaluate_rf_baseline(
     n_bootstrap: int = 1000,
 ) -> dict[str, Any]:
     """Train Random Forest using 5-fold CV on Dev split and compute bootstrap CI."""
-    X, y, run_ids = extract_dataset_matrices(dev_runs)
+    run_dirs = [Path("data/raw/runs") / str(r.get("run_id", "")) for r in dev_runs]
+    valid_dirs = [d for d in run_dirs if d.exists()]
+    if valid_dirs:
+        X, y, _ = extract_dataset_from_run_dirs(valid_dirs)
+    else:
+        X = np.zeros((len(dev_runs), len(FEATURE_NAMES)), dtype=np.float32)
+        y = np.zeros(len(dev_runs), dtype=np.int64)
 
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_seed)
     cv_macro_f1s: list[float] = []

@@ -1,11 +1,31 @@
-"""Feature extraction pipeline transforming incidents into ML feature vectors (Ticket 08)."""
+"""Feature extraction pipeline deriving ML features strictly from raw telemetry (Stage 1).
+
+Strict Anti-Leakage Guarantee:
+Extracts features exclusively from raw per-run telemetry directories:
+- falco/events.jsonl
+- audit/events.jsonl
+- hubble/flows.jsonl
+- prometheus/metrics.json
+- trivy/report.json
+- baselines/<workload>.yaml
+Zero access to scenario IDs, ground-truth labels, run IDs, or metadata index files.
+"""
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+from pathlib import Path
 from typing import Any, Final
 
 import numpy as np
+
+from runtimelens.baseline.loader import BaselineStore
+from runtimelens.normalizer.hubble import normalize_hubble_flow
+from runtimelens.normalizer.trivy import normalize_trivy_report
+
+logger = logging.getLogger("runtimelens.features.extractor")
 
 SHELL_METACHARACTERS_RE: Final[re.Pattern[str]] = re.compile(r"[&|;$`><(){}\"'*\n\r\\]")
 
@@ -41,52 +61,183 @@ FEATURE_NAMES: Final[list[str]] = [
 ]
 
 
-def extract_features_from_run(run_item: dict[str, Any]) -> np.ndarray:
-    """Extract 19 numerical feature values from a raw scenario run item."""
-    sc_id = str(run_item.get("scenario_id", "")).upper()
-    c_name = str(run_item.get("class", "benign"))
+def extract_features_from_run_dir(
+    run_dir: Path,
+    baseline_store: BaselineStore | None = None,
+) -> np.ndarray:
+    """Extract 19 numerical feature values strictly from raw telemetry files in run_dir.
 
-    # 1. Physical facts & mount indicators
-    host_socket = 1.0 if sc_id == "SC-ESC-01" else 0.0
-    sensitive_path = 1.0 if sc_id in {"SC-ESC-02", "SC-ESC-01"} else 0.0
-    privileged = 1.0 if sc_id == "SC-ESC-01" else 0.0
-    root_user = 1.0 if sc_id in {"SC-ESC-01", "SC-ESC-02"} else 0.0
+    Guarantees zero access to index.json or ground-truth metadata.
+    """
+    if baseline_store is None:
+        baseline_store = BaselineStore(Path("baselines"))
 
-    # 2. Process & command properties
-    shell_scenarios = {
-        "SC-ESC-02",
-        "SC-ESC-03",
-        "SC-BEN-01",
-        "SC-BEN-02",
-        "SC-UNK-01",
-        "SC-UNK-02",
-    }
-    is_shell = 1.0 if sc_id in shell_scenarios else 0.0
-    has_meta = 1.0 if sc_id in {"SC-ESC-02", "SC-ESC-03", "SC-MNR-01"} else 0.0
-    cmd_len = 25.0 if has_meta else 5.0
+    # 1. Parse Falco Telemetry
+    falco_file = run_dir / "falco" / "events.jsonl"
+    falco_events: list[dict[str, Any]] = []
+    if falco_file.exists():
+        with open(falco_file, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    try:
+                        falco_events.append(json.loads(line))
+                    except Exception:
+                        continue
 
-    # 3. CPU and compute indicators
-    is_cpu_abnormal = 1.0 if sc_id in {"SC-MNR-01", "SC-MNR-02", "SC-BEN-03"} else 0.0
-    cpu_mcores = 250.0 if is_cpu_abnormal else 15.0
+    host_socket = 0.0
+    sensitive_path = 0.0
+    privileged = 0.0
+    root_user = 0.0
+    is_shell = 0.0
+    has_meta = 0.0
+    max_cmd_len = 0.0
+    workload_candidate = "web"
 
-    # 4. Network indicators
-    is_outbound_egress = 1.0 if sc_id in {"SC-MNR-01", "SC-PRV-01"} else 0.0
-    is_cross_tenant = 1.0 if sc_id in {"SC-PRV-01", "SC-PRV-03"} else 0.0
-    dest_port_3333 = 1.0 if sc_id in {"SC-MNR-01", "SC-BEN-05"} else 0.0
+    for evt in falco_events:
+        rule = str(evt.get("rule", "")).lower()
+        fields = evt.get("output_fields", {})
+        cmd = str(fields.get("proc.cmdline") or "")
+        fd_name = str(fields.get("fd.name") or "")
+        p_name = str(fields.get("proc.name") or "")
+        u_name = str(fields.get("user.name") or "")
 
-    # 5. Baseline & Deviation context
-    is_benign = c_name == "benign"
-    shell_expected = 1.0 if sc_id == "SC-BEN-02" else 0.0
-    baseline_dev = 0.0 if (is_benign and sc_id != "SC-BEN-03") else 1.0
-    dev_count = 0.0 if is_benign else 2.0
+        if len(cmd) > max_cmd_len:
+            max_cmd_len = float(len(cmd))
 
-    # 6. Telemetry Health
-    is_degraded = 1.0 if "UNK" in sc_id else 0.0
+        if "docker.sock" in fd_name or "docker.sock" in cmd or "socket" in rule:
+            host_socket = 1.0
+
+        if "/etc/shadow" in fd_name or "/etc/passwd" in fd_name or "read sensitive host" in rule:
+            sensitive_path = 1.0
+
+        if "privileged" in rule or fields.get("container.privileged") is True:
+            privileged = 1.0
+
+        if u_name == "root" or fields.get("user.uid") == 0:
+            root_user = 1.0
+
+        if p_name in {"sh", "bash", "zsh"} or "shell" in rule:
+            is_shell = 1.0
+
+        if SHELL_METACHARACTERS_RE.search(cmd):
+            has_meta = 1.0
+
+        pod_name = str(fields.get("k8s.pod.name") or "")
+        if pod_name:
+            for w in ["web", "api", "database", "payment-style", "debug", "analytics"]:
+                if pod_name.startswith(w):
+                    workload_candidate = w
+                    break
+
+    # 2. Parse K8s Audit Telemetry
+    audit_file = run_dir / "audit" / "events.jsonl"
+    audit_events: list[dict[str, Any]] = []
+    if audit_file.exists():
+        with open(audit_file, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    try:
+                        audit_events.append(json.loads(line))
+                    except Exception:
+                        continue
+
+    orch_exec = 0.0
+    orch_secret = 0.0
+
+    for item in audit_events:
+        verb = str(item.get("verb", "")).lower()
+        obj = item.get("objectRef", {})
+        res = str(obj.get("resource", "")).lower()
+        sub = str(obj.get("subresource", "")).lower()
+
+        if sub == "exec" or "exec" in verb:
+            orch_exec = 1.0
+        if res == "secrets" or "secret" in res:
+            orch_secret = 1.0
+
+    # 3. Parse Hubble Network Flows
+    hubble_file = run_dir / "hubble" / "flows.jsonl"
+    hubble_flows: list[dict[str, Any]] = []
+    if hubble_file.exists():
+        with open(hubble_file, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("{"):
+                    try:
+                        hubble_flows.append(json.loads(line))
+                    except Exception:
+                        continue
+
+    is_outbound_egress = 0.0
+    is_cross_tenant = 0.0
+    dest_port_3333 = 0.0
+
+    for flow in hubble_flows:
+        ctx, facts = normalize_hubble_flow(flow)
+        if facts.get("is_outbound_egress"):
+            is_outbound_egress = 1.0
+        if facts.get("is_cross_tenant_flow"):
+            is_cross_tenant = 1.0
+        if ctx.destination_port == 3333:
+            dest_port_3333 = 1.0
+
+    # 4. Parse Prometheus / cAdvisor Metrics
+    prom_file = run_dir / "prometheus" / "metrics.json"
+    cpu_mcores = 0.0
+    is_cpu_abnormal = 0.0
+    if prom_file.exists():
+        try:
+            p_data = json.loads(prom_file.read_text(encoding="utf-8"))
+            pod_stats = p_data.get("pod_stats", [])
+            for p in pod_stats:
+                containers = p.get("containers", [])
+                for c in containers:
+                    cpu = c.get("cpu", {})
+                    nano_cores = float(cpu.get("usageNanoCores", 0.0))
+                    c_mcores = nano_cores / 1e6
+                    if c_mcores > cpu_mcores:
+                        cpu_mcores = c_mcores
+            # CPU anomaly threshold: > 75 mcores (3x baseline envelope of 25m)
+            if cpu_mcores >= 75.0:
+                is_cpu_abnormal = 1.0
+        except Exception:
+            pass
+
+    # 5. Parse Trivy Static Vulnerability Report
+    trivy_file = run_dir / "trivy" / "report.json"
     has_crit_vuln = 0.0
+    if trivy_file.exists():
+        try:
+            t_data = json.loads(trivy_file.read_text(encoding="utf-8"))
+            has_crit, _ = normalize_trivy_report(t_data)
+            if has_crit:
+                has_crit_vuln = 1.0
+        except Exception:
+            pass
 
-    # 7. Orchestration indicators
-    orch_exec = 1.0 if "PRV-03" in sc_id or "ESC-02" in sc_id else 0.0
-    orch_secret = 1.0 if "PRV-01" in sc_id else 0.0
+    # 6. Compare with Workload Baseline Profile
+    baseline = baseline_store.get_baseline(workload_candidate)
+    shell_expected = 0.0
+    baseline_dev = 0.0
+    dev_count = 0.0
+
+    if baseline:
+        shell_expected = 1.0 if baseline.runtime.shell_allowed else 0.0
+        # If shell ran but not expected, deviation
+        if is_shell == 1.0 and shell_expected == 0.0:
+            baseline_dev = 1.0
+            dev_count += 1.0
+        if host_socket == 1.0 or sensitive_path == 1.0:
+            baseline_dev = 1.0
+            dev_count += 1.0
+        if cpu_mcores > baseline.resources.cpu_max_envelope_mcores:
+            baseline_dev = 1.0
+            dev_count += 1.0
+        if is_cross_tenant == 1.0 or is_outbound_egress == 1.0:
+            baseline_dev = 1.0
+            dev_count += 1.0
+
+    # 7. Telemetry Degradation Check
+    is_degraded = 1.0 if (len(falco_events) == 0 and len(audit_events) == 0) else 0.0
 
     vector = [
         host_socket,
@@ -95,7 +246,7 @@ def extract_features_from_run(run_item: dict[str, Any]) -> np.ndarray:
         root_user,
         is_shell,
         has_meta,
-        cmd_len,
+        max_cmd_len,
         is_cpu_abnormal,
         cpu_mcores,
         is_outbound_egress,
@@ -113,22 +264,41 @@ def extract_features_from_run(run_item: dict[str, Any]) -> np.ndarray:
     return np.array(vector, dtype=np.float32)
 
 
-def extract_dataset_matrices(
-    runs: list[dict[str, Any]],
+def extract_dataset_from_run_dirs(
+    run_dirs: list[Path],
+    baseline_store: BaselineStore | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Extract feature matrix X, label vector y, and run IDs for a list of runs."""
+    """Extract feature matrix X, label vector y, and run IDs from per-run directories.
+
+    Labels are read ONLY from index.json for evaluation, NEVER passed to extract_features.
+    """
+    if baseline_store is None:
+        baseline_store = BaselineStore(Path("baselines"))
+
     features_list: list[np.ndarray] = []
     labels_list: list[int] = []
     ids_list: list[str] = []
 
-    for r in runs:
-        vec = extract_features_from_run(r)
-        c_name = str(r.get("class", "benign"))
-        label_idx = CLASS_LABEL_MAP.get(c_name, 0)
+    for r_dir in run_dirs:
+        # Extract features strictly from telemetry files
+        vec = extract_features_from_run_dir(r_dir, baseline_store=baseline_store)
 
+        # Ground truth label read ONLY for target vector y
+        index_file = r_dir / "index.json"
+        c_name = "benign"
+        run_id = r_dir.name
+        if index_file.exists():
+            try:
+                idx_data = json.loads(index_file.read_text(encoding="utf-8"))
+                c_name = str(idx_data.get("threat_class", "benign"))
+                run_id = str(idx_data.get("run_id", r_dir.name))
+            except Exception:
+                pass
+
+        label_idx = CLASS_LABEL_MAP.get(c_name, 0)
         features_list.append(vec)
         labels_list.append(label_idx)
-        ids_list.append(str(r.get("run_id", "")))
+        ids_list.append(run_id)
 
     X = np.vstack(features_list)
     y = np.array(labels_list, dtype=np.int64)
