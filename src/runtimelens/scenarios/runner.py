@@ -188,7 +188,7 @@ def cleanup_scenario(run_id: str, is_hostpath_run: bool = False) -> bool:
         return False
 
 
-def build_scenario_definitions() -> list[dict[str, Any]]:
+def build_scenario_definitions(mining_duration: int = 15) -> list[dict[str, Any]]:
     """Define the 14 scenarios across 5 threat classes and 3 paired families with neutral naming."""
     return [
         # --- 1. Container Escape ---
@@ -286,9 +286,8 @@ def build_scenario_definitions() -> list[dict[str, Any]]:
                 "tenant-a",
                 "app=api",
                 (
-                    "curl -s -k -H 'Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/"
-                    "serviceaccount/token 2>/dev/null)' "
-                    "https://kubernetes.default.svc/api/v1/namespaces/tenant-b/secrets || true"
+                    "wget -T 2 -t 1 --no-check-certificate -qO- "
+                    "https://10.96.0.1:443/api/v1/namespaces/tenant-b/secrets || true"
                 ),
             ),
         },
@@ -338,13 +337,14 @@ def build_scenario_definitions() -> list[dict[str, Any]]:
                         {
                             "name": "worker",
                             "image": "docker.io/library/alpine:3.19",
-                            # 2-minute sustained CPU load aligned with labeling guide
+                            # Sustained CPU loop throttled by container cgroup quota to 500m
                             "command": [
                                 "/bin/sh",
                                 "-c",
                                 (
                                     "nc -z -w 2 127.0.0.1 3333 || true; "
-                                    "stress-ng --cpu 1 --cpu-load 50% --timeout 120s || true"
+                                    "while true; do :; done & PID=$!; "
+                                    f"sleep {mining_duration}; kill $PID 2>/dev/null || true"
                                 ),
                             ],
                             "resources": {"limits": {"cpu": "500m", "memory": "256Mi"}},
@@ -363,7 +363,7 @@ def build_scenario_definitions() -> list[dict[str, Any]]:
             "exec_target": (
                 "tenant-a",
                 "app=database",
-                "cp /bin/busybox /tmp/sync_task && /tmp/sync_task sleep 5 && rm -f /tmp/sync_task",
+                "ln -sf /bin/busybox /tmp/sleep && /tmp/sleep 3 && rm -f /tmp/sleep",
             ),
         },
         # --- 4. Unknown / Degraded Telemetry ---
@@ -610,7 +610,13 @@ def run_staged_pilot(stage: str = "dry-run", raw_dir: Path = DEFAULT_RAW_DIR) ->
         if is_hp:
             create_ephemeral_lab_namespace()
 
-        manifest = sc.get("manifest")
+        sc_to_run = sc
+        # In accordance with Condition 3: 2 runs of SC-MNR-01 execute sustained 2-minute load
+        if sc["id"] == "SC-MNR-01" and idx in {9, 10}:
+            sustained_defs = build_scenario_definitions(mining_duration=120)
+            sc_to_run = [s for s in sustained_defs if s["id"] == "SC-MNR-01"][0]
+
+        manifest = sc_to_run.get("manifest")
         if manifest:
             manifest_to_apply = json.loads(json.dumps(manifest))
             manifest_to_apply["metadata"]["labels"]["runtimelens.run_id"] = run_id
@@ -672,6 +678,9 @@ def run_staged_pilot(stage: str = "dry-run", raw_dir: Path = DEFAULT_RAW_DIR) ->
                 "cleanup_verified": cleanup_clean,
             }
         )
+        # Incrementally persist metrics so progress is never lost
+        DEFAULT_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DEFAULT_METRICS_PATH.write_text(json.dumps(full_metrics, indent=2), encoding="utf-8")
 
     DEFAULT_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
     DEFAULT_METRICS_PATH.write_text(json.dumps(full_metrics, indent=2), encoding="utf-8")
