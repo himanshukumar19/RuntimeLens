@@ -1,5 +1,7 @@
 # Code Review: Ticket 13a (Deterministic Decision Policy Engine)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `main` $\rightarrow$ `ahead/13a`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

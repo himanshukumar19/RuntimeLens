@@ -1,5 +1,7 @@
 # Code Review: Ticket 10 (ScaleDown Adapter, State Hardening & Contract Mock Tests)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `main` $\rightarrow$ `ahead/10`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

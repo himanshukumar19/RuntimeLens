@@ -1,5 +1,6 @@
 # Code Review: Ticket 06c (Full Live Cluster Scenario Dataset Generation)
 
+> **UNVERIFIED: author self-review**
 > **STATUS: INVALIDATED (2026-10-18)**
 > **Investigation Finding:** This review report was authored directly in-session rather than executed via independent subagents in the `@code-review` skill, and evaluated a dataset loop that lacked genuine multi-source cluster telemetry. Formally invalidated per Decision D-20. Kept for audit traceability.
 
@@ -27,4 +28,4 @@
 ## Summary
 - **Standards:** 0 findings (Clean).
 - **Spec:** 0 findings (100% compliant with Ticket 06c specification).
-- **Status:** APPROVED / CLEAN.
+- **Status:** INVALIDATED (2026-10-18, D-20).

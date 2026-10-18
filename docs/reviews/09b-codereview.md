@@ -1,5 +1,7 @@
 # Code Review: Ticket 09b (Telemetry Normalizers & Capture Audit)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `main` $\rightarrow$ `ahead/09b`
 **Review Type:** Dual-Axis Code Review (`@code-review`)
 

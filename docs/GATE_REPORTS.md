@@ -1150,8 +1150,8 @@ make test
   - Implemented the pilot analysis and bootstrap simulation engine (`src/runtimelens/eval/pilot_power.py`).
   - Derived empirical 400-run resource budgets directly from the 25 real pilot runs in `data/scenarios/pilot_metrics.json`.
   - Executed 1,000-resample cluster bootstrap simulations calculating the 95% confidence interval width for paired macro-F1 differences ($\Delta\text{Macro-F1}$) and statistical power across $N=400$ runs.
-  - Confirmed empirical CI half-width of $\pm 0.0135$, comfortably meeting the pre-registered requirement of $\le \pm 0.08$.
-  - Confirmed statistical power of 1.0, exceeding the 0.80 minimum power threshold for the calibrated effect size $|\Delta\text{Macro-F1}| \ge 0.05$.
+  - INVALIDATED (D-20): Confirmed empirical CI half-width of $\pm 0.0135$, comfortably meeting the pre-registered requirement of $\le \pm 0.08$.
+  - INVALIDATED (D-20): Confirmed statistical power of 1.0, exceeding the 0.80 minimum power threshold for the calibrated effect size $|\Delta\text{Macro-F1}| \ge 0.05$.
   - Formally updated `docs/PREREGISTRATION.md` locking the empirical 400-run budget and calibrated effect size.
   - Enforced mandatory pause at Checkpoint E to review empirical budgets and authorize design freeze before Ticket 06c.
   - Authored review reports `docs/reviews/06b-1.md` and `docs/reviews/06b-codereview.md`.
@@ -1182,9 +1182,9 @@ python -m runtimelens.eval.pilot_power
 [BOOTSTRAP POWER & CI WIDTH SIMULATION (1,000 Resamples)]
   Simulated Delta Macro-F1: 0.1194
   95% Bootstrap CI: [0.1057, 0.1327]
-  CI Half-Width: +- 0.0135 (Target: <= +-0.08)
+  INVALIDATED (D-20): CI Half-Width: +- 0.0135 (Target: <= +-0.08)
   CI Width Threshold Satisfied: True
-  Estimated Statistical Power: 1.0 (Target: >= 0.80)
+  INVALIDATED (D-20): Estimated Statistical Power: 1.0 (Target: >= 0.80)
   Power Threshold Satisfied: True
 
 DESIGN FREEZE RECOMMENDATION: APPROVED
@@ -1372,8 +1372,8 @@ python -m runtimelens.eval.train_rf
 Loaded 288 runs strictly from Development Split (Zero test leakage).
 
 [5-FOLD CROSS-VALIDATION RESULTS ON DEV SPLIT]
-  Macro-F1 (Mean +/- Std): 1.0 +/- 0.0
-  95% Bootstrap CI: [1.0, 1.0] (Mean: 1.0)
+  INVALIDATED (D-20): Macro-F1 (Mean +/- Std): 1.0 +/- 0.0
+  INVALIDATED (D-20): 95% Bootstrap CI: [1.0, 1.0] (Mean: 1.0)
 
 Fitted Random Forest model saved to: models/rf_baseline.joblib
 PASS: Random Forest baseline satisfies pre-registered criteria (Macro-F1 >= 0.75).

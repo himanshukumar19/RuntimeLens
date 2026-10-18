@@ -1,5 +1,7 @@
 # Code Review: Ticket 02a (Lab VM & eBPF Feasibility Gate)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `01-passed` $\rightarrow$ `02a-passed` (`0a13e10`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

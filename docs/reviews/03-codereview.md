@@ -1,5 +1,7 @@
 # Code Review: Ticket 03 (Minimal Vertical Slice: Syscall -> Audit Record)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `02b-passed` $\rightarrow$ `03-passed` (`3029445`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

@@ -1,5 +1,7 @@
 # Code Review: Ticket 02b (Falco, Audit Policy, Tenant Namespaces & Workloads)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `02a-passed` $\rightarrow$ `02b-passed` (`d941e56`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

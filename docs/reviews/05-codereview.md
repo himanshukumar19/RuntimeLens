@@ -1,5 +1,7 @@
 # Code Review: Ticket 05 (Declarative YAML Baselines & Drift Detector)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `04-passed` $\rightarrow$ `05-passed` (`4638faa`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

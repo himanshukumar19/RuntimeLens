@@ -1,5 +1,6 @@
 # Code Review: Ticket 08 (Random Forest Baseline & Bootstrap Harness)
 
+> **UNVERIFIED: author self-review**
 > **STATUS: INVALIDATED (2026-10-18)**
 > **Investigation Finding:** This review report was authored directly in-session rather than executed via independent subagents in the `@code-review` skill, and failed to identify that the model was trained on features derived directly from the ground truth class label. Formally invalidated per Decision D-20. Kept for audit traceability.
 
@@ -27,4 +28,4 @@
 ## Summary
 - **Standards:** 0 findings (Clean).
 - **Spec:** 0 findings (100% compliant with Ticket 08 specification).
-- **Status:** APPROVED / CLEAN.
+- **Status:** INVALIDATED (2026-10-18, D-20).

@@ -1,5 +1,7 @@
 # Code Review: Ticket 01 (Repo Foundation, Secrets CI & Sanitizer)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** Initial Commit $\rightarrow$ `01-passed` (`9ce91ff`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

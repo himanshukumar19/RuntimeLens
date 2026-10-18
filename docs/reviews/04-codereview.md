@@ -1,5 +1,7 @@
 # Code Review: Ticket 04 (Core Telemetry & Correlation Window)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `03-passed` $\rightarrow$ `04-passed` (`a274d06`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 

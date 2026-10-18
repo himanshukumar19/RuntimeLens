@@ -1,5 +1,7 @@
 # Code Review: Ticket 09a (Raw Telemetry Capture Setup)
 
+> **UNVERIFIED: author self-review**
+
 **Diff Range:** `05-passed` $\rightarrow$ `09a-passed` (`6e18e5b`)
 **Review Type:** Retroactive Dual-Axis Code Review (`@code-review`)
 
