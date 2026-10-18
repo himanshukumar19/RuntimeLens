@@ -29,6 +29,13 @@ ALPINE_319_ARM64_DIGEST: Final[str] = (
     "docker.io/library/alpine@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1"
 )
 
+# Documented simulated runtime socket paths (Condition 1, Decision D-17)
+# Placed exclusively in /opt/runtimelens-dummy/ to avoid symlink collision with real /run sockets
+SIMULATED_RUNTIME_SOCKET_PATTERNS: Final[tuple[str, ...]] = (
+    "/opt/runtimelens-dummy/docker.sock",
+    "/opt/runtimelens-dummy/containerd.sock",
+)
+
 # Pinned real sha256 digests for lab container images (Decision D-15)
 PINNED_IMAGE_DIGESTS: Final[dict[str, str]] = {
     "alpine:3.19": ALPINE_319_ARM64_DIGEST,
@@ -64,7 +71,10 @@ def extract_pod_spec_facts(pod_spec: dict[str, Any] | None) -> PodSpecInfo:
                 hp = vol.get("hostPath")
                 if isinstance(hp, dict):
                     hp_path = str(hp.get("path", "")).lower()
-                    if any(sock in hp_path for sock in HOST_RUNTIME_SOCKET_PATTERNS):
+                    all_socket_patterns = (
+                        HOST_RUNTIME_SOCKET_PATTERNS + SIMULATED_RUNTIME_SOCKET_PATTERNS
+                    )
+                    if any(sock in hp_path for sock in all_socket_patterns):
                         has_sock = True
                     if any(sens in hp_path for sens in SENSITIVE_HOST_PATH_PATTERNS):
                         has_host_path = True

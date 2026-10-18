@@ -17,26 +17,28 @@
 
 ### 1.2 Socket & Filesystem Virtualization Guard (Option A Specification)
 - **The Extractor Requirement:** `extract_pod_spec_facts()` in `src/runtimelens/normalizer/falco.py` inspects `volumes[].hostPath.path` against `HOST_RUNTIME_SOCKET_PATTERNS` (`/var/run/docker.sock`, `/run/containerd/containerd.sock`) to compute `host_runtime_socket_mounted: true`. If a test pod mounts an empty file via `ConfigMap`, `extract_pod_spec_facts()` evaluates `has_sock = False` because the volume type is `configMap`, not `hostPath`.
-- **The Inert Dummy Node File Solution (Option A):**
-  - Inside the `kind` control-plane node container (`runtimelens-control-plane`), the active container runtime is `containerd` (listening on `/run/containerd/containerd.sock`). `/var/run/docker.sock` does not exist.
-  - An inert, 0-byte regular dummy file is provisioned on the node:
+- **The Dedicated Dummy Node Directory & Extractor Rule (Option A Refined):**
+  - **Symlink Discovery on Node:** Inspection of the kind node container (`runtimelens-control-plane`) reveals that `/var/run` is an active symlink pointing directly to `/run` (`/var/run -> /run`). Creating any dummy file under `/var/run` or `/run` would place files in the live operating system run directory where containerd and system services operate. Therefore, **no files are ever created in `/var/run` or `/run` on the node**.
+  - **Dedicated Dummy Directory on Node:** An inert dummy directory is created at `/opt/runtimelens-dummy/` containing an empty 0-byte regular file:
     ```bash
-    docker exec runtimelens-control-plane touch /var/run/docker.sock
-    docker exec runtimelens-control-plane chmod 0644 /var/run/docker.sock
+    docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/docker.sock
+    docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/docker.sock
     ```
+  - **Dedicated Ephemeral Lab Namespace:** Because Kubernetes Pod Security Standards enforce `baseline` in `tenant-a`, `tenant-b`, and `tenant-c` (which strictly forbids `hostPath` volumes), the simulated escape pod executes strictly inside an ephemeral lab namespace (`sandbox-workloads`) configured with `pod-security.kubernetes.io/enforce: privileged`. The namespace is created only for the run and deleted immediately after.
+  - **The Extractor Rule:** `extract_pod_spec_facts()` in `src/runtimelens/normalizer/falco.py` explicitly recognizes `SIMULATED_RUNTIME_SOCKET_PATTERNS = ("/opt/runtimelens-dummy/docker.sock", "/opt/runtimelens-dummy/containerd.sock")` in addition to real socket paths.
   - The test pod mounts this path using a standard Kubernetes `hostPath` volume:
     ```yaml
     volumes:
     - name: system-socket-link
       hostPath:
-        path: /var/run/docker.sock
+        path: /opt/runtimelens-dummy/docker.sock
         type: File
     ```
   - **Verified Security Properties:**
-    1. `extract_pod_spec_facts()` inspects `hostPath.path == "/var/run/docker.sock"`, which matches `HOST_RUNTIME_SOCKET_PATTERNS` and sets `host_runtime_socket_mounted: true`.
-    2. Falco rule `Launch Sensitive Mount Container` triggers on the container mount path.
-    3. The container accesses a 0-byte, unprivileged regular file with zero connection to the node's containerd socket or Docker daemon.
-  - **Sensitive Host Path Mounts (`sensitive_host_path_mounted: true`):** Similarly mounted via `hostPath: { path: "/etc/kubernetes", type: "Directory" }` to an inert dummy directory on the kind node, setting `sensitive_host_path_mounted: true` without exposing host kernel paths.
+    1. `extract_pod_spec_facts()` inspects `hostPath.path == "/opt/runtimelens-dummy/docker.sock"`, which matches `SIMULATED_RUNTIME_SOCKET_PATTERNS` and sets `host_runtime_socket_mounted: true`.
+    2. The container accesses a 0-byte regular file in an isolated `/opt` subdirectory with zero connection to the node's containerd socket or Docker daemon.
+    3. The PSS baseline of tenant namespaces remains completely uncompromised.
 
 ### 1.3 Anti-Leakage Resource Naming Guardrail
 - **No Class Leakage:** Resource names, pod names, service accounts, and labels must **never** leak the scenario ground truth or threat class. Names containing `escape`, `privilege`, `mining`, `attack`, `benign`, `exploit`, or abbreviations (e.g. `esc`, `prv`, `mnr`) are strictly forbidden in manifests.
@@ -125,13 +127,17 @@ All 25 pilot runs are tagged `is_pilot: true, split_phase: "pilot"` and are **st
 
 ### 4.1 Threat Class: Container Escape (`container_escape`)
 
-#### SC-ESC-01: Simulated Runtime Socket Access (Option A)
-- **Namespaces & Workloads:** `tenant-a`, pod `worker-task-7f9a`.
-- **RBAC Created:** Default unprivileged `tenant-a` ServiceAccount.
-- **Dummy Socket Mount:** Node dummy regular file `/var/run/docker.sock` mounted via `hostPath`.
+#### SC-ESC-01: Simulated Runtime Socket Access (Option A Refined)
+- **Namespaces & Workloads:** `sandbox-workloads` (dedicated ephemeral lab namespace with PSS privileged), pod `worker-task-7f9a`.
+- **RBAC Created:** Default unprivileged ServiceAccount.
+- **Dummy Socket Mount:** Node dummy regular file `/opt/runtimelens-dummy/docker.sock` mounted via `hostPath`.
 - **Exact Command:**
   ```bash
-  kubectl run worker-task-7f9a -n tenant-a --restart=Never \
+  # Pre-run: create ephemeral lab namespace with privileged PSS
+  kubectl create namespace sandbox-workloads --dry-run=client -o yaml | kubectl apply -f -
+  kubectl label namespace sandbox-workloads pod-security.kubernetes.io/enforce=privileged --overwrite
+
+  kubectl run worker-task-7f9a -n sandbox-workloads --restart=Never \
     --image=docker.io/library/alpine:3.19 --labels="app=worker,component=task,runtimelens.test=true,runtimelens.run_id=${RUN_ID}" \
     --overrides='{
       "apiVersion": "v1",
@@ -139,14 +145,19 @@ All 25 pilot runs are tagged `is_pilot: true, split_phase: "pilot"` and are **st
         "containers": [{
           "name": "worker",
           "image": "docker.io/library/alpine:3.19",
-          "command": ["/bin/sh", "-c", "ls -l /var/run/docker.sock && head -n 1 /var/run/docker.sock || true; sleep 5"],
-          "volumeMounts": [{"name": "system-socket-link", "mountPath": "/var/run/docker.sock"}]
+          "command": ["/bin/sh", "-c", "ls -l /opt/runtimelens-dummy/docker.sock && head -n 1 /opt/runtimelens-dummy/docker.sock || true; sleep 5"],
+          "volumeMounts": [{"name": "system-socket-link", "mountPath": "/opt/runtimelens-dummy/docker.sock"}],
+          "resources": {"limits": {"cpu": "500m", "memory": "256Mi"}}
         }],
-        "volumes": [{"name": "system-socket-link", "hostPath": {"path": "/var/run/docker.sock", "type": "File"}}]
+        "volumes": [{"name": "system-socket-link", "hostPath": {"path": "/opt/runtimelens-dummy/docker.sock", "type": "File"}}]
       }
     }'
   ```
-- **Cleanup:** `kubectl delete pod worker-task-7f9a -n tenant-a --ignore-not-found=true`
+- **Cleanup:**
+  ```bash
+  kubectl delete pod worker-task-7f9a -n sandbox-workloads --ignore-not-found=true
+  kubectl delete namespace sandbox-workloads --ignore-not-found=true
+  ```
 
 #### SC-ESC-02: Sensitive Host Filesystem Probe
 - **Namespaces & Workloads:** `tenant-a`, workload `web-6794787bc8-5pnzg`.

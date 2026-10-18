@@ -297,6 +297,35 @@ def test_audit_hash_chain_tamper_detection() -> None:
             log_path.unlink()
 
 
+def test_extract_pod_spec_facts_real_simulated_and_standard_mounts() -> None:
+    from runtimelens.normalizer.falco import extract_pod_spec_facts
+
+    # 1. Real runtime socket mount path
+    spec_real = {"volumes": [{"name": "sock", "hostPath": {"path": "/var/run/docker.sock"}}]}
+    facts_real = extract_pod_spec_facts(spec_real)
+    assert facts_real.has_host_runtime_socket_mount is True
+
+    # 2. Documented simulated dummy socket path in /opt/runtimelens-dummy/
+    spec_sim = {
+        "volumes": [
+            {"name": "dummy-sock", "hostPath": {"path": "/opt/runtimelens-dummy/docker.sock"}}
+        ]
+    }
+    facts_sim = extract_pod_spec_facts(spec_sim)
+    assert facts_sim.has_host_runtime_socket_mount is True
+
+    # 3. Pod with standard hostPath (non-socket, e.g. /var/log)
+    spec_normal = {"volumes": [{"name": "logs", "hostPath": {"path": "/var/log/my-app"}}]}
+    facts_normal = extract_pod_spec_facts(spec_normal)
+    assert facts_normal.has_host_runtime_socket_mount is False
+    assert facts_normal.has_sensitive_host_path_mount is False
+
+    # 4. Pod with emptyDir volume (no hostPath)
+    spec_empty = {"volumes": [{"name": "scratch", "emptyDir": {}}]}
+    facts_empty = extract_pod_spec_facts(spec_empty)
+    assert facts_empty.has_host_runtime_socket_mount is False
+
+
 def test_policy_confidence_none_bypasses_gate() -> None:
     """Prove confidence=None does not trigger LOW_CONFIDENCE_GATE and evaluates threat class."""
     from runtimelens.models.decision import ClassificationResult

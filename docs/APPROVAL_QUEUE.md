@@ -13,47 +13,10 @@
 | Date | Queue ID | Ticket | Decision | Reason / Guidance |
 |:---:|:---:|:---:|:---:|:---|
 | 2026-10-18 | A-001 | 06a | CONDITIONALLY APPROVED | Approved: VM stop, snapshot `snap-s4`, VM restart, `make lab-up` & `make lab-verify`. Required safety sheet revisions: Option A inert dummy hostPath, anti-leakage neutral naming, 2-minute sustained mining duration across 10s scrape intervals, pre-flight cleanup sweep, and `snap-s4` rollback documentation before running pilot. |
-| *(Pending)* | A-002 | 06a | PENDING | Final Authorization for Ticket 06a Live Pilot Scenario Execution (25 runs). |
+| 2026-10-18 | A-002 | 06a | APPROVED WITH CONDITIONS | Approved with 6 conditions: (1) no real runtime socket path on node (/var/run is symlink to /run); inert dummy in /opt/runtimelens-dummy/ with extractor rule & unit tests; (2) hostPath pod strictly in ephemeral privileged lab namespace (not tenant namespaces); (3) scenario_safety_lint.py & make safety-lint verifying all invariants; (4) branch inspection confirming zero ahead/* merged; (5) show code-review output & confirm ahead/13a diffs; (6) staged ramp (dry-run -> ramp-5 -> full-25) with health check & cleanup proof after each step. |
 
 ---
 
 ## Active Approval Items
 
-### Entry `A-002` — Final Authorization for Ticket 06a Live Pilot Scenario Execution
-
-- **Queue ID:** `A-002`
-- **Ticket ID:** `06a` (Live Cluster Pilot Scenario Run)
-- **Status:** `PENDING HUMAN AUTHORIZATION`
-- **What:** Authorize executing the 25 live cluster pilot scenario runs across 5 threat classes and 3 paired counterfactual families inside `runtimelens-vm` kind cluster under revised `docs/SCENARIO_SAFETY_SHEET.md`.
-- **Specification Document:** `docs/SCENARIO_SAFETY_SHEET.md` (Revised)
-- **Exact Commands:**
-  ```bash
-  # Executed inside runtimelens-vm:
-  cd /home/ubuntu/RuntimeLens
-  make lab-verify
-  uv run python -m runtimelens.scenarios.runner --pilot --runs 25 --raw-dir data/raw
-  make capture-check
-  ```
-- **What It Changes:**
-  - Schedules 25 live runs across `tenant-a`, `tenant-b`, and `tenant-c` with neutral workload names (`worker-task-*`, `service-agent-*`, `sync-collector`).
-  - Generates authentic eBPF syscalls, K8s API audit logs, Hubble network flows, and Prometheus cAdvisor resource time series.
-  - Appends unmanipulated raw data to `data/raw/{falco,audit,hubble,prometheus,trivy}/events_raw.jsonl` (git-ignored).
-  - Measures empirical per-run wall time, disk bytes, and RAM consumption in `data/scenarios/pilot_metrics.json` to calibrate 06c budgets.
-- **Undo / Rollback:**
-  - Pre-flight and post-flight sweeps clean all test resources matching `runtimelens.test=true`.
-  - Full system rollback to snapshot **`snap-s4`**:
-    ```bash
-    multipass restore runtimelens-vm.snap-s4
-    ```
-    *Restore impact:* Preserves 100% of S4 deliverables; drops only ephemeral pilot test data.
-- **Risk Assessment:**
-  - *Risk:* Sustained CPU load for 2 minutes during 3 cryptomining runs.
-    *Mitigation:* Capped to 50% CPU limit on 1 core (`limits.cpu: 500m`); memory auto-stop triggers at $\ge 85\%$ RAM; disk auto-stop at $\ge 80\%$.
-  - *Risk:* Telemetry or event loss.
-    *Mitigation:* Bounded buffers and drop counters active in collectors.
-- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-002`. All 6 feedback items from A-001 review are fully incorporated.
-- **What It Blocks:**
-  - Ticket `06a` (Pilot Run).
-  - Ticket `09b` (Telemetry Normalizers & Capture-Sufficiency Audit).
-  - Ticket `06b` (Pilot Power Analysis, CI Width Simulation & Design Freeze - Checkpoint E).
-  - Ticket `06c` (Full 400-Run Live Cluster Scenario Generation).
+*(None pending. All queued authorizations conditionally approved; executing staged pilot ramp under conditions).*
