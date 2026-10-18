@@ -36,6 +36,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 - `main`: Clean, fully tested, all CI gates passing.
 - `ahead/10` (`41673bb`): ScaleDown adapter, XML-delimited state serializer, offline contract tests.
+- `ahead/12b` (`4063954`): Adversarial prompt-injection evaluation harness & 4-defense test suite.
 - `ahead/13a` (`3866a69`): Pure deterministic policy engine & 14-case exhaustive unit test suite.
 - `ahead/09b` (`bda0d0b`): Hubble, Prometheus, and Trivy telemetry normalizers & capture audit.
 - `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
