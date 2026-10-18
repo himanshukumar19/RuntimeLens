@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Config
+preferences: {}
+clusters:
+  - name: runtimelens-audit-webhook
+    cluster:
+      server: http://172.18.0.1:8766/k8s-audit
+users:
+  - name: runtimelens-apiserver
+    user:
+      token: "REDACTED_AUDIT_TOKEN_PLACEHOLDER"
+contexts:
+  - name: audit-webhook-context
+    context:
+      cluster: runtimelens-audit-webhook
+      user: runtimelens-apiserver
+current-context: audit-webhook-context

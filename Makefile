@@ -34,7 +34,7 @@ typecheck:
 	uv run mypy src tests scripts
 
 test:
-	uv run pytest tests/unit/
+	uv run pytest tests/unit/ tests/contract/ tests/integration/
 
 pre-commit-install:
 	uv run pre-commit install

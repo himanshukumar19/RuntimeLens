@@ -16,11 +16,11 @@ nodes:
       - hostPath: /lib/modules
         containerPath: /lib/modules
         readOnly: true
-      # Mount Kubernetes API Audit Policy
+      # Mount Kubernetes API Audit Policy and Webhook Config
       - hostPath: /etc/kubernetes/policies
         containerPath: /etc/kubernetes/policies
         readOnly: true
-      # Mount destination directory for Kubernetes API Audit Logs
+      # Mount destination directory for file-based audit log backup
       - hostPath: /var/log/kubernetes/audit
         containerPath: /var/log/kubernetes/audit
         readOnly: false
@@ -34,6 +34,10 @@ nodes:
             audit-log-maxage: "7"
             audit-log-maxbackup: "3"
             audit-log-maxsize: "100"
+            audit-webhook-config-file: /etc/kubernetes/policies/audit-webhook.yaml
+            audit-webhook-mode: "batch"
+            audit-webhook-batch-max-size: "100"
+            audit-webhook-batch-max-wait: "1s"
           extraVolumes:
             - name: audit-policies
               hostPath: /etc/kubernetes/policies
