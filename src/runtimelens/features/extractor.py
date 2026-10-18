@@ -187,8 +187,15 @@ def extract_features_from_run_dir(
     if prom_file.exists():
         try:
             p_data = json.loads(prom_file.read_text(encoding="utf-8"))
-            pod_stats = p_data.get("pod_stats", [])
-            for p in pod_stats:
+            samples = p_data.get("samples", [])
+            stats_list: list[dict[str, Any]] = []
+            if samples:
+                for s in samples:
+                    stats_list.extend(s.get("pod_stats", []))
+            else:
+                stats_list = p_data.get("pod_stats", [])
+
+            for p in stats_list:
                 containers = p.get("containers", [])
                 for c in containers:
                     cpu = c.get("cpu", {})

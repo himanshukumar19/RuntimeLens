@@ -11,8 +11,9 @@ import json
 import logging
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger("runtimelens.per_run_capture")
 
@@ -81,7 +82,10 @@ class PerRunTelemetryCapture:
         namespace: str,
         run_dir: Path,
     ) -> int:
-        """Capture container CPU and memory metrics from kubelet cAdvisor summary API."""
+        """Capture container CPU and memory metrics from kubelet cAdvisor summary API.
+
+        Appends to existing samples in prometheus/metrics.json for time-series tracking.
+        """
         output_file = run_dir / "prometheus" / "metrics.json"
         cmd = [
             "kubectl",
@@ -89,7 +93,14 @@ class PerRunTelemetryCapture:
             "--raw",
             "/api/v1/nodes/runtimelens-control-plane/proxy/stats/summary",
         ]
-        count = 0
+        samples: list[dict[str, Any]] = []
+        if output_file.exists():
+            try:
+                existing = json.loads(output_file.read_text(encoding="utf-8"))
+                samples = existing.get("samples", [])
+            except Exception:
+                samples = []
+
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if res.returncode == 0 and res.stdout.strip():
@@ -103,19 +114,31 @@ class PerRunTelemetryCapture:
                     ):
                         matched_stats.append(p)
 
+                sample_time = (
+                    data.get("node", {}).get("cpu", {}).get("time") or datetime.now(UTC).isoformat()
+                )
+                samples.append(
+                    {
+                        "sample_index": len(samples) + 1,
+                        "timestamp": sample_time,
+                        "pod_stats": matched_stats,
+                    }
+                )
+
                 with open(output_file, "w", encoding="utf-8") as f:
                     json.dump(
                         {
+                            "samples": samples,
+                            "sample_count": len(samples),
                             "pod_stats": matched_stats,
-                            "raw_summary_time": data.get("node", {}).get("cpu", {}).get("time"),
+                            "raw_summary_time": sample_time,
                         },
                         f,
                         indent=2,
                     )
-                count = len(matched_stats)
         except Exception as e:
             logger.warning("cAdvisor capture exception: %s", e)
-        return count
+        return len(samples)
 
     def capture_falco_alerts(
         self,

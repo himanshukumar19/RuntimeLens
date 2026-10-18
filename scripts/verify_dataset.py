@@ -34,14 +34,12 @@ from runtimelens.features.extractor import (
 logger = logging.getLogger("runtimelens.verify_dataset")
 
 LEAK_KEYWORDS: Final[tuple[str, ...]] = (
-    "SC-ESC",
-    "SC-PRV",
-    "SC-MNR",
-    "SC-UNK",
-    "SC-BEN",
-    "container_escape",
+    "SC-",
     "privilege_abuse",
+    "container_escape",
     "cryptomining",
+    "exfiltration",
+    "benign",
     "run-0",
     "run-1",
     "run-2",
@@ -116,17 +114,25 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
                         continue
     source_counts["hubble"] = h_count
 
-    # 4. Prometheus metrics audit
+    # 4. Prometheus / cAdvisor metrics audit
     prom_file = run_dir / "prometheus" / "metrics.json"
     p_count = 0
     if prom_file.exists():
         try:
             p_data = json.loads(prom_file.read_text(encoding="utf-8"))
-            pod_stats = p_data.get("pod_stats", [])
-            p_count = len(pod_stats)
-            raw_ts = p_data.get("raw_summary_time")
-            if raw_ts:
-                timestamps.append(parse_iso_ts(raw_ts))
+            samples = p_data.get("samples", [])
+            if samples:
+                p_count = len(samples)
+                for s in samples:
+                    s_ts = s.get("timestamp")
+                    if s_ts:
+                        timestamps.append(parse_iso_ts(s_ts))
+            else:
+                pod_stats = p_data.get("pod_stats", [])
+                p_count = len(pod_stats)
+                raw_ts = p_data.get("raw_summary_time")
+                if raw_ts:
+                    timestamps.append(parse_iso_ts(raw_ts))
         except Exception:
             pass
     source_counts["prometheus"] = p_count
@@ -224,10 +230,19 @@ def run_dataset_verification(runs_dir: Path) -> int:
             print(f"    --> FAIL: Telemetry leakage detected: {leaks}")
             total_leaks += len(leaks)
 
-        # Sustained-CPU check for mining
-        if (c_name == "cryptomining" or "MNR" in sc_id) and dur < 115.0:
-            print(f"    --> FAIL: Cryptomining duration too short: {dur}s (Requirement: >= 120s)")
-            mining_violations += 1
+        # Sustained-CPU check for mining (duration >= 115s and at least 8 cAdvisor samples)
+        if c_name == "cryptomining" or "MNR" in sc_id:
+            if dur < 115.0:
+                print(
+                    f"    --> FAIL: Cryptomining duration too short: {dur}s (Requirement: >= 120s)"
+                )
+                mining_violations += 1
+            if counts["prometheus"] < 8:
+                print(
+                    f"    --> FAIL: Cryptomining cAdvisor samples insufficient: "
+                    f"{counts['prometheus']} samples (Requirement: >= 8 samples)"
+                )
+                mining_violations += 1
 
     print("\n[2/5] Telemetry Metadata Leakage Audit")
     if total_leaks > 0:

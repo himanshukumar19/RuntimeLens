@@ -1,28 +1,28 @@
 # RuntimeLens Lab Falco Rules (Decision D-07)
 - rule: Launch Sensitive Mount Container
   desc: Detect sensitive host socket or directory mounts into a container
-  condition: container and (open_write or open_read) and (fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes)
+  condition: container and (open_write or open_read) and (fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes or fd.name startswith /opt/runtimelens-dummy)
   output: Sensitive host path mounted or accessed in container (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name path=%fd.name command=%proc.cmdline)
   priority: CRITICAL
-  tags: [runtimelens, container_escape, sensitive_mount, custom_lab_rule]
+  tags: [runtimelens, host_path_mount, sensitive_mount, custom_lab_rule]
 
 - rule: Interactive Shell Spawned in Non-Debug Container
   desc: Detect unexpected interactive shell spawn inside a container
   condition: container and spawned_process and proc.name in (bash, sh, zsh, dash) and not k8s.ns.name in (kube-system, cilium, falco, monitoring)
   output: Interactive shell spawned in tenant container (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name cmd=%proc.cmdline exe=%proc.exe)
   priority: WARNING
-  tags: [runtimelens, privilege_abuse, shell_unexpected, custom_lab_rule]
+  tags: [runtimelens, process_spawn, shell_unexpected, custom_lab_rule]
 
-- rule: Suspicious Mining Port Egress
+- rule: Suspicious High Port Egress
   desc: Detect outbound network connection attempt to known mining pool ports
   condition: container and (evt.type in (connect, sendto) and fd.rport in (3333, 4444, 5555, 7777, 8888, 9999))
-  output: Outbound connection to potential mining port (pod=%k8s.pod.name ns=%k8s.ns.name rport=%fd.rport rip=%fd.rip cmd=%proc.cmdline)
+  output: Outbound connection to potential high port egress (pod=%k8s.pod.name ns=%k8s.ns.name rport=%fd.rport rip=%fd.rip cmd=%proc.cmdline)
   priority: CRITICAL
-  tags: [runtimelens, cryptomining, network, custom_lab_rule]
+  tags: [runtimelens, egress_anomaly, network, custom_lab_rule]
 
 - rule: Read Sensitive Host Information Untrusted
   desc: Detect read of /etc/shadow or /etc/passwd by unauthorized process
   condition: container and (open_read) and (fd.name in (/etc/shadow, /etc/passwd)) and not proc.name in (login, passwd, useradd, groupadd)
   output: Sensitive identity file opened for read (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name cmd=%proc.cmdline)
   priority: WARNING
-  tags: [runtimelens, privilege_abuse, file_access, custom_lab_rule]
+  tags: [runtimelens, identity_file_read, file_access, custom_lab_rule]

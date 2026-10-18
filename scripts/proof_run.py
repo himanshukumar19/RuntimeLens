@@ -153,6 +153,8 @@ def run_proof_execution() -> int:
                 check=False,
             )
             return 1
+        # Sample cAdvisor metrics every 15 seconds (produces >= 8 time-series samples)
+        collector.capture_cadvisor_metrics("web", "tenant-a", run_dir_mining)
 
     p_mining.wait(timeout=30)
     t1_mining = datetime.now(UTC)
