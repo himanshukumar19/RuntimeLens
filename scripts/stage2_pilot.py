@@ -552,11 +552,24 @@ def verify_per_run_gate(run_dir: Path, is_mining: bool = False) -> tuple[bool, s
                 samples[idx + 1]["timestamp"].replace("Z", "+00:00")
             ).timestamp()
             gap = t2 - t1
-            if gap > 25.0:
+            if gap > 20.0:
                 msg = f"cAdvisor gap {gap:.1f}s > 20s at sample {idx + 1}"
                 return False, msg
 
     return True, "CLEAN"
+
+
+def cleanup_pod(namespace: str, pod_name: str) -> None:
+    """Clean up temporary files and lingering probe processes."""
+    clean_cmd = (
+        "rm -f /tmp/ok /tmp/health_ok /tmp/*.tmp 2>/dev/null || true; "
+        "pgrep -f 'while true; do :; done' | xargs -r kill -9 2>/dev/null || true"
+    )
+    subprocess.run(
+        ["kubectl", "exec", "-n", namespace, pod_name, "--", "/bin/sh", "-c", clean_cmd],
+        capture_output=True,
+        check=False,
+    )
 
 
 def execute_single_run(
@@ -589,36 +602,42 @@ def execute_single_run(
 
     # Initial cAdvisor sample
     collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
+    last_sample_wall = time.time()
 
     # 2. Launch execution
-    if is_mining:
-        p_exec = subprocess.Popen(
-            ["kubectl", "exec", "-n", ns, pod_name, "--", "/bin/sh", "-c", cmd_str],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        # Sample cAdvisor every 15s during the 120s run (takes 8 additional samples)
-        for _check_idx in range(1, 9):
-            time.sleep(15)
-            avail_mb = get_available_ram_mb()
-            if avail_mb < 2048.0:
-                p_exec.terminate()
-                subprocess.run(
-                    ["kubectl", "exec", "-n", ns, pod_name, "--", "pkill", "-9", "-f", "sh"],
-                    check=False,
-                )
-                raise RuntimeError(
-                    f"RAM dropped below 2 GiB ({avail_mb} MB) during mining run {run_id}!"
-                )
-            collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
+    p_exec = subprocess.Popen(
+        ["kubectl", "exec", "-n", ns, pod_name, "--", "/bin/sh", "-c", cmd_str],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
-        p_exec.wait(timeout=30)
-    else:
-        subprocess.run(
-            ["kubectl", "exec", "-n", ns, pod_name, "--", "/bin/sh", "-c", cmd_str], check=False
-        )
-        time.sleep(sleep_after)
-        # Post-exec cAdvisor sample
+    # Monitor and sample cAdvisor every 10 seconds during execution
+    while p_exec.poll() is None:
+        time.sleep(1.0)
+        avail_mb = get_available_ram_mb()
+        disk_pct = get_disk_use_percent()
+        if avail_mb < 2048.0 or disk_pct >= 80.0:
+            p_exec.terminate()
+            cleanup_pod(ns, pod_name)
+            err = f"Resource breach during {run_id}: RAM avail={avail_mb}MB, Disk={disk_pct}%"
+            raise RuntimeError(err)
+        if time.time() - last_sample_wall >= 10.0:
+            collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
+            last_sample_wall = time.time()
+
+    p_exec.wait(timeout=10)
+
+    # Telemetry settle / post-execution window
+    if sleep_after > 0:
+        sleep_end = time.time() + sleep_after
+        while time.time() < sleep_end:
+            time.sleep(min(1.0, sleep_end - time.time()))
+            if time.time() - last_sample_wall >= 10.0:
+                collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
+                last_sample_wall = time.time()
+
+    # Final cAdvisor sample if at least 4s has elapsed since last sample
+    if time.time() - last_sample_wall >= 4.0:
         collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
 
     t1 = datetime.now(UTC)
@@ -647,7 +666,15 @@ def execute_single_run(
     # 4. Enforce Per-Run Gate
     gate_ok, gate_reason = verify_per_run_gate(run_dir, is_mining=is_mining)
     if not gate_ok:
+        cleanup_pod(ns, pod_name)
         raise RuntimeError(f"Per-run gate FAILED for {run_id}: {gate_reason}")
+
+    # 5. Cleanup after each run
+    cleanup_pod(ns, pod_name)
+
+    # Measure run directory size
+    run_disk_bytes = sum(f.stat().st_size for f in run_dir.rglob("*") if f.is_file())
+    run_disk_kb = round(run_disk_bytes / 1024.0, 2)
 
     return {
         "run_index": run_item["run_index"],
@@ -660,6 +687,7 @@ def execute_single_run(
         "elapsed_seconds": elapsed,
         "ram_avail_mb": avail_mb,
         "disk_use_pct": disk_pct,
+        "run_disk_kb": run_disk_kb,
         "gate_status": "PASSED",
     }
 

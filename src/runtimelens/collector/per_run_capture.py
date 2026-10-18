@@ -114,9 +114,8 @@ class PerRunTelemetryCapture:
                     ):
                         matched_stats.append(p)
 
-                sample_time = (
-                    data.get("node", {}).get("cpu", {}).get("time") or datetime.now(UTC).isoformat()
-                )
+                sample_time = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                raw_summary_time = data.get("node", {}).get("cpu", {}).get("time") or sample_time
                 samples.append(
                     {
                         "sample_index": len(samples) + 1,
@@ -131,7 +130,7 @@ class PerRunTelemetryCapture:
                             "samples": samples,
                             "sample_count": len(samples),
                             "pod_stats": matched_stats,
-                            "raw_summary_time": sample_time,
+                            "raw_summary_time": raw_summary_time,
                         },
                         f,
                         indent=2,
