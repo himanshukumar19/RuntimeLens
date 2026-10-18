@@ -21,11 +21,12 @@ class ClassificationResult(BaseModel):
     ]
     class_probabilities: dict[str, float] = Field(default_factory=dict)
     severity: float = Field(ge=1.0, le=5.0)
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     evidence_flags: dict[str, float] = Field(default_factory=dict)
     degraded_mode: bool = False
     classifier_type: Literal["rules", "rf", "scaledown"]
     model_version: str = "v1.0.0"
+    rubric_version: str | None = None
 
 
 class PolicyDecision(BaseModel):
@@ -48,12 +49,22 @@ class AuditRecord(BaseModel):
     event: CanonicalEvent
     classification: ClassificationResult
     decision: PolicyDecision
+    rubric_version: str | None = None
     prev_record_hash: str
     record_hash: str = ""
 
     def compute_hash(self) -> str:
         """Compute cryptographic SHA-256 hash of canonical JSON excluding record_hash."""
-        data_to_hash: dict[str, Any] = self.model_dump(exclude={"record_hash"})
+        exclude_fields: set[str] = {"record_hash"}
+        if self.rubric_version is None:
+            exclude_fields.add("rubric_version")
+
+        data_to_hash: dict[str, Any] = self.model_dump(exclude=exclude_fields)
+        if self.classification.rubric_version is None and "rubric_version" in data_to_hash.get(
+            "classification", {}
+        ):
+            del data_to_hash["classification"]["rubric_version"]
+
         canonical_bytes = json.dumps(data_to_hash, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
         )

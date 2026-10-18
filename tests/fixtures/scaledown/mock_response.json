@@ -1,4 +1,5 @@
 {
+  "_comment": "[ASSUMED / SYNTHETIC MOCK FIXTURE] Based on planning brief; superseded by verified live responses in live_smoke_responses.json",
   "model": "classify-1",
   "answers": {
     "attack_type": {
@@ -15,8 +16,8 @@
     },
     "severity": {
       "type": "score",
-      "score": 3.75,
-      "confidence": 0.84,
+      "score": 2.8,
+      "confidence": 0.75,
       "legend": {
         "0": "Informational: Standard expected activity or benign baseline event.",
         "1": "Low: Minor anomaly or unusual action with high likelihood of benign intent.",

@@ -284,20 +284,27 @@ def test_live_scaledown_14_call_matrix() -> None:
     status, lat, all_data = make_call("call_04_all_three", all_payload)
     print(f"Call 04 (All Three Together): Status {status} | Latency {lat:.1f} ms")
 
-    # Report Score + 1.0 mapping without asserting
+    # Report Score expected value verification without hard asserting
     if "answers" in all_data and "severity" in all_data["answers"]:
-        raw_score = all_data["answers"]["severity"].get("score")
-        if raw_score is not None:
-            mapped_sev = float(raw_score) + 1.0
-            mapping_holds = 1.0 <= mapped_sev <= 5.0
+        sev_obj = all_data["answers"]["severity"]
+        raw_score = sev_obj.get("score")
+        probs = sev_obj.get("probabilities", {})
+        if raw_score is not None and probs:
+            computed_ev = sum(int(level) * float(p) for level, p in probs.items())
+            ev_diff = abs(float(raw_score) - computed_ev)
+            ev_matches = ev_diff < 1e-4
+            mapped_sev = computed_ev + 1.0
             print(
-                f"  -> [SCORE REPORT] Raw Score: {raw_score} | Mapped Severity: {mapped_sev:.2f} "
-                f"| Mapping [1.0, 5.0] Valid: {mapping_holds}"
+                f"  -> [SCORE EV CHECK] Reported Score: {raw_score:.6f} | "
+                f"Computed EV: {computed_ev:.6f} | Diff: {ev_diff:.2e} | "
+                f"EV Match (tol 1e-4): {ev_matches} | Mapped Severity: {mapped_sev:.2f}"
             )
-            recorded_results["score_mapping_observation"] = {
-                "raw_score": raw_score,
+            recorded_results["score_expected_value_verification"] = {
+                "reported_score": raw_score,
+                "computed_expected_value": computed_ev,
+                "diff": ev_diff,
+                "ev_matches": ev_matches,
                 "mapped_severity": mapped_sev,
-                "mapping_holds": mapping_holds,
             }
 
     # 5. Call 5: Cache Bypass & Determinism Test (Bypasses local cache in code AND header)

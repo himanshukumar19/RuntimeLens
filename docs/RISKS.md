@@ -13,6 +13,7 @@
 | **RSK-07** | Automated quarantine causes cascading service disruption | Low | High | False-positive quarantine isolates critical payment service | Dry-run default; allowlisted lab namespaces only; pre-installed NetworkPolicy; automated TTL rollback reconciliation loop; zero pod delete permissions | Himanshu | OPEN |
 | **RSK-08** | Academic report and poster revisions delayed | Medium | Medium | Deliverables lagging behind technical milestones | Stage 1 structural revisions executed immediately via checklist; teammates Altaf & Kamal dedicated to documentation deliverables | Altaf / Kamal | OPEN |
 | **RSK-09** | Primary research claim yields negative result ($\Delta\text{Macro-F1} \le 0$) | Medium | Low | ScaleDown with baseline fails to outperform classical ML | Pre-registered criteria in `docs/PREREGISTRATION.md` treats negative results as valid academic contributions; full failure analysis and SRE cost/latency justification | Himanshu | OPEN |
+| **RSK-10** | Model decode run-to-run non-determinism on continuous Score and select Noul flags | Medium | Medium | Identical requests yield variance in Score (observed 2.406 vs 2.361) and Noul probabilities, while Choice probabilities remain deterministic | Measure model run-to-run variance on a Dev subset; cache responses keyed by `SHA256(model_id + rubric_version + state_hash)`; incorporate empirical run-to-run variance into reported bootstrap uncertainty intervals | Himanshu | OPEN |
 
 ---
 

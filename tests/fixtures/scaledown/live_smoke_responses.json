@@ -1,0 +1,896 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-17T21:28:27Z",
+    "endpoint": "https://api.scaledown.xyz/v1/scaledown",
+    "call_count_cap": 20
+  },
+  "calls": {
+    "call_01_choice_only": {
+      "status_code": 200,
+      "latency_ms": 1680.99,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 448,
+        "output_tokens": 1,
+        "cost": 2.2400000000000002e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.04843989403558077,
+              "container_escape": 0.23462620577589177,
+              "privilege_abuse": 0.6194719627426947,
+              "cryptomining": 0.023386721203062597,
+              "unknown": 0.07407521624277026
+            },
+            "confidence": 0.6194719627426947
+          }
+        },
+        "usage": {
+          "input_tokens": 448,
+          "output_tokens": 1,
+          "cost": 2.2400000000000002e-05
+        }
+      }
+    },
+    "call_02_score_only": {
+      "status_code": 200,
+      "latency_ms": 945.21,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 440,
+        "output_tokens": 1,
+        "cost": 2.2e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "severity": {
+            "type": "score",
+            "score": 2.4060252222577563,
+            "confidence": 0.48547321742598193,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.023404913114233507,
+              "1": 0.0523211877228442,
+              "2": 0.42895917234539765,
+              "3": 0.48547321742598193,
+              "4": 0.009841509391542737
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 440,
+          "output_tokens": 1,
+          "cost": 2.2e-05
+        }
+      }
+    },
+    "call_03_noul_only": {
+      "status_code": 200,
+      "latency_ms": 1014.17,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 257,
+        "output_tokens": 1,
+        "cost": 1.285e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.8285847665822916
+          }
+        },
+        "usage": {
+          "input_tokens": 257,
+          "output_tokens": 1,
+          "cost": 1.285e-05
+        }
+      }
+    },
+    "call_04_all_three": {
+      "status_code": 200,
+      "latency_ms": 1159.86,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1910,
+        "output_tokens": 6,
+        "cost": 9.55e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.04843989403558077,
+              "container_escape": 0.23462620577589177,
+              "privilege_abuse": 0.6194719627426947,
+              "cryptomining": 0.023386721203062597,
+              "unknown": 0.07407521624277026
+            },
+            "confidence": 0.6194719627426947
+          },
+          "severity": {
+            "type": "score",
+            "score": 2.4060252222577563,
+            "confidence": 0.48547321742598193,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.023404913114233507,
+              "1": 0.0523211877228442,
+              "2": 0.42895917234539765,
+              "3": 0.48547321742598193,
+              "4": 0.009841509391542737
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.8285847665822916
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.7130746690212225
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.6604423503203007
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.05540248627518681
+          }
+        },
+        "usage": {
+          "input_tokens": 1910,
+          "output_tokens": 6,
+          "cost": 9.55e-05
+        }
+      }
+    },
+    "call_05_cache_bypass": {
+      "status_code": 200,
+      "latency_ms": 1031.67,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1910,
+        "output_tokens": 6,
+        "cost": 9.55e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.04843989403558077,
+              "container_escape": 0.23462620577589177,
+              "privilege_abuse": 0.6194719627426947,
+              "cryptomining": 0.023386721203062597,
+              "unknown": 0.07407521624277026
+            },
+            "confidence": 0.6194719627426947
+          },
+          "severity": {
+            "type": "score",
+            "score": 2.3614747942388954,
+            "confidence": 0.4516060138098855,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.03156090241685933,
+              "1": 0.07055372912496037,
+              "2": 0.42450719745445004,
+              "3": 0.4516060138098855,
+              "4": 0.021772157193844642
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.8285847665822916
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.6759659561505849
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.6604423503203007
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.05540248627518681
+          }
+        },
+        "usage": {
+          "input_tokens": 1910,
+          "output_tokens": 6,
+          "cost": 9.55e-05
+        }
+      }
+    },
+    "call_06_deliberate_invalid": {
+      "status_code": 422,
+      "latency_ms": 824.34,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": null,
+      "response": {
+        "detail": [
+          {
+            "type": "literal_error",
+            "loc": [
+              "body",
+              "questions",
+              "invalid_q",
+              "ChoiceQuestion",
+              "type"
+            ],
+            "msg": "Input should be 'choice'",
+            "input": "unsupported_question_type",
+            "ctx": {
+              "expected": "'choice'"
+            }
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "questions",
+              "invalid_q",
+              "ChoiceQuestion",
+              "criteria"
+            ],
+            "msg": "Field required",
+            "input": {
+              "type": "unsupported_question_type"
+            }
+          },
+          {
+            "type": "literal_error",
+            "loc": [
+              "body",
+              "questions",
+              "invalid_q",
+              "NoulQuestion",
+              "type"
+            ],
+            "msg": "Input should be 'noul'",
+            "input": "unsupported_question_type",
+            "ctx": {
+              "expected": "'noul'"
+            }
+          },
+          {
+            "type": "literal_error",
+            "loc": [
+              "body",
+              "questions",
+              "invalid_q",
+              "function-after[require_criteria_range(), ScoreQuestion]",
+              "type"
+            ],
+            "msg": "Input should be 'score'",
+            "input": "unsupported_question_type",
+            "ctx": {
+              "expected": "'score'"
+            }
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "questions",
+              "invalid_q",
+              "function-after[require_criteria_range(), ScoreQuestion]",
+              "criteria"
+            ],
+            "msg": "Field required",
+            "input": {
+              "type": "unsupported_question_type"
+            }
+          }
+        ]
+      }
+    },
+    "call_07_latency": {
+      "status_code": 200,
+      "latency_ms": 1049.02,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1808,
+        "output_tokens": 6,
+        "cost": 9.04e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.10409210678768184,
+              "container_escape": 0.19096158189155218,
+              "privilege_abuse": 0.6828970758150922,
+              "cryptomining": 0.011024617752836965,
+              "unknown": 0.011024617752836965
+            },
+            "confidence": 0.6828970758150922
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.4004714324817458,
+            "confidence": 0.551645502308534,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.06324803529572033,
+              "1": 0.551645502308534,
+              "2": 0.3160735550658306,
+              "3": 0.059452809278109406,
+              "4": 0.009580098051805536
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.7340768090185094
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.6682498797030874
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.20334037891431822
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.07936688673883287
+          }
+        },
+        "usage": {
+          "input_tokens": 1808,
+          "output_tokens": 6,
+          "cost": 9.04e-05
+        }
+      }
+    },
+    "call_08_latency": {
+      "status_code": 200,
+      "latency_ms": 1050.91,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1856,
+        "output_tokens": 6,
+        "cost": 9.28e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "benign",
+            "probabilities": {
+              "benign": 0.541482909944327,
+              "container_escape": 0.1341126850173636,
+              "privilege_abuse": 0.29515935261595705,
+              "cryptomining": 0.01704017145755752,
+              "unknown": 0.012204880964794867
+            },
+            "confidence": 0.541482909944327
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.769655171840929,
+            "confidence": 0.44145918729988615,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.06483001457959764,
+              "1": 0.3045387832581653,
+              "2": 0.44145918729988615,
+              "3": 0.1744900454664125,
+              "4": 0.014681969395938485
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.7271860180741735
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.5262363846631156
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.2798152637835059
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.13115826132329883
+          }
+        },
+        "usage": {
+          "input_tokens": 1856,
+          "output_tokens": 6,
+          "cost": 9.28e-05
+        }
+      }
+    },
+    "call_09_latency": {
+      "status_code": 200,
+      "latency_ms": 1056.78,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1808,
+        "output_tokens": 6,
+        "cost": 9.04e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.2206915874504664,
+              "container_escape": 0.20769830775563544,
+              "privilege_abuse": 0.548375546051062,
+              "cryptomining": 0.013538045991533697,
+              "unknown": 0.00969651275130248
+            },
+            "confidence": 0.548375546051062
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.361544927444076,
+            "confidence": 0.5748453239387478,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.08441829296795228,
+              "1": 0.5748453239387478,
+              "2": 0.25714639796459837,
+              "3": 0.06195313293867497,
+              "4": 0.021636852190026652
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.7475209723805551
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.611870606468353
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.12721948082806456
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.07202293929347406
+          }
+        },
+        "usage": {
+          "input_tokens": 1808,
+          "output_tokens": 6,
+          "cost": 9.04e-05
+        }
+      }
+    },
+    "call_10_latency": {
+      "status_code": 200,
+      "latency_ms": 1039.29,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1808,
+        "output_tokens": 6,
+        "cost": 9.04e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "benign",
+            "probabilities": {
+              "benign": 0.5069847113892879,
+              "container_escape": 0.1181754244611182,
+              "privilege_abuse": 0.35227184983072934,
+              "cryptomining": 0.014131180808807342,
+              "unknown": 0.008436833510057149
+            },
+            "confidence": 0.5069847113892879
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.3660147472151778,
+            "confidence": 0.3266308384268482,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.23970875320366297,
+              "1": 0.30703121212453494,
+              "2": 0.3266308384268482,
+              "3": 0.10079492674286912,
+              "4": 0.025834269502084735
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.69111178931158
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.4912473927917134
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.18159146214017785
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.13115826132329883
+          }
+        },
+        "usage": {
+          "input_tokens": 1808,
+          "output_tokens": 6,
+          "cost": 9.04e-05
+        }
+      }
+    },
+    "call_11_latency": {
+      "status_code": 200,
+      "latency_ms": 1047.32,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1808,
+        "output_tokens": 6,
+        "cost": 9.04e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "benign",
+            "probabilities": {
+              "benign": 0.40943441431272454,
+              "container_escape": 0.1373515531361508,
+              "privilege_abuse": 0.40943441431272454,
+              "cryptomining": 0.011763709574838466,
+              "unknown": 0.03201590866356158
+            },
+            "confidence": 0.40943441431272454
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.281389409899723,
+            "confidence": 0.5658863661787694,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.1281555549163351,
+              "1": 0.5658863661787694,
+              "2": 0.22367083666254486,
+              "3": 0.06098759857353837,
+              "4": 0.021299643668812224
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.6525466249879047
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.6604423503203007
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.23317377806256762
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.08738914799620108
+          }
+        },
+        "usage": {
+          "input_tokens": 1808,
+          "output_tokens": 6,
+          "cost": 9.04e-05
+        }
+      }
+    },
+    "call_12_latency": {
+      "status_code": 200,
+      "latency_ms": 895.78,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1820,
+        "output_tokens": 6,
+        "cost": 9.1e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.27085625307775124,
+              "container_escape": 0.14764225212321574,
+              "privilege_abuse": 0.5610127334162224,
+              "cryptomining": 0.010865243911057455,
+              "unknown": 0.009623517471753126
+            },
+            "confidence": 0.5610127334162224
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.3479626409450554,
+            "confidence": 0.5745677419896316,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.07455513197805541,
+              "1": 0.5745677419896316,
+              "2": 0.2908841150683863,
+              "3": 0.04834537503705563,
+              "4": 0.011647635926871064
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.6759659561505849
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.6604423503203007
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.23317377806256762
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.1233821973656082
+          }
+        },
+        "usage": {
+          "input_tokens": 1820,
+          "output_tokens": 6,
+          "cost": 9.1e-05
+        }
+      }
+    },
+    "call_13_paired_debug_authorized": {
+      "status_code": 200,
+      "latency_ms": 925.45,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1952,
+        "output_tokens": 6,
+        "cost": 9.760000000000001e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "benign",
+            "probabilities": {
+              "benign": 0.5464315744664862,
+              "container_escape": 0.057873721327931525,
+              "privilege_abuse": 0.37968100418759665,
+              "cryptomining": 0.006920423801249882,
+              "unknown": 0.009093276216735845
+            },
+            "confidence": 0.5464315744664862
+          },
+          "severity": {
+            "type": "score",
+            "score": 0.9235658506793664,
+            "confidence": 0.5588045691957988,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.2829037502985673,
+              "1": 0.5588045691957988,
+              "2": 0.11895794676961913,
+              "3": 0.030489546999729413,
+              "4": 0.008844186736285248
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.46504311767072043
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.3474533750120953
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.43042630904157736
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.18159146214017785
+          }
+        },
+        "usage": {
+          "input_tokens": 1952,
+          "output_tokens": 6,
+          "cost": 9.760000000000001e-05
+        }
+      }
+    },
+    "call_14_paired_payment_unauthorized": {
+      "status_code": 200,
+      "latency_ms": 979.46,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "usage": {
+        "input_tokens": 1934,
+        "output_tokens": 6,
+        "cost": 9.67e-05
+      },
+      "response": {
+        "model": "classify-1",
+        "answers": {
+          "attack_type": {
+            "type": "choice",
+            "choice": "privilege_abuse",
+            "probabilities": {
+              "benign": 0.08151777859144883,
+              "container_escape": 0.24299822733405715,
+              "privilege_abuse": 0.6415762156120903,
+              "cryptomining": 0.014906420295658302,
+              "unknown": 0.01900135816674542
+            },
+            "confidence": 0.6415762156120903
+          },
+          "severity": {
+            "type": "score",
+            "score": 2.029331946884135,
+            "confidence": 0.49807902630326956,
+            "legend": {
+              "0": "Informational: Standard expected activity or benign baseline event.",
+              "1": "Low: Minor anomaly with high likelihood of benign intent.",
+              "2": "Medium: Suspicious policy violation requiring investigation.",
+              "3": "High: Clear indicator of compromise or unauthorized privilege access.",
+              "4": "Critical: Active confirmed container breakout or cluster-wide compromise."
+            },
+            "probabilities": {
+              "0": 0.02891105901638094,
+              "1": 0.1968694661030029,
+              "2": 0.49807902630326956,
+              "3": 0.2682573661347933,
+              "4": 0.00788308244255329
+            }
+          },
+          "baseline_deviation": {
+            "type": "noul",
+            "noul": 0.7130746690212225
+          },
+          "shell_unexpected": {
+            "type": "noul",
+            "noul": 0.8564010360116955
+          },
+          "resource_exposure": {
+            "type": "noul",
+            "noul": 0.33175012029691275
+          },
+          "resource_abuse": {
+            "type": "noul",
+            "noul": 0.061163404231568456
+          }
+        },
+        "usage": {
+          "input_tokens": 1934,
+          "output_tokens": 6,
+          "cost": 9.67e-05
+        }
+      }
+    }
+  },
+  "score_mapping_observation": {
+    "raw_score": 2.4060252222577563,
+    "mapped_severity": 3.4060252222577563,
+    "mapping_holds": true
+  },
+  "latency_summary_ms": {
+    "min": 895.78,
+    "median": 1048.17,
+    "max": 1056.78
+  },
+  "total_calls_executed": 14
+}

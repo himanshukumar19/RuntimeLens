@@ -116,8 +116,8 @@ def evaluate_policy(
         )
 
     # 3. Confidence & Severity Action Tiers
-    # Low confidence (< 0.70) routes to human review
-    if classification.confidence < 0.70:
+    # Low confidence (< 0.70) routes to human review (applies only to statistical ML/SLM models)
+    if classification.confidence is not None and classification.confidence < 0.70:
         return PolicyDecision(
             action="human_review",
             reason_codes=["LOW_CONFIDENCE_GATE"],

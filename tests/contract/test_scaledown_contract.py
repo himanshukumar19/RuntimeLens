@@ -54,17 +54,20 @@ def test_contract_choice_probabilities() -> None:
     assert 0.0 <= choice_data["confidence"] <= 1.0
 
 
-def test_contract_severity_formula_mapping() -> None:
+def test_contract_severity_expected_value_and_mapping() -> None:
     data = _load_fixture()
     severity_data = data["answers"]["severity"]
     assert severity_data["type"] == "score"
     score_val = float(severity_data["score"])
-    assert 0.0 <= score_val <= 4.0
+    probs = severity_data["probabilities"]
 
-    # Severity formula verification: Severity = Score + 1.0 (maps [0, 4] to [1, 5])
-    computed_severity = score_val + 1.0
+    # Compute expected value across 0-indexed levels: sum(i * P(i))
+    computed_ev = sum(int(level) * float(p) for level, p in probs.items())
+    assert pytest.approx(score_val, abs=1e-4) == computed_ev
+
+    # Severity formula verification: Severity = Expected Value + 1.0 (maps [0, 4] to [1, 5])
+    computed_severity = computed_ev + 1.0
     assert 1.0 <= computed_severity <= 5.0
-    assert pytest.approx(computed_severity, abs=1e-3) == 4.75
 
 
 def test_contract_noul_flags() -> None:

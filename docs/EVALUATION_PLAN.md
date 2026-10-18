@@ -57,6 +57,11 @@ Because telemetry events within the same scenario run exhibit strong temporal an
 - **Latency Breakdown (p50, p95, p99):** Ingestion latency, correlation window wait time, classifier response time (cache hits vs misses separated), and policy evaluation latency.
 - **Cost per 1,000 Events:** Combined model API cost and local compute overhead.
 - **Pre-Filter Recall:** Percentage of true attack events retained after the rule pre-filter.
+
+### 4.5 Model Decode Run-to-Run Variance & Uncertainty
+- **Run-to-Run Variance Measurement:** To account for empirical non-determinism observed in hosted decoding (where identical requests produce minor variance in continuous Score and Noul values), decode variance is measured across a 25-incident Dev subset evaluated over 3 independent passes.
+- **Caching Discipline:** Inference responses are cached locally keyed by `SHA256(model_id + ":" + rubric_version + ":" + state_hash)`.
+- **Integrated Bootstrap Uncertainty:** Bootstrap confidence intervals for ScaleDown macro-F1, benign FPR, and severity rank correlation will incorporate the measured decode variance into the final reported uncertainty bounds.
 - **Mean Time to Recovery (MTTR):** Time required to automatically roll back a false-positive quarantine.
 
 ## 5. Systematic Ablation Suite
