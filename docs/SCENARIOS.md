@@ -7,14 +7,16 @@ The RuntimeLens dataset is collected from **live scenario executions inside an i
    - **Unified Five-Source Raw Capture from Run 1:** Raw telemetry collectors for all five sources—Falco eBPF syscalls, Kubernetes API audit logs, Cilium/Hubble network flows, Prometheus cAdvisor resource metrics, and Trivy image vulnerability reports—are active and archiving unmanipulated raw data from the very first dataset run.
    - Normalizers for Hubble, Prometheus, and Trivy may be staged in later pipeline phases, but the raw multi-source dataset is fully captured during scenario execution so that **the 400-run dataset never needs to be regenerated**.
 2. **Pilot Execution & Design Freeze:**
-   - Before executing the full 400-run corpus, a **pilot of 20–30 runs** is executed.
+   - Before executing the full 400-run corpus, a **pilot of 20–30 runs (25 runs nominal)** is executed.
    - The pilot verifies the operational health and completeness of all five raw capture collectors, confirms zero telemetry loss, and provides empirical variance data.
    - Following successful review of the pilot data, **the scenario implementations, seed sequences, and raw capture design are permanently frozen**.
-3. **Controlled, Benign-Intent Simulation:** Scenarios simulate security indicators without weaponized exploitation:
+   - **Exclusion from Held-Out Test Set:** All pilot runs are tagged `is_pilot: true, split_phase: "pilot"`. They are used strictly for telemetry verification, capture-sufficiency audit, and bootstrap power/variance simulation; they are **strictly excluded from the 28% held-out test set**.
+3. **Controlled, Benign-Intent Simulation & Anti-Leakage Naming:**
    - No real kernel rootkits, memory corruptions, or breakout exploits.
-   - Container escape tests mount synthetic dummy files (e.g. an empty file named `/var/run/docker.sock` in a test volume), never the real host Docker/containerd socket.
-   - Cryptomining tests connect to an in-cluster mock HTTP echo service, never public mining pools or external wallet endpoints.
-   - Privilege abuse tests manipulate narrowly scoped test Roles, never `cluster-admin`.
+   - **Dummy Socket Mount via inert hostPath:** To ensure `host_runtime_socket_mounted=True` is correctly extracted from the Pod specification by `extract_pod_spec_facts()` (which inspects `volumes[].hostPath.path`), the kind control-plane node hosts an inert, 0-byte regular dummy file at `/var/run/docker.sock` (`touch /var/run/docker.sock` on the kind node container where the actual runtime is containerd). The simulated escape pod mounts this path via `hostPath: { path: "/var/run/docker.sock", type: "File" }`. This triggers both Falco mount rules and the pod spec fact extractor while granting zero access to any live daemon.
+   - **Zero Class Leakage in Names & Labels:** No resource name, pod name, service account, namespace, or metadata label may ever leak the scenario ground truth or threat class (e.g. no names containing `escape`, `privilege`, `mining`, `attack`, `benign`). All workloads use realistic, production-style names (`worker-task-*`, `service-agent-*`, `sync-runner-*`) and neutral operational labels (`runtimelens.test: "true"`, `runtimelens.run_id: <id>`).
+   - **Cryptomining Realism & Scrape Alignment:** Cryptomining tests connect to an in-cluster mock HTTP echo service (`sync-collector:3333` in namespace `tenant-a`), never public mining pools or external wallet endpoints. In accordance with `docs/LABELING_GUIDE.md`, mining load generation runs for **2 minutes (120 seconds)** for at least 2–3 runs to span multiple Prometheus scrape intervals (10s scrape interval, capturing 8–12 consecutive scrape points) while respecting container resource limits (`resources.limits.cpu: "500m"`).
+   - **Privilege abuse tests** manipulate narrowly scoped test Roles, never `cluster-admin`.
 4. **Disclosure Wording:** All publications, reports, and posters must explicitly disclose:
    > *"The evaluation dataset was generated through live executions in an isolated, multi-tenant Kubernetes laboratory cluster running controlled, benign-intent attack simulations. No live malware, weaponized exploits, or external mining pools were deployed. Results reflect lab conditions and may not directly generalize to production enterprise clusters."*
 5. **Incident Definition:**
@@ -86,8 +88,9 @@ The core scientific claim requires isolating the causal effect of the baseline c
 
 ## 4. Run Count Matrix & Statistical Power Plan
 
-### 4.1 Live Cluster Run Allocation
+### 4.1 Live Cluster Run Allocation & Pilot Mix Table
 
+#### Full 400-Run Live Allocation
 | Category | Independent Runs Target | Estimated Test Split Runs (~28%) | Estimated Dev Split Runs (~72%) | Estimated Incidents (1 per run) |
 |:---|:---:|:---:|:---:|:---:|
 | `container_escape` | 60 runs | **17 runs** | 43 runs | 60 incidents |
@@ -96,6 +99,18 @@ The core scientific claim requires isolating the causal effect of the baseline c
 | `unknown` / Degraded Telemetry | 40 runs | **11 runs** | 29 runs | 40 incidents |
 | `benign` (rollouts, probes, batch, admin, port pairs) | 180 runs | **50 runs** | 130 runs | 180 incidents |
 | **Total Live Cluster Runs** | **400 runs** | **112 runs** | **288 runs** | **400 incidents** |
+
+#### Pilot 25-Run Stratified Class & Paired Family Mix (Ticket 06a)
+*Note: All 25 pilot runs are tagged `is_pilot: true` and strictly excluded from the held-out test split.*
+
+| Threat Class | Pilot Runs | Scenarios Included | Paired Family Mapping | Specific Test Conditions |
+|:---|:---:|:---|:---|:---|
+| `container_escape` | 4 | SC-ESC-01 (2), SC-ESC-02 (1), SC-ESC-03 (1) | Family A (Attack counterpart) | SC-ESC-01 mounts inert dummy `/var/run/docker.sock` via `hostPath` |
+| `privilege_abuse` | 4 | SC-PRV-01 (2), SC-PRV-02 (1), SC-PRV-03 (1) | Family C (Attack counterpart) | SC-PRV-01 attempts cross-tenant secret exfiltration |
+| `cryptomining` | 4 | SC-MNR-01 (3), SC-MNR-02 (1) | Family B (Attack counterpart) | 3 runs execute **sustained 2-minute CPU load** to span 8–12 Prometheus scrape windows |
+| `unknown` | 3 | SC-UNK-01 (2), SC-UNK-02 (1) | Unpaired (Telemetry health) | Sensor receiver halted or syscall burst drops |
+| `benign` | 10 | SC-BEN-01 (2), SC-BEN-02 (2), SC-BEN-03 (2), SC-BEN-04 (2), SC-BEN-05 (2) | Family A (Pair 2: debug pod), Family B (Pair 2: port 3333 flow, Pair 3: db compaction), Family C (Pair 2: authorized secret) | Routine rollouts, authorized maintenance shell, legitimate port 3333 analytics traffic |
+| **Total Pilot Runs** | **25** | **14 unique scenarios** | **All 3 Paired Families Represented** | **Resource baselines measured** |
 
 ### 4.2 Statistical Power & CI Width Estimation via Pilot
 - Rather than asserting an unverified a priori confidence interval width or power, **statistical power and 95% bootstrap CI width will be estimated empirically by simulation and cluster bootstrap on the 20–30 run pilot dataset**.

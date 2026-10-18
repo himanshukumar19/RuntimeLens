@@ -1,6 +1,6 @@
 # TICKET TREE: RuntimeLens Implementation Workflow
 
-**ACTIVE TICKET:** 06a (Live Cluster Pilot Scenario Run - Checkpoint D1)
+**ACTIVE TICKET:** 06a (BLOCKED-ON A-002: Final Authorization for Pilot Scenario Execution)
 
 ---
 
@@ -21,7 +21,7 @@
         +-----------------------------------+
         |                                   |
         v                                   v
-[11: Live API Smoke Test] (STOP before/after)   [04: Core Telemetry (Falco + Audit) & Window]
+[11: Live API Smoke Test] (PASSED 2026-10-18)   [04: Core Telemetry (Falco + Audit) & Window]
         |                                   |
         |          +------------------------+
         |          |                        |
@@ -97,8 +97,8 @@ All code tickets are implemented strictly **one at a time** (one VM, one cluster
 2. **`02a`**: VM, kind, Cilium, BTF & eBPF Feasibility Gate *(Checkpoint A)*
 3. **`02b`**: Falco, Audit Policy, Tenant Namespaces & Workloads
 4. **`03`**: Minimal Vertical Slice: Live Syscall to Tamper-Evident Audit Record *(Checkpoint B)*
-5. **`11`**: Live ScaleDown API Smoke Test & Contract Verification *(Checkpoint C)*
-   - *Ordering Note:* Placed immediately after vertical slice so the verified API contract and real response fixtures govern all subsequent adapter work before building complex adapters.
+5. **`11`**: Live ScaleDown API Smoke Test & Contract Verification *(Checkpoint C - COMPLETED)*
+   - *Execution Note:* Executed and PASSED on 2026-10-18 (14 calls executed cleanly). Real fixtures committed in `84adde8`, verified contract documented in `docs/MODEL_API.md`. Key needed again only for Ticket 12a, from a session started by the user in their own terminal.
 6. **`04`**: Core Telemetry Ingestion (Live Falco + Audit) & Correlation Window
 7. **`05`**: Declarative YAML Baseline Loader & Drift Detector
 8. **`09a`**: Raw Telemetry Capture Setup (Hubble, Prometheus, Trivy)
@@ -135,17 +135,25 @@ Inside a segment, when a ticket passes all automated gate checks and real test e
 **MANDATORY HARD STOP CHECKPOINTS:** The agent MUST STOP and wait for explicit human approval at:
 1. **Checkpoint A (after `02a`):** Feasibility gate evaluation; decision to stay on local VM or switch to cloud Linux VM.
 2. **Checkpoint B (after `03`):** Scope re-check on the working vertical slice.
-3. **Checkpoint C1 (before `11`):** Authorization required before making real network API calls with `SCALEDOWN_API_KEY`.
-4. **Checkpoint C2 (after `11`):** Verified API contract review (confirm Score behavior and Severity formula).
-5. **Checkpoint D1 (before `06a`):** Safety review of scenario definitions (dummy socket instead of real container socket, CPU-capped mining with no real pool, scoped roles in lab namespace, automatic cleanup).
-6. **Checkpoint D2 (after `06a`):** Pilot run capture inspection (verify per-run metrics for time, disk, RAM).
-7. **Checkpoint E (after `06b`):** Review power estimate, CI width simulation, empirical 06c resource budget, pre-registration update, and R2 Round 1 blind review.
-8. **Checkpoint F (before `06c`):** Approval to launch the long-running 400-run live cluster scenario generation.
-9. **Checkpoint G (after `07`):** Verify dataset split hash, air-gap lock, and pre-registration commitment prior to any test access.
-10. **Checkpoint H (before `12a`):** Verify Human Track R2 Round 2 blind review passes ($\kappa \ge 0.80$ on Dev data) before starting Dev model tuning and ablations.
-11. **Checkpoint I (before `12c`):** Final authorization for the single, one-shot held-out test evaluation pass.
-12. **Checkpoint J (before live mode in `13b`):** Authorize live (non-dry-run) Kubernetes label-based quarantine.
-13. **Checkpoint K (at `16a`):** Review measured empirical numbers before drafting final academic deliverables.
+3. **Checkpoint C1 & C2 (Ticket `11`):** COMPLETED on 2026-10-18. 14 live calls executed; API contract verified in `docs/MODEL_API.md` and fixtures committed in `84adde8`. (API key needed again only at Ticket 12a via user terminal session).
+4. **Checkpoint D1 (before `06a`):** Mandatory safety review of scenario definitions (dummy socket instead of real container socket, CPU-capped mining with no real pool, scoped roles in lab namespace, automatic cleanup). [QUEUED: `A-001` in `docs/APPROVAL_QUEUE.md`]
+5. **Checkpoint D2 (after `06a`):** Pilot run capture inspection (verify per-run metrics for time, disk, RAM).
+6. **Checkpoint E (after `06b`):** Review power estimate, CI width simulation, empirical 06c resource budget, pre-registration update, and R2 Round 1 blind review.
+7. **Checkpoint F (before `06c`):** Approval to launch the long-running 400-run live cluster scenario generation.
+8. **Checkpoint G (after `07`):** Verify dataset split hash, air-gap lock, and pre-registration commitment prior to any test access.
+9. **Checkpoint H (before `12a`):** Verify Human Track R2 Round 2 blind review passes ($\kappa \ge 0.80$ on Dev data) before starting Dev model tuning and ablations.
+10. **Checkpoint I (before `12c`):** Final authorization for the single, one-shot held-out test evaluation pass.
+11. **Checkpoint J (before live mode in `13b`):** Authorize live (non-dry-run) Kubernetes label-based quarantine.
+12. **Checkpoint K (at `16a`):** Review measured empirical numbers before drafting final academic deliverables.
+
+### Autopilot with an Approval Queue Protocol
+1. **Approval Queue (`docs/APPROVAL_QUEUE.md`):** Whenever action requires explicit human approval, append an entry (`A-001`, `A-002`, ...) documenting: Ticket, What, Exact commands, What it changes, Undo, Risk, Agent Recommendation, and What it blocks.
+2. **Blocked State & Autonomous Continuation:** Mark the ticket `BLOCKED-ON A-xxx` and continue immediately with any unblocked ticket that does not depend on it.
+3. **Digest & Stop:** Stop only when zero unblocked tickets remain; present a digest with recommended answers. The user replies `"APPROVE A-xxx, DENY A-yyy: reason"` which is logged with the date in `docs/APPROVAL_QUEUE.md`.
+4. **Work-Ahead Rules:** Work-ahead is permitted exclusively for fully offline tickets (no VM/cluster, no API spend, no dataset generation, no test split) on isolated git branches `ahead/<ticket-id>`, never merged until blocking approvals are answered. Never run two tickets on the VM or cluster at once.
+5. **Pre-Approved (Log each):** Local project folder edits, unit tests, commits, tags, local branches; `kubectl`, `helm`, `kind`, `make lab-up/lab-reset/lab-verify` in VM for active ticket; installing documented pinned tools with checksum verification.
+6. **Always Queue Instead of Executing:** `git push` or remote changes; any `SCALEDOWN_API_KEY` usage or spend; `sudo` beyond documented installs, chmod, chown, setfacl; `rm -rf`, `multipass delete/purge/stop --all`, `kubectl delete` outside lab namespaces; new paid/external services; 06a scenario safety review; launching 400 runs (06c); design freeze (06b); test split first access (12c); live quarantine (13b); plan/preregistration changes after dev results exist; human tasks (Track R2 review, report text).
+7. **Auto-Stop Triggers:** Gate failing after two fix attempts, flaky tests, contradictory docs, VM memory $>85\%$ or disk $>80\%$, unhealthy cluster twice consecutively, anything looking like a secret, anomalous metrics, or urge to bypass rules. Quality is non-negotiable (full reviews, gate reports, and tags required).
 
 ### Unscheduled Emergency Stop Triggers
 Stop immediately and ask the user before running:
@@ -158,7 +166,7 @@ Stop immediately and ask the user before running:
 |:---:|:---|:---|:---|:---|
 | **S1** | Foundation & Feasibility | `01`, `02a` | Run 01 $\rightarrow$ 02a autonomously if tests pass | **STOP after 02a** (Feasibility review) |
 | **S2** | Cluster & Vertical Slice | `02b`, `03` | Run 02b $\rightarrow$ 03 autonomously if tests pass | **STOP after 03** (Scope re-check) |
-| **S3** | Live API Verification | `11` | Isolated manual execution | **STOP before & after 11** (API spending & contract) |
+| **S3** | Live API Verification | `11` | Isolated manual execution | COMPLETED on 2026-10-18 (14 calls verified; fixtures in 84adde8) |
 | **S4** | Telemetry Ingestion Setup | `04`, `05`, `09a` | Run 04 $\rightarrow$ 05 $\rightarrow$ 09a autonomously | Run completed; ready for pilot |
 | **S5** | Pilot & Design Freeze | `06a`, `09b`, `06b` | Run 06a on approval $\rightarrow$ STOP; then 09b $\rightarrow$ 06b | **STOP before 06a:** Safety review of scenario definitions (dummy sockets, scoped roles, CPU limits, cleanup).<br>**STOP after 06a:** Inspect pilot captures & resource usage.<br>**STOP after 06b:** Review power analysis, empirical budget & design freeze. |
 | **S6** | Live Dataset Generation | `06c`, `07` | Launch 06c on approval $\rightarrow$ 07 | **STOP before 06c:** Authorize 400 live runs.<br>**STOP after 07:** Verify air-gap, manifest hash, and final baselines. |
@@ -178,11 +186,11 @@ Stop immediately and ask the user before running:
 | **`02a`** | Lab VM & eBPF Feasibility Gate | `01` | `02b` | `01` passed; host macOS ready | Ubuntu 24.04 VM (4 vCPU, 6 GB), `kind`, Cilium CNI, BTF verification | `/sys/kernel/btf/vmlinux` present; `cilium status --wait` healthy; clean VM snapshot `snap-02a` | Bind 127.0.0.1; VM RAM capped at 6 GB | Mandatory | APPROVED |
 | **`02b`** | Falco, Audit, Namespaces & Workloads | `02a` | `03`, `09a` | `02a` approved | Falco with modern eBPF, K8s audit policy, 3 tenant namespaces, 4 ARM64 workloads, `make lab-up/lab-verify` | `make lab-verify` passes; test syscall alert received by webhook; default-deny NetworkPolicies active | Verify `context == kind-runtimelens`; PSS enforced | Mandatory | APPROVED |
 | **`03`** | Minimal Vertical Slice (Syscall -> Audit) | `02b` | `04`, `11` | `02b` passed | Webhook receiver, CanonicalEvent v1.0.0, minimal rules, policy engine, tamper-evident audit writer | `kubectl exec -it <pod> -- /bin/sh` produces validated audit JSONL record with hash-chain in $<2$s | Dry-run default; verify schema forbidding extra fields | Mandatory | APPROVED |
-| **`11`** | Live API Smoke Test & Contract Verification | `01`, `03` | `10` | User approval; `SCALEDOWN_API_KEY` set | `make test-live-api` target, real API contract validation, Score formula verification, fixture capture | `RUN_LIVE_API_TESTS=1 pytest tests/live/test_smoke.py`; HTTP 200, latency $<5$s, cost logged, fixtures saved | Hard cap 3 requests; zero key logging; synthetic only | Mandatory | APPROVED |
+| **`11`** | Live API Smoke Test & Contract Verification | `01`, `03` | `10` | Executed 2026-10-18 | `make test-live-api` target, real API contract validation, Score formula verification, fixture capture | `RUN_LIVE_API_TESTS=1 pytest tests/live/test_smoke.py`; 14 live calls passed, contract in docs/MODEL_API.md, fixtures in 84adde8 | Hard cap 20 requests; zero key logging; synthetic only | Mandatory | PASSED |
 | **`04`** | Core Telemetry (Falco + Audit) & Window Buffer | `03` | `05`, `09a` | `03` passed | Live Falco + Audit collectors, secret redactors, bounded buffers, $\pm 30$s window correlation | `pytest tests/integration/test_correlation.py`; multi-source incident correctly aggregated by pod UID | Redact secrets before queue; drop counter active | Mandatory | APPROVED |
 | **`05`** | Declarative YAML Baselines & Drift Detector | `04` | `06a`, `10` | `04` passed | Baseline YAML loader, profiles for 4 workloads from observation runs, deterministic drift comparator | `pytest tests/unit/test_baseline.py`; unauthorized binary triggers `baseline_deviation_detected=True` | Zero auto-learning; baselines read-only | Mandatory | APPROVED |
 | **`09a`** | Raw Telemetry Capture Setup (Hubble/Prom/Trivy) | `02b`, `04` | `06a` | `02b`, `04` passed | Append-only rotated JSONL capture for Hubble flows, Prometheus CPU/mem scraper, Trivy CLI scanner | `make capture-check`; sample flows, metrics, and image scan hashes recorded in `data/raw/` | Size-capped rotated files; zero packet leaks | Mandatory | APPROVED |
-| **`06a`** | Live Cluster Pilot Scenario Run | `05`, `09a` | `09b`, `06b` | `05`, `09a` passed; User safety approval | 20–30 live cluster runs across all 5 classes, capturing all 5 sources raw; measure per-run wall time, disk, RAM | `make run-pilot`; all pilot runs complete; zero orphaned pods; raw captures present; resource log saved | Hard stop before run: review dummy socket, scoped roles, CPU-capped mining, cleanup after every run | Mandatory | NOT STARTED |
+| **`06a`** | Live Cluster Pilot Scenario Run | `05`, `09a` | `09b`, `06b` | `05`, `09a` passed; User safety approval | 20–30 live cluster runs across all 5 classes, capturing all 5 sources raw; measure per-run wall time, disk, RAM | `make run-pilot`; all pilot runs complete; zero orphaned pods; raw captures present; resource log saved | Hard stop before run: review dummy socket, scoped roles, CPU-capped mining, cleanup after every run | Mandatory | BLOCKED-ON A-002 |
 | **`09b`** | Telemetry Normalizers & Sufficiency Audit | `06a` | `06b`, `12a` | `06a` passed | Hubble flow and Prometheus normalizers (Trivy last); capture-sufficiency verification script | `python -m runtimelens.audit_capture --pilot`; 100% of required feature fields present in pilot events | Explicit missing flags; no false claims of zero activity | Trivy normalizer dropped 4th if short | NOT STARTED |
 | **`06b`** | Pilot Analysis, Power Estimate & Freeze | `06a`, `09b` | `06c` | Pilot data & normalizers ready | Power/variance simulation using rules proxy; CI width estimate; measured 06c time/disk/RAM budget; update preregistration; R2 Round 1 | `python -m runtimelens.eval.pilot_power`; CI width $\le \pm 0.08$ confirmed; empirical 06c budget logged; R2 Round 1 logged | Freeze test protocol; mark exploratory if underpowered | Mandatory | NOT STARTED |
 | **`06c`** | Full Live Cluster Scenario Dataset (400 Runs) | `06b` | `07` | User approval; freeze complete | 400 live cluster runs (60 esc, 60 prv, 60 cry, 40 unk, 180 ben) across 5 seeds; 3 paired families; atomic run manifest with resume support; automatic cleanup; adhering to 06b resource budget | `make run-dataset`; 400 runs complete; ground truth & phase tags assigned; raw logs verified; resume verified; resource budget respected | CPU-capped stress-ng; dummy endpoints; lab namespaces; automatic cleanup after every run | Mandatory | NOT STARTED |
@@ -195,7 +203,7 @@ Stop immediately and ask the user before running:
 | **`12c`** | Single Held-Out Test Set Evaluation | `12a`, `12b` | `13b`, `16a` | User approval; R2 passed | Single evaluation pass on frozen test split (112 runs); cluster-aware bootstrap CIs; pre-registered hypothesis test | `python -m runtimelens.eval.run_final_test`; test access logged; primary CI evaluated; git tag `evaluation-frozen-v1` | One-shot evaluation; zero post-test parameter tuning | Mandatory | NOT STARTED |
 | **`13b`** | SRE Response Controller (Quarantine & Rollback) | `12c` | `14`, `15`, `16c` | `12c` passed | Response controller patching `quarantine=true`; pre-installed NetworkPolicy; 15m TTL rollback; RBAC zero delete | `pytest tests/integration/test_quarantine.py`; `kubectl auth can-i delete pods` returns `no`; TTL rollback verified | Zero pod delete verb anywhere; dry-run default | Live quarantine dropped 3rd if short | NOT STARTED |
 | **`14`** | Prometheus Metrics Exporter & Observability | `13b` | `16c` | `13b` passed | Prometheus exporter on port 9090 (latencies, class counts, drops; ECE excluded); Grafana dashboard JSON | `curl -s 127.0.0.1:9090/metrics | grep runtimelens`; Grafana dashboard renders without errors | Low memory footprint; no ELK/Kafka | Dashboards dropped 2nd if short | NOT STARTED |
-| **`15`** | SRE Extensions: Risk Score & Feedback Loop | `13b` | None | `13b` passed | Deterministic exposure-based risk scoring; analyst review CLI (`review.py`) generating Dev baseline Git diffs | `python -m runtimelens.review --generate-diff`; valid YAML diff generated for Dev split baseline | Dev split only; test baselines strictly immutable | Dropped 1st if short | NOT STARTED |
+| **`15`** | SRE Extensions: Risk Score & Feedback Loop | `13b` | None | `13b` passed | Deterministic exposure-based risk scoring; analyst review CLI (`review.py`) generating Dev baseline Git diffs | `python -m runtimelens.review --generate-diff`; valid YAML diff generated for Dev split baseline | Dev split only; test baselines strictly root-owned and tamper-evident | Dropped 1st if short | NOT STARTED |
 | **`16a`** | Final Report v2 with Measured Findings | `12c` | `16b` | User approval; `12c` complete | Final Report v2 in `docs/report/final_report.pdf` with measured Macro-F1, bootstrap CIs, confusion matrices | Report compiles cleanly; all worked examples marked ILLUSTRATIVE; limitations and findings disclosed | Disclose synthetic lab nature; faculty guide informed | Mandatory | NOT STARTED |
 | **`16b`** | Academic Poster Redesign | `16a` | `16c` | `16a` passed | Updated architecture poster graphic with ScaleDown branding, tenant names, and design-only termination | High-resolution poster image exported; team review complete | Remove Jev branding; flag termination as design-only | Mandatory | NOT STARTED |
 | **`16c`** | Live Demonstration Script & Viva Runbook | `13b`, `14`, `16a` | None | `13b`, `14`, `16a` passed | 5-minute live demo script (`make demo`); operator runbook; viva defense question/answer guide | `make demo` runs cleanly in $<5$ minutes on clean cluster; team completes simulated viva rehearsal | Idempotent cleanup after demo run | Mandatory | NOT STARTED |

@@ -43,7 +43,7 @@
 2. **Total Sample Size:** **400 independent live cluster runs** (yielding 400 incidents, 1 per run). Raw data from all 5 sources (Falco, audit, Hubble, Prometheus, Trivy) is archived from run 1.
 3. **Partitioning:** Grouped strictly by `run_id` and scenario variant:
    - **Dev Split:** 72% (~288 runs), used for training classical ML, prompt tuning, and threshold calibration.
-   - **Held-Out Test Split:** 28% (~112 runs), frozen with an immutable SHA-256 hash in `datasets/splits/manifest_v1.json`.
+   - **Held-Out Test Split:** 28% (~112 runs), frozen with a tamper-evident SHA-256 hash in `datasets/splits/manifest_v1.json`.
 4. **Equal Tuning Budget:** All three classifiers receive the exact same dev-set exposure and compute budget.
 5. **Air-Gap Rule:** The test split is evaluated exactly ONCE per final model configuration. All access is logged to `data/audit/test_eval_access.log`.
 

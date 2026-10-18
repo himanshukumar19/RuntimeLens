@@ -1,0 +1,63 @@
+# RuntimeLens Engineering Handoff
+
+> **Last Updated:** 2026-10-18
+> **Operational Status:** Segment S4 Complete; Halted at Checkpoint D1 Boundary
+> **Governance Document:** `AGENTS.md` Rule 8 (Per-Ticket Review Loop) & Rule 9 (Autopilot with Approval Queue)
+
+---
+
+## 1. Current State & Completed Milestones
+
+The project is governed under Mode A pair programming on macOS ARM64 with an air-gapped Ubuntu 24.04 Multipass VM (`runtimelens-vm`).
+
+### Completed & Tagged Tickets:
+- **Ticket `01` (`01-passed`, `9ce91ff`):** Repo foundation, strict secrets CI, property-based string sanitizer with Hypothesis fuzzing.
+- **Ticket `02a` (`02a-passed`, `0a13e10`):** Lab VM, kind cluster, Cilium CNI, eBPF BTF verification (`snap-02a`).
+- **Ticket `02b` (`02b-passed`, `d941e56`):** Dual API audit policy, 3 tenant namespaces, default-deny NetworkPolicies, 4 hardened workloads, Falco JSON logging.
+- **Ticket `03` (`03-passed`, `3029445`):** Minimal vertical slice (webhook receiver, CanonicalEvent v1.0.0, rules classifier, deterministic policy engine, tamper-evident audit writer, `snap-02b`).
+- **Ticket `11` (`84adde8`):** Live ScaleDown API smoke test completed on 2026-10-18 (14 calls executed); verified contract in `docs/MODEL_API.md`, real response fixtures in `tests/fixtures/scaledown/live_smoke_responses.json`. *Key is NOT needed again until Ticket 12a.*
+- **Ticket `04` (`04-passed`, `a274d06`):** Core telemetry ingestion (Falco + K8s Audit Webhook) with $\pm 30$s temporal correlation window, non-blocking batch mode, TLS cert support.
+- **Ticket `05` (`05-passed`, `4638faa`):** Git-versioned declarative YAML baselines (`baselines/`) and deterministic drift comparator.
+- **Ticket `09a` (`09a-passed`, `6e18e5b`):** Unified 5-source raw telemetry archiver (`data/raw/{falco,audit,hubble,prometheus,trivy}`) ensuring full dataset reproducibility without rerunning.
+
+---
+
+## 2. Active & Blocked Tickets
+
+- **Active Ticket:** `06a` (Live Cluster Pilot Scenario Run - 25 runs across 5 threat classes)
+- **Status:** `BLOCKED-ON A-002` (Final Go for Pilot Scenario Execution)
+- **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
+- **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
+
+---
+
+## 3. Active Branches
+
+- `main`: Clean, fully tested, all CI gates passing.
+- `ahead/*`: Work-ahead offline branches (Ticket 10, Ticket 13a, Ticket 09b normalizers, Ticket 14, Ticket 16c).
+
+---
+
+## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
+
+- **`A-002`:** Final authorization for Ticket 06a pilot run (25 runs under revised `docs/SCENARIO_SAFETY_SHEET.md`).
+  - *Recommendation:* `APPROVE A-002`
+
+---
+
+## 5. Next Three Steps
+
+1. **Step 1 (Human Action):** User reviews revised `docs/SCENARIO_SAFETY_SHEET.md` and provides approval: `"APPROVE A-002"`.
+2. **Step 2 (Ticket 06a Pilot Run):** Agent executes the 25 live pilot runs inside `runtimelens-vm`, records empirical per-run wall time, disk bytes, and RAM metrics, confirms zero orphaned test pods, and halts at Checkpoint D2 for inspection.
+3. **Step 3 (Ticket 09b & 06b):** Execute capture-sufficiency audit against pilot raw data, compute empirical power/variance simulation, lock empirical 400-run budget, and freeze design at Checkpoint E.
+
+---
+
+## 6. Anything Fragile & Watchpoints
+
+1. **Host VM Memory & Disk Limits:** Auto-stop triggers immediately if VM memory $\ge 85\%$ (4.93 GiB) or root disk $\ge 80\%$ (30.4 GiB). Current health: 24% memory used (4.4 GiB free), 19% disk used (31 GiB free).
+2. **Cluster Safety & Sockets:** No real host sockets (`/var/run/docker.sock`) may ever be mounted into test containers; only synthetic ConfigMap dummy files.
+3. **Mining Traffic:** Outbound flows must target only the internal cluster echo service `mock-mining-sink:3333`, never real pools or external IPs.
+4. **Air-Gapped Code Transport:** Multipass folder mounting (`multipass mount`) is strictly forbidden. Files are transferred exclusively via `git archive HEAD` or explicit `multipass transfer`.
+5. **No Pod Deletion Verbs in RBAC:** Neither the agent nor the response controller can possess pod deletion verbs.
+6. **ScaleDown API Key Governance:** Never paste or request the key in chat. Key is injected solely as `SCALEDOWN_API_KEY` in the user's terminal environment for Ticket 12a.

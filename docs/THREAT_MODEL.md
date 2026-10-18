@@ -60,7 +60,7 @@ Kubernetes multi-tenancy relies on shared host OS kernels and control planes acr
 ### 4.2 Baseline Poisoning Attacks
 - **Threat:** Attackers generate gradual anomalous traffic over time to force an auto-learning baseline to accept malicious patterns as routine.
 - **Mitigation:**
-  - **Zero Auto-Learning:** Baselines are immutable declarative Git manifests built solely from training data.
+  - **Zero Auto-Learning:** Baselines are root-owned, read-only declarative Git manifests built solely from training data.
   - All baseline updates require human reviewer verification and signed Git pull requests.
 
 ### 4.3 Telemetry Denial of Service & Flooding

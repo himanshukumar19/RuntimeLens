@@ -4,7 +4,8 @@ preferences: {}
 clusters:
   - name: runtimelens-audit-webhook
     cluster:
-      server: http://172.18.0.1:8766/k8s-audit
+      server: https://172.18.0.1:8766/k8s-audit
+      certificate-authority: /etc/kubernetes/policies/audit.crt
 users:
   - name: runtimelens-apiserver
     user:

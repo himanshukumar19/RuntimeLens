@@ -1,7 +1,7 @@
 # EVALUATION PLAN & STATISTICAL RIGOR SPECIFICATION
 
 ## 1. Pre-Registration Protocol
-Before running final evaluation on the frozen held-out test set, this protocol fixes all experimental hypotheses, primary metrics, and comparisons to prevent p-hacking. The formal, immutable pre-registration is committed in `docs/PREREGISTRATION.md`.
+Before running final evaluation on the frozen held-out test set, this protocol fixes all experimental hypotheses, primary metrics, and comparisons to prevent p-hacking. The formal, tamper-evident pre-registration is committed in `docs/PREREGISTRATION.md`.
 
 - **Primary Metric:** Macro-averaged F1 score ($\text{Macro-F1}$) across all 5 classes (`benign`, `container_escape`, `privilege_abuse`, `cryptomining`, `unknown`).
 - **Primary Hypothesis ($H_1$):** Adding per-workload behavioural baseline context to the ScaleDown typed-decision model produces a statistically significant change in Macro-F1 ($\Delta\text{Macro-F1} \neq 0$) and/or benign False Positive Rate ($\Delta\text{FPR}$) compared to the identical model without baseline context.

@@ -41,6 +41,61 @@
 7. **Primary Research Claim & Integrity:**
    - Adding workload-baseline context changes macro-F1 and/or benign false-positive rate compared to the same classifier without baseline context (evaluated via paired comparisons).
    - All outcomes (positive, inconclusive, negative) are reported with equal academic honesty.
+8. **Per-Ticket Review Loop:**
+   For every ticket, before its final commit and tag:
+   - **(a) Finish implementation and tests:** Complete code, unit tests, property/integration tests, and configs.
+   - **(b) Execute pre-commit & 9-point review:** Run `make precommit-review` and complete the full 9-point review protocol documented in Rule 4, writing `docs/reviews/<ticket-id>-1.md`.
+   - **(c) Automated Code Review Skill (`@code-review`):** Run the specialized code review skill on the ticket's whole git diff. Never pass `.env`, secrets, or tokens to the skill. Save the full output and findings in `docs/reviews/<ticket-id>-codereview.md`. If the `@code-review` skill is unavailable, explicitly state this and queue an entry in `docs/APPROVAL_QUEUE.md`; never invent a substitute silently. Note that `@code-review` supplements and never replaces the author's 9-point review protocol.
+   - **(d) Remediation & Re-Review:** Fix all High and Medium severity findings identified by the review. Re-run `@code-review` to confirm resolution (maximum two remediation fix rounds). If any High-severity finding remains unresolved after two rounds, do not commit; append a blocking entry in `docs/APPROVAL_QUEUE.md` and move on to the next unblocked ticket.
+   - **(e) Atomic Commit, Tag, & Documentation Sync:** Only when reviews are clean, create small atomic commits (never `git push`), tag the commit (`<ticket-id>-passed`), update `docs/GATE_REPORTS.md`, update `docs/HANDOFF.md`, and update the `ACTIVE TICKET` pointer in `docs/TICKET_TREE.md`.
+   - **(f) Advance to Next Ticket:** Proceed to the next unblocked ticket in the execution queue.
+9. **Autopilot with an Approval Queue:**
+   - **Queue Governance (`docs/APPROVAL_QUEUE.md`):** When human approval is required, append a structured entry with:
+     - `ID`: Sequential identifier (`A-001`, `A-002`, ...).
+     - `Ticket`: Associated ticket ID.
+     - `What`: Concise description of requested authorization.
+     - `Exact commands`: Verbatim shell or cluster commands proposed for execution.
+     - `What it changes`: Exact files, cluster resources, or system state impacted.
+     - `Undo`: Concrete rollback or reversal commands.
+     - `Risk`: Potential failure modes or operational hazards.
+     - `Your recommendation`: Explicit engineering recommendation (`[RECOMMENDATION]`).
+     - `What it blocks`: Specific downstream tickets or workflows waiting on approval.
+   - **State Transition:** Mark the associated ticket as `BLOCKED-ON A-xxx` in `docs/TICKET_TREE.md` and `docs/HANDOFF.md`. Continue immediately with the next unblocked ticket that does not depend on it.
+   - **Digest & Stop Rule:** Stop only when zero unblocked tickets remain. Present the user with a concise digest summarizing all pending approval items and recommended decisions.
+   - **User Decision Logging:** The user replies in the format: `"APPROVE A-003, DENY A-004: reason"`. The agent logs decisions in `docs/APPROVAL_QUEUE.md` with timestamps and updates ticket states accordingly.
+   - **Work-Ahead Constraints:**
+     - Work-ahead is permitted exclusively for **fully offline tickets** (zero cluster or VM access, zero API key or spend, zero dataset generation, zero test split access).
+     - Work-ahead tickets must be developed on isolated branches named `ahead/<ticket-id>`.
+     - Work-ahead branches are never merged into `main` until the blocking approval is answered.
+     - Never run two tickets that use the VM or cluster simultaneously.
+   - **Pre-Approved Operations (Log each):**
+     - Work strictly inside the local project folder (reading, editing, unit tests, typechecks, linters).
+     - Git commits, tags, and local branch management (never remote push).
+     - `kubectl`, `helm`, `kind`, `make lab-up`, `make lab-reset`, and `make lab-verify` inside the VM for the active ticket.
+     - Installing already-documented, version-pinned tools with checksum verification.
+   - **ALWAYS Queue Instead of Executing (Hard Prohibitions without Approval):**
+     - Any `git push` or modifications to remote repositories.
+     - Any invocation using `SCALEDOWN_API_KEY` or external API spend.
+     - Any `sudo` command beyond documented tool installations, `chmod`, `chown`, or `setfacl`.
+     - `rm -rf`, `multipass delete`, `multipass purge`, `multipass stop --all`, or `kubectl delete` outside designated lab namespaces (`tenant-*`, `falco`).
+     - Invocations of new paid or external cloud services.
+     - The Ticket 06a scenario safety review (Checkpoint D1).
+     - Launching the 400-run dataset generation in Ticket 06c (Checkpoint F).
+     - The design freeze at Ticket 06b (Checkpoint E).
+     - Any first access to the test split or single-pass final evaluation in Ticket 12c (Checkpoint I).
+     - Live non-dry-run quarantine mode in Ticket 13b (Checkpoint J).
+     - Alterations to the evaluation plan, pre-registration, labeling definitions, or rule mappings once dev results exist.
+     - Any process requiring human participation (Track R2 blind reviews, subjective report drafting).
+   - **Automatic Stop & Queue Triggers:** Immediately halt and queue an entry if any of the following occur:
+     - An exit gate verification fails after two remediation attempts.
+     - A flaky or non-deterministic test is detected.
+     - Contradictory documentation or inconsistent specifications are uncovered.
+     - VM memory utilization exceeds 85% or disk utilization exceeds 80%.
+     - Lab cluster health checks fail twice consecutively.
+     - Any string resembling a credential, token, or private key appears in logs, fixtures, or diffs.
+     - A benchmark or evaluation metric appears anomalously high or "too good to be true".
+     - Any internal impulse to bypass or work around an established rule.
+   - **Uncompromising Quality:** Speed never compromises rigor; every ticket retains the mandatory 9-point review, code review, gate report, and Git tag.
 
 ## AI-Assistance Disclosure Line for Final Report
 ```markdown
