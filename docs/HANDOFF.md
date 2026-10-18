@@ -28,7 +28,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 ## 2. Active & Blocked Tickets
 
 - **Active Ticket:** `06c` (Full 400-Run Live Cluster Scenario Generation)
-- **Status:** `BLOCKED-ON A-003` (Checkpoint E: Design Freeze & 400-Run Dataset Launch Authorization)
+- **Status:** `IN PROGRESS` (Executing 400 live runs in batches across 5 threat classes & 3 paired families in `runtimelens-vm`)
 - **State Clarification on Ticket 11:** Ticket 11 is **fully passed and committed**. It is not awaiting a key. The ScaleDown API key exists exclusively as an environment variable and will be provided in a user-initiated terminal session only when Ticket `12a` (Dev tuning) begins.
 - **Snapshot Baseline:** Snapshot `snap-s4` captured and verified on `runtimelens-vm` post-S4.
 
@@ -47,8 +47,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- **`A-003`:** Checkpoint E Design Freeze & Launch Authorization for Full 400-Run Dataset (Ticket 06c).
-  - *Recommendation:* `APPROVE A-003`
+- *(None currently blocking. `A-003` approved; executing Ticket 06c full 400-run live cluster dataset generation).*
 
 ---
 
