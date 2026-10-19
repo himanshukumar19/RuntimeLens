@@ -18,35 +18,10 @@
 | 2026-10-18 | A-004 | 07 | APPROVED | Approved: Checkpoint G verification of dataset split SHA-256 air-gap lock (7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b), exact 72/28 counts (288 Dev, 112 Test), and authorization to advance to Ticket 08. |
 | 2026-10-19 | A-006 | 06a-08 Rem | APPROVED | Approved: Comprehensive 5-pillar dataset and pipeline remediation plan. Stage 0 (doc/node sanitation) and Stage 1 (proof runs + verify_dataset.py gate) verified clean; Stage 2 (real 25-run pilot) authorized with staged ramp. |
 | 2026-10-19 | A-007 | VM Conn | RESOLVED (DIAGNOSED) | User executed routes and daemon kickstart. Network diagnostics confirmed /usr/bin/ssh and /usr/bin/nc connect to 192.168.252.2:22 with 100% success; multipass CLI binary is blocked by macOS Local Network privacy sandbox. Resolution via native Apple OpenSSH identity key (A-008). |
+| 2026-10-19 | A-008 | SSH Key Extraction | DENIED | Denied by user. User confirmed `multipass exec` works directly from their own Terminal. Zero private keys to be copied and zero sudo commands to be used. |
 
 ---
 
 ## Active Approval Items
 
-### Entry `A-008` — Extract Multipass Daemon SSH Identity Key for Direct Apple OpenSSH Transport
-
-- **Queue ID:** `A-008`
-- **Ticket ID:** `Stage 2 Pilot Execution`
-- **Status:** `PENDING HUMAN EXECUTION`
-- **What:** Authorize copying the Multipass daemon's guest SSH private key from `/var/root/Library/Application Support/multipassd/ssh-keys/id_rsa` to `~/.ssh/multipass_key`.
-  - **Empirical Diagnostic Evidence:**
-    - `printf "" | nc -w 2 192.168.252.2 22` returns `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20` immediately.
-    - `/usr/bin/ssh -v ubuntu@192.168.252.2` connects and handshakes immediately, proving the VM, bridge, and OpenSSH are healthy.
-    - The `multipass` CLI binary is blocked by the macOS Local Network privacy sandbox with `[Errno 65] No route to host`.
-    - Apple's signed system binary `/usr/bin/ssh` has system entitlements, completely bypassing the Local Network block.
-- **Exact commands:**
-  ```bash
-  sudo cp /var/root/Library/Application\ Support/multipassd/ssh-keys/id_rsa ~/.ssh/multipass_key && sudo chown $(whoami) ~/.ssh/multipass_key && chmod 600 ~/.ssh/multipass_key
-  ```
-- **What It Changes:**
-  - Copies the Multipass SSH private key to user space (`~/.ssh/multipass_key`).
-  - Enables direct `/usr/bin/ssh` and `/usr/bin/scp` transport to `ubuntu@192.168.252.2`.
-- **Undo / Rollback:**
-  ```bash
-  rm -f ~/.ssh/multipass_key
-  ```
-- **Risk Assessment:**
-  - *Risk:* None. Grants the user access to their own local lab VM via standard OpenSSH.
-- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-008`. Execute the single copy command in Terminal.
-- **What It Blocks:**
-  - Resuming Stage 2 3-run pilot verification and all cluster checks.
+*(No active approval items pending.)*

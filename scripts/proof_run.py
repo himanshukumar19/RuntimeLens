@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -14,6 +16,52 @@ from runtimelens.collector.per_run_capture import PerRunTelemetryCapture
 logger = logging.getLogger("runtimelens.proof_run")
 
 RUNS_DIR = Path("data/raw/runs")
+
+
+def check_service_port(name: str, port: int, candidate_ips: list[str]) -> None:
+    """Verify that a required background service/receiver is actively listening."""
+    for ip in candidate_ips:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1.0)
+        try:
+            sock.connect((ip, port))
+            sock.close()
+            return
+        except Exception:
+            pass
+
+    candidates_str = ", ".join(candidate_ips)
+    raise RuntimeError(
+        f"PRE-RUN CHECK FAILED: {name} is NOT listening on port {port} "
+        f"(checked: {candidates_str}). Please start the receiver/port-forward before running proof."
+    )
+
+
+def verify_receiver_ports_listening() -> None:
+    """Pre-run check: verify Hubble (4245), Falco webhook (8765), and Audit webhook (8766)."""
+    check_service_port("Hubble Relay port-forward", 4245, ["127.0.0.1", "localhost"])
+    check_service_port("Falco Webhook receiver", 8765, ["172.18.0.1", "127.0.0.1"])
+    check_service_port("Audit Webhook receiver", 8766, ["172.18.0.1", "127.0.0.1"])
+
+
+def resolve_pod_name(namespace: str, app_label: str) -> str:
+    """Resolve active pod name dynamically."""
+    cmd = [
+        "kubectl",
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        f"app={app_label}",
+        "-o",
+        "jsonpath={.items[0].metadata.name}",
+    ]
+    try:
+        res = subprocess.check_output(cmd, text=True).strip()
+        return res
+    except Exception:
+        return ""
 
 
 def get_available_ram_mb() -> float:
@@ -35,6 +83,9 @@ def run_proof_execution() -> int:
     print("  Exactly 2 Runs: 1 Benign + 1 Real 2-Minute Mining Run")
     print("=======================================================")
 
+    # 0. Pre-flight check: verify required receivers are listening
+    verify_receiver_ports_listening()
+
     collector = PerRunTelemetryCapture(RUNS_DIR)
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -43,6 +94,10 @@ def run_proof_execution() -> int:
     # -----------------------------------------------------------------------
     run_id_benign = "run-proof-01-benign"
     print(f"\n--- [1/2] Executing Benign Run: {run_id_benign} ---")
+    pod_name_benign = resolve_pod_name("tenant-a", "web")
+    if not pod_name_benign:
+        print("ERROR: Could not resolve pod name for tenant-a/web")
+        return 1
     run_dir_benign = collector.prepare_run_dir(run_id_benign)
 
     t0_benign = datetime.now(UTC)
@@ -58,7 +113,7 @@ def run_proof_execution() -> int:
         "exec",
         "-n",
         "tenant-a",
-        "deployment/web",
+        pod_name_benign,
         "--",
         "/bin/sh",
         "-c",
@@ -90,10 +145,15 @@ def run_proof_execution() -> int:
         scenario_id="SC-BEN-01",
         namespace="tenant-a",
         workload_name="web",
-        pod_name="web-6794787bc8-5pnzg",
+        pod_name=pod_name_benign,
         t_start_iso=t0_benign_iso,
         t_end_iso=t1_benign_iso,
     )
+    # Back up finished run folder to data/raw_backup/
+    backup_benign = Path("data/raw_backup") / run_id_benign
+    backup_benign.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(run_dir_benign, backup_benign, dirs_exist_ok=True)
+
     print(
         f"  Captured: Falco={c_falco}, Audit={c_audit}, Hubble={c_hubble}, Prom={c_prom}, Trivy=1"
     )
@@ -103,6 +163,10 @@ def run_proof_execution() -> int:
     # -----------------------------------------------------------------------
     run_id_mining = "run-proof-02-mining"
     print(f"\n--- [2/2] Executing Real 2-Minute Mining Run: {run_id_mining} ---")
+    pod_name_mining = resolve_pod_name("tenant-a", "web")
+    if not pod_name_mining:
+        print("ERROR: Could not resolve pod name for tenant-a/web")
+        return 1
     run_dir_mining = collector.prepare_run_dir(run_id_mining)
 
     # Resource guard check before run
@@ -125,7 +189,7 @@ def run_proof_execution() -> int:
     )
     print("  Launching 120-second sustained CPU loop inside tenant-a deployment/web...")
     p_mining = subprocess.Popen(
-        ["kubectl", "exec", "-n", "tenant-a", "deployment/web", "--", "/bin/sh", "-c", cmd_mining],
+        ["kubectl", "exec", "-n", "tenant-a", pod_name_mining, "--", "/bin/sh", "-c", cmd_mining],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -146,7 +210,7 @@ def run_proof_execution() -> int:
                     "exec",
                     "-n",
                     "tenant-a",
-                    "deployment/web",
+                    pod_name_mining,
                     "--",
                     "pkill",
                     "-9",
@@ -183,10 +247,34 @@ def run_proof_execution() -> int:
         scenario_id="SC-MNR-01",
         namespace="tenant-a",
         workload_name="web",
-        pod_name="web-6794787bc8-5pnzg",
+        pod_name=pod_name_mining,
         t_start_iso=t0_mining_iso,
         t_end_iso=t1_mining_iso,
     )
+
+    # Cleanup any lingering background loops in pod
+    clean_mining_cmd = "pgrep -f 'while true' | xargs -r kill -9 2>/dev/null || true"
+    subprocess.run(
+        [
+            "kubectl",
+            "exec",
+            "-n",
+            "tenant-a",
+            pod_name_mining,
+            "--",
+            "/bin/sh",
+            "-c",
+            clean_mining_cmd,
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+    # Back up finished run folder to data/raw_backup/
+    backup_mining = Path("data/raw_backup") / run_id_mining
+    backup_mining.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(run_dir_mining, backup_mining, dirs_exist_ok=True)
+
     print(
         f"  Captured: Falco={c_falco_m}, Audit={c_audit_m}, "
         f"Hubble={c_hubble_m}, Prom={c_prom_m}, Trivy=1"

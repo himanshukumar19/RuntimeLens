@@ -153,11 +153,13 @@ class PerRunTelemetryCapture:
             "logs",
             "-n",
             "falco",
-            "-l",
-            "app.kubernetes.io/name=falco",
-            f"--since-time={t_start_iso}",
+            "ds/falco",
+            "-c",
+            "falco",
+            "--since=300s",
         ]
         count = 0
+        t_cmp = t_start_iso[:19] if t_start_iso else ""
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, check=False)
             lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
@@ -170,6 +172,10 @@ class PerRunTelemetryCapture:
                     fields = event.get("output_fields", {})
                     evt_pod = str(fields.get("k8s.pod.name") or "")
                     evt_ns = str(fields.get("k8s.ns.name") or "")
+                    evt_time = event.get("time", "")
+
+                    if t_cmp and evt_time and evt_time[:19] < t_cmp:
+                        continue
 
                     # Filter strictly for tenant pod events (excluding host pod=<NA> events)
                     if evt_ns == namespace and (pod_name in evt_pod or evt_pod in pod_name):
@@ -200,9 +206,11 @@ class PerRunTelemetryCapture:
         if not audit_log.exists():
             return 0
 
+        target_sa = f"system:serviceaccount:{namespace}:"
+
         try:
             # Parse audit log tail safely
-            cmd = ["sudo", "tail", "-n", "2000", str(audit_log)]
+            cmd = ["sudo", "tail", "-n", "4000", str(audit_log)]
             res = subprocess.run(cmd, capture_output=True, text=True, check=False)
             matched_events = []
             for line in res.stdout.splitlines():
@@ -211,9 +219,27 @@ class PerRunTelemetryCapture:
                 try:
                     item = json.loads(line)
                     ts = item.get("stageTimestamp") or item.get("requestReceivedTimestamp") or ""
+                    if t_start_iso and ts < t_start_iso:
+                        continue
+                    if t_end_iso and ts > t_end_iso:
+                        continue
+
                     obj = item.get("objectRef", {})
                     obj_ns = obj.get("namespace", "")
-                    if obj_ns == namespace and (ts >= t_start_iso or not t_start_iso):
+                    user_info = item.get("user", {})
+                    user_name = user_info.get("username", "")
+                    extra = user_info.get("extra", {})
+                    extra_pods = extra.get("authentication.kubernetes.io/pod-name", [])
+
+                    # Match criteria:
+                    # 1. Target namespace matches workload pod namespace
+                    # 2. Originating identity matches workload service account (cross-namespace)
+                    # 3. Originating identity specifically names this workload pod
+                    is_ns_match = obj_ns == namespace
+                    is_sa_match = bool(user_name and user_name.startswith(target_sa))
+                    is_pod_match = any(p == pod_name or pod_name in p for p in extra_pods)
+
+                    if is_ns_match or is_sa_match or is_pod_match:
                         matched_events.append(line.strip())
                 except Exception:
                     continue
@@ -256,6 +282,7 @@ class PerRunTelemetryCapture:
         t_start_iso: str,
         t_end_iso: str,
         clock_offset_ms: float = 0.0,
+        expected_cpu_profile: str = "low",
     ) -> Path:
         """Write metadata index file OUTSIDE the telemetry directory."""
         t_start = datetime.fromisoformat(t_start_iso.replace("Z", "+00:00"))
@@ -266,6 +293,7 @@ class PerRunTelemetryCapture:
             "run_id": run_id,
             "threat_class": threat_class,
             "scenario_id": scenario_id,
+            "expected_cpu_profile": expected_cpu_profile,
             "namespace": namespace,
             "workload_name": workload_name,
             "pod_name": pod_name,

@@ -117,7 +117,7 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     # 4. Prometheus / cAdvisor metrics audit
     prom_file = run_dir / "prometheus" / "metrics.json"
     p_count = 0
-    cpu_samples_mcores: list[float] = []
+    sample_cpus: list[float] = []
     if prom_file.exists():
         try:
             p_data = json.loads(prom_file.read_text(encoding="utf-8"))
@@ -125,10 +125,12 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
             if samples:
                 p_count = len(samples)
                 for s in samples:
+                    s_cpu = 0.0
                     for p in s.get("pod_stats", []):
                         for c in p.get("containers", []):
                             nano = float(c.get("cpu", {}).get("usageNanoCores", 0.0))
-                            cpu_samples_mcores.append(round(nano / 1e6, 2))
+                            s_cpu += round(nano / 1e6, 2)
+                    sample_cpus.append(s_cpu)
                     s_ts = s.get("timestamp")
                     if s_ts:
                         timestamps.append(parse_iso_ts(s_ts))
@@ -138,7 +140,7 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
                 for p in pod_stats:
                     for c in p.get("containers", []):
                         nano = float(c.get("cpu", {}).get("usageNanoCores", 0.0))
-                        cpu_samples_mcores.append(round(nano / 1e6, 2))
+                        sample_cpus.append(round(nano / 1e6, 2))
                 raw_ts = p_data.get("raw_summary_time")
                 if raw_ts:
                     timestamps.append(parse_iso_ts(raw_ts))
@@ -146,8 +148,19 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
             pass
     source_counts["prometheus"] = p_count
 
-    min_cpu = float(np.min(cpu_samples_mcores)) if cpu_samples_mcores else 0.0
-    med_cpu = float(np.median(cpu_samples_mcores)) if cpu_samples_mcores else 0.0
+    min_cpu = float(np.min(sample_cpus)) if sample_cpus else 0.0
+    med_cpu = float(np.median(sample_cpus)) if sample_cpus else 0.0
+    above_100_count = sum(1 for v in sample_cpus if v >= 100.0)
+    pct_above_100 = (above_100_count / len(sample_cpus) * 100.0) if sample_cpus else 0.0
+    above_40_count = sum(1 for v in sample_cpus if v >= 40.0)
+    pct_above_40 = (above_40_count / len(sample_cpus) * 100.0) if sample_cpus else 0.0
+
+    exp_cpu_profile = index_meta.get("expected_cpu_profile")
+    if not exp_cpu_profile:
+        is_mnr = index_meta.get("threat_class") == "cryptomining" or "MNR" in index_meta.get(
+            "scenario_id", ""
+        )
+        exp_cpu_profile = "high" if is_mnr else "low"
 
     # 5. Trivy report audit
     trivy_file = run_dir / "trivy" / "report.json"
@@ -181,6 +194,9 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         "calculated_duration_seconds": calc_duration,
         "min_cpu_mcores": min_cpu,
         "median_cpu_mcores": med_cpu,
+        "pct_above_100": pct_above_100,
+        "pct_above_40": pct_above_40,
+        "expected_cpu_profile": exp_cpu_profile,
         "leak_findings": leak_findings,
     }
 
@@ -247,22 +263,44 @@ def run_dataset_verification(runs_dir: Path) -> int:
         min_cpu = audit["min_cpu_mcores"]
         med_cpu = audit["median_cpu_mcores"]
 
-        # Sustained-CPU check for mining (duration >= 115s and at least 8 cAdvisor samples)
-        if c_name == "cryptomining" or "MNR" in sc_id:
+        # Variant-aware sustained-CPU check
+        pct_high = audit["pct_above_100"]
+        exp_profile = audit.get("expected_cpu_profile", "low")
+
+        if exp_profile == "high":
             cpu_status = "PASS"
-            if dur < 115.0 or counts["prometheus"] < 8 or med_cpu < 50.0:
+            if dur < 115.0 or counts["prometheus"] < 8 or pct_high < 80.0:
                 cpu_status = (
-                    f"FAIL (dur={dur}s, samples={counts['prometheus']}, median={med_cpu:.1f}m)"
+                    f"FAIL (dur={dur}s, n={counts['prometheus']}, pct_high={pct_high:.1f}%)"
                 )
                 mining_violations += 1
             print(
-                f"    --> Sustained CPU: min={min_cpu:.2f} mcores, median={med_cpu:.2f} mcores "
-                f"({counts['prometheus']} samples) [{cpu_status}]"
+                f"    --> Sustained CPU [profile=high]: {pct_high:.1f}% samples >= 100m "
+                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) [{cpu_status}]"
+            )
+        elif exp_profile == "throttled":
+            cpu_status = "PASS"
+            pct_throttled = audit.get("pct_above_40", 0.0)
+            if dur < 50.0 or counts["prometheus"] < 5 or pct_throttled < 60.0:
+                cpu_status = (
+                    f"FAIL (dur={dur}s, n={counts['prometheus']}, pct_th={pct_throttled:.1f}%)"
+                )
+                mining_violations += 1
+            print(
+                f"    --> Sustained CPU [profile=throttled]: {pct_throttled:.1f}% samples >= 40m "
+                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) [{cpu_status}]"
+            )
+        elif exp_profile == "burst":
+            print(
+                f"    --> Sustained CPU [profile=burst]: {pct_high:.1f}% samples >= 100m "
+                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) "
+                "[PASS (Burst profile)]"
             )
         else:
             print(
-                f"    --> Sustained CPU: min={min_cpu:.2f} mcores, median={med_cpu:.2f} mcores "
-                f"({counts['prometheus']} samples) [PASS (Benign envelope)]"
+                f"    --> Sustained CPU [profile=low]: {pct_high:.1f}% samples >= 100m "
+                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) "
+                "[PASS (Baseline profile)]"
             )
 
     print("\n[2/5] Telemetry Metadata Leakage Audit")

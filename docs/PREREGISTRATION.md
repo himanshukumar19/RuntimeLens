@@ -57,3 +57,20 @@
 - **Negative:** Point estimate $\Delta\text{Macro-F1} \le 0$ or benign FPR increases.
 - **Exploratory:** If power analysis on pilot indicates insufficient power, results are formally reported as exploratory findings with transparent disclosure of CI bounds.
 *All outcomes are pre-committed to be published transparently in the final course report and poster.*
+
+---
+
+## 6. Pre-Registration Deviation Draft (Stage 3 Draft — NOT FROZEN)
+
+- **Deviation Context:** Following Decision D-20 (invalidation of synthetic log shortcuts) and the Stage 2/3 real multi-source 25-run pilot, the original scenario manifest and split (`manifest_v1.json`) are formally superseded.
+- **Proposed Manifest Architecture (`manifest_v2.json`):**
+  - Will govern 400 genuine live multi-source runs across 5 threat classes (80 runs per class or balanced equivalent) with per-run directory isolation (`data/raw/runs/<run_id>/<source>/`).
+  - Incorporates paired look-alike confounders (benign shells, legitimate high-port services, authorized secret reads, and batch CPU load) to prevent trivial feature shortcuts (e.g., `command_length`).
+  - Implements varied attack vectors (throttled mining, diverse path traversals, multi-port exfiltration, cross-tenant API requests).
+- **Proposed Split Architecture (`manifest_v2_split.json`):**
+  - Grouped 72/28 split (288 Dev, 112 Test) grouped strictly by `run_id` and scenario variant.
+  - Frozen with a new SHA-256 air-gap lock after human scenario review.
+- **Strict Single-Access Test Protocol:**
+  - The held-out test split (~112 runs) remains air-gapped and will be evaluated strictly ONCE at Ticket `12c`.
+  - All dev tuning (Random Forest, prompt templates, policy thresholds) operates exclusively on the 288 Dev runs.
+- **Governance Note:** This deviation is currently a **working draft**. It will not be frozen or locked until Stage 4 scenario review and formal user authorization.
