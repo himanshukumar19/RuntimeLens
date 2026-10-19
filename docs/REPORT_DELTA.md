@@ -188,11 +188,43 @@ ScaleDown Classify-1 implements a specialized Decisions API that evaluates multi
    - Report Section 6.2 states severity is 1 to 5. ScaleDown natively scores levels 0 to 4 (producing expected values in $[0.0, 4.0]$). The decision engine maps this via continuous transformation $\text{Severity} = \text{Score} + 1.0 \in [1.0, 5.0]$. This formula must be documented explicitly in Section 6.2.
 
 #### Corrections to Section 8 (Evaluation, Latency, and Cost)
-1. **Model Latency:**
-   - Section 3.2 and Section 8 cite unverified vendor latency claims of "70 to 500 ms".
-   - Measured real ScaleDown latency across live smoke test calls is **895.8 ms to 1056.8 ms (median: 1048.2 ms)**. Section 8.5 must reflect measured ~1.05s latency percentiles.
-2. **Cost Economics:**
-   - Section 8.2 must report measured ScaleDown API token costs: a full 6-question evaluation consumes ~1,910 input tokens and 6 output tokens, costing **$0.0000955 per event** (~$0.095 per 1,000 evaluated incidents).
+
+**Raw measurement file path:** `tests/fixtures/scaledown/live_smoke_responses.json`
+**Producer:** `tests/live/test_smoke.py` (live smoke test, calls 01–14, call count cap 20)
+**Execution date (fixture metadata):** `2026-10-17T21:28:27Z`
+**Endpoint:** `https://api.scaledown.xyz/v1/scaledown`
+**Total calls executed:** `14`
+
+1. **Model Latency — measured, not vendor-reported**
+   - The report (Section 3.2 / Section 8) cites unverified vendor claims of **"70 to 500 ms"** for the decision step. These must be removed entirely.
+   - Raw per-call latency, all 10 successful 6-question calls, sorted ascending:
+
+     | # | Call ID | Latency (ms) | Input tokens | Cost (USD) |
+     |:--|:--|--:|--:|--:|
+     | 1 | `call_12_latency` | 895.78 | 1820 | 0.0000910 |
+     | 2 | `call_13_paired_debug_authorized` | 925.45 | 1952 | 0.0000976 |
+     | 3 | `call_14_paired_payment_unauthorized` | 979.46 | 1934 | 0.0000967 |
+     | 4 | `call_05_cache_bypass` | 1031.67 | 1910 | 0.0000955 |
+     | 5 | `call_10_latency` | 1039.29 | 1808 | 0.0000904 |
+     | 6 | `call_11_latency` | 1047.32 | 1808 | 0.0000904 |
+     | 7 | `call_07_latency` | 1049.02 | 1808 | 0.0000904 |
+     | 8 | `call_08_latency` | 1050.91 | 1856 | 0.0000928 |
+     | 9 | `call_09_latency` | 1056.78 | 1808 | 0.0000904 |
+     | 10 | `call_04_all_three` | 1159.86 | 1910 | 0.0000955 |
+
+     **Full observed range: 895.78 ms – 1159.86 ms. Median: 1043.30 ms.**
+   - The fixture's own summary block (`latency_summary_ms`) reports `{min: 895.78, median: 1048.17, max: 1056.78}`. Per `tests/live/test_smoke.py` lines 345–355, that block is computed from the **six dedicated latency-probe calls (07–12 only)**, not from all 6-question calls. Recomputing over all ten 6-question calls yields min 895.78 / median 1043.30 / max 1159.86. **The report must quote the wider range (895.78–1159.86 ms) so the cold-start outlier `call_04` is not hidden.**
+   - Single-question calls are faster and must be reported separately: `call_01_choice_only` 1680.99 ms (first call, includes connection setup), `call_02_score_only` 945.21 ms, `call_03_noul_only` 1014.17 ms. `call_06_deliberate_invalid` returned HTTP 422 in 824.34 ms.
+   - Section 8.5 must therefore state: decision-step latency **≈ 0.90–1.16 s (median ≈ 1.04 s)**, i.e. roughly **2× the report's claimed 500 ms ceiling**, and the 5.0 s hard timeout in `docs/MODEL_API.md` Section 6 leaves only ~4× headroom.
+
+2. **Cost Economics — measured token costs**
+   - Measured per 6-question decision: **1,808–1,952 input tokens**, 1–6 output tokens, **$0.0000904 – $0.0000976**.
+   - Mean across the ten 6-question calls: **$0.00009307 per incident**, i.e. **≈ $0.093 per 1,000 evaluated incidents**.
+   - Single-question reference points from the same fixture: `call_01_choice_only` 448 in-tokens / $0.0000224; `call_02_score_only` 440 / $0.0000220; `call_03_noul_only` 257 / $0.0000129.
+   - For the proposed 400-run dataset with **one decision per run**, the projected API spend at the 6-question configuration is **≈ $0.037** for a full single pass, and **≈ $0.093 per 1,000 incidents** for any larger evaluation loop. Section 8.5 must use these measured figures rather than vendor pricing claims.
+
+3. **Determinism caveat that Section 8 must not omit**
+   - The two paired calls (`call_13_paired_debug_authorized` 925.45 ms / $0.0000976 vs `call_14_paired_payment_unauthorized` 979.46 ms / $0.0000967) show non-deterministic latency and token counts for near-identical request shapes. Section 8 must not claim reproducible per-call cost or latency; only distribution-level statistics are supportable.
 
 ---
 
@@ -208,9 +240,112 @@ ScaleDown Classify-1 implements a specialized Decisions API that evaluates multi
 | **6** | **Pod Termination** | "Terminate the pod and alert" listed as an automated SRE response tier (Abstract, Table 2, Table 6). | Termination is strictly NOT implemented. Zero delete verbs exist in RBAC, controller code, or manifests (Decision D-13). Reversible quarantine is the maximum automated action. | Eliminates catastrophic risk of automated cluster bricking; satisfies SRE principle of reversible containment. | **Change Report:** Update Abstract, Table 2, and Table 6: reframe pod termination as "Design and future work only; zero delete permissions implemented". |
 | **7** | **Workload Tenant Names** | Figures show varied naming (e.g. `payments` in Tenant B). | Strictly standardized across 3 namespaces (`tenant-a`, `tenant-b`, `tenant-c`) each running 4 workloads: `web`, `api`, `database`, `payment-style`. | Guarantees consistent evaluation across all paired counterfactuals. | **Change Report:** Harmonize tenant naming across Section 5.1 and Figure 2. |
 | **8** | **Audit Telemetry Filtering** | Generic Kubernetes audit logs expose role changes and execs (Section 4.3). | Collector matches by target namespace (`obj_ns == ns`), source service account (`system:serviceaccount:<ns>:*`), and pod UID to capture cross-namespace events. | Captures authentic cross-namespace authorization failures (`list secrets` in adjacent tenants). | **Change Report:** Detail cross-namespace service account audit correlation in Section 4.3. |
+| **9** | **Container-Escape HostExposure Is Simulated, Never a Real Host Escape** | Report Section 3, Section 5.2 and Table 4 describe container escape as an attacker reaching the host kernel, container runtime socket or host filesystem. | Escape scenarios mount an **inert 0-byte regular file** at `/opt/runtimelens-dummy/docker.sock` (and `/opt/runtimelens-dummy/containerd.sock`) on the kind control-plane node via `hostPath`, executed only in the ephemeral `sandbox-workloads` namespace with `pod-security.kubernetes.io/enforce: privileged`. `scripts/scenario_safety_lint.py` hard-blocks `/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio`, any hostPath outside the two-entry allowlist, `hostPID: true`, `hostNetwork: true`, `hostIPC: true`, `privileged: true` outside `sandbox-workloads`, and class-leak tokens in any name or label. | The escape class is **behaviourally simulated, not a real breakout**. No runtime socket, no host filesystem write, and no privileged container ever touches the kind node beyond reading one inert file. Feature `host_runtime_socket_mounted` is set by matching the *documented dummy path*, not by observing a real socket handshake. Section 5 must disclose that escape telemetry proves *detector and policy* behaviour, not exploitability. | **Change Report:** Add an explicit "Simulated vs. real escape" limitation note in Section 9 (Risks and Limitations) and in the escape scenario row of Table 4, naming the two allowed dummy paths and the linter that enforces them. |
 
 ---
 
 ### Summary of Required Actions
 - **Code Changes:** Drop `exfiltration` class (Decision D-24), enforce pod cooldown rules, make sustained-CPU gate variant-aware.
 - **Report Changes:** Replace all 55+ occurrences of Jev with ScaleDown Classify-1, update API request/response schemas in Section 6, update measured latency/cost in Section 8, and record architectural disclosures (cAdvisor, loopback egress, design-only termination).
+
+---
+
+## 3. What Can and Cannot Be Made Real Inside the Kind Lab (Escape & Privileged Scenarios)
+
+The question "can a real `hostPath` mount or a real privileged pod be run safely inside the kind node?" has a precise, auditable answer: **yes for both, but only under the sandbox conditions already enforced by the repository's safety linter.** The kind control-plane node is itself a Docker container (`runtimelens-control-plane`), so anything a pod can reach through `hostPath` or `privileged: true` is already confined inside that container's mount namespace — not the macOS host, and not the VM's systemd namespace.
+
+### 3.1 Real `hostPath` mount of a harmless path — SAFE, and already exercised
+
+**Exactly what is mounted today** (`docs/SCENARIO_SAFETY_SHEET.md` lines 20–41, `docs/SCENARIOS.md` line 16):
+
+```yaml
+volumes:
+- name: system-socket-link
+  hostPath:
+    path: /opt/runtimelens-dummy/docker.sock
+    type: File
+```
+
+The target is provisioned on the node as a **0-byte regular file with mode 0644** — not a socket, not a directory, not a device node:
+
+```bash
+docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/docker.sock
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/docker.sock
+```
+
+This is a **genuine Kubernetes `hostPath` mount** — the API server performs a real bind mount and the kubelet performs a real mount into the container. Only the *content* is inert. Rationale recorded in the repo: `/var/run` on the node is an active symlink to `/run`, so nothing is ever created there.
+
+**Extension that is also safe (proposed, not yet run):** a real `hostPath` mount of a harmless *directory* with `type: Directory`, containing only non-sensitive node-side scratch content, e.g. `/opt/runtimelens-dummy/etc` (already referenced by `TMPL-ESC-04`). This exercises the `sensitive_host_path_mounted` (feature 01) branch with a real directory mount rather than a file mount. It requires adding one path to `ALLOWED_DUMMY_HOSTPATHS` in `scripts/scenario_safety_lint.py` line 21 and nothing else.
+
+### 3.2 Real privileged pod — SAFE inside kind, already linter-gated
+
+`privileged: true` inside the kind control-plane node container grants device and capability access scoped to that container. The linter enforces it can only appear in one namespace:
+
+```python
+# scripts/scenario_safety_lint.py:144-150
+if sec_ctx.get("privileged") is True and namespace not in ALLOWED_LAB_NASESPACES:
+    errors.append(
+        f"privileged: true forbidden in namespace '{namespace}' "
+        f"(Must be in {sorted(ALLOWED_LAB_NAMESPACES)})"
+    )
+```
+
+with `ALLOWED_LAB_NAMESPACES = {"sandbox-workloads"}` (line 19). The namespace is created per run and deleted immediately after, so `privileged` never coexists with a tenant workload or with the default-deny NetworkPolicies that govern `tenant-a`/`b`/`c`.
+
+### 3.3 Invariants the linter already blocks (raw excerpt, `scripts/scenario_safety_lint.py`)
+
+```python
+ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
+    {
+        "/opt/runtimelens-dummy/docker.sock",
+        "/opt/runtimelens-dummy/containerd.sock",
+    }
+)
+
+FORBIDDEN_RUNTIME_SOCKET_PATTERNS: Final[tuple[str, ...]] = (
+    "/var/run/docker.sock",
+    "/run/containerd",
+    "/var/run/containerd",
+    "/var/run/crio",
+    "/run/crio",
+)
+```
+
+```python
+# lines 101-107 — host namespaces are unconditionally forbidden
+if pod_spec.get("hostPID") is True:
+    errors.append("Forbidden hostPID: true")
+if pod_spec.get("hostNetwork") is True:
+    errors.append("Forbidden hostNetwork: true")
+if pod_spec.get("hostIPC") is True:
+    errors.append("Forbidden hostIPC: true")
+```
+
+```python
+# lines 116-136 — real sockets blocked, allowlist enforced, lab-namespace-only
+if any(real_sock in hp_path.lower() for real_sock in FORBIDDEN_RUNTIME_SOCKET_PATTERNS):
+    errors.append(f"Forbidden real runtime socket hostPath: '{hp_path}'")
+if hp_path not in ALLOWED_DUMMY_HOSTPATHS:
+    errors.append(
+        f"hostPath outside dummy allowlist: '{hp_path}' "
+        f"(Allowed: {sorted(ALLOWED_DUMMY_HOSTPATHS)})"
+    )
+if namespace not in ALLOWED_LAB_NAMESPACES:
+    errors.append(
+        f"hostPath volume forbidden in tenant namespace '{namespace}' "
+        f"(Violates Pod Security Standards baseline; must use "
+        f"{sorted(ALLOWED_LAB_NAMESPACES)})"
+    )
+```
+
+### 3.4 The four hard "never" rules
+
+| Rule | Enforcement |
+|:--|:--|
+| Never mount a real runtime socket (`/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio`) | `FORBIDDEN_RUNTIME_SOCKET_PATTERNS`, linter lines 28–34 + 116–120 |
+| Never use `hostPID`, `hostNetwork`, or `hostIPC: true` | Linter lines 101–107, unconditional |
+| Never set `privileged: true` or any `hostPath` outside the `sandbox-workloads` namespace | Linter lines 129–136 and 146–150 |
+| Never reference an external host, domain, or public IP in command/args/env | Linter lines 166–186, with an explicit allowlist for `*.svc`, `*.cluster.local`, `127.`, `10.`, `172.18.`, `localhost` |
+
+**Conclusion:** a real `hostPath` file mount and a real `privileged: true` pod are both runnable inside the kind node under these constraints, and the repository already runs the file-mount form in production lab runs. What remains simulated is the *exploit payload*, not the Kubernetes mechanism. The report must state this distinction rather than implying a real host breakout was achieved.
