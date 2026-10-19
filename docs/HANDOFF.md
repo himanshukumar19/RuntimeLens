@@ -35,10 +35,12 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 2. Active & Blocked Tickets
 
-- **Active State:** `HALTED FOR REMEDIATION REVIEW (Decision D-20)`
-- **Status:** `BLOCKED-ON A-006` (Comprehensive Dataset & Pipeline Remediation Plan)
-- **Data Quarantine:** Invalid dataset and scenario artifacts quarantined to `data/invalid_v0/` (git-ignored).
-- **Cluster Status:** All cluster execution, API spending, and test evaluations are strictly HALTED.
+- **Active State:** `HALTED FOR HOST ROUTING APPROVAL (A-007)`
+- **Status:** `BLOCKED-ON A-007` (Host macOS Routing & Multipassd Kickstart)
+- **Remediation Status:**
+  - Stage 0 (doc/node sanitation) COMPLETED.
+  - Stage 1 (proof runs + verify_dataset.py gate) COMPLETED.
+  - Stage 2 (real 25-run pilot runner implemented with periodic cAdvisor sampling and per-run cleanup) PAUSED for host route fix.
 - **Snapshot Baseline:** Clean snapshot `snap-s4` remains verified on `runtimelens-vm` post-S4.
 
 ---
