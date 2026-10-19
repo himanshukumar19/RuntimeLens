@@ -17,33 +17,36 @@
 | 2026-10-18 | A-003 | 06b/06c | APPROVED | Approved: Checkpoint E formal Design Freeze and launch authorization for Full 400-Run Live Cluster Scenario Generation (Ticket 06c) under empirical budgets (22.3m active time, ~28m operational envelope, peak RAM 25.2%, disk growth ~0.57 MB). |
 | 2026-10-18 | A-004 | 07 | APPROVED | Approved: Checkpoint G verification of dataset split SHA-256 air-gap lock (7bed7ecdbd24773d0d4258687f5e0131d393c82dc88f227f09950d3f902f0c4b), exact 72/28 counts (288 Dev, 112 Test), and authorization to advance to Ticket 08. |
 | 2026-10-19 | A-006 | 06a-08 Rem | APPROVED | Approved: Comprehensive 5-pillar dataset and pipeline remediation plan. Stage 0 (doc/node sanitation) and Stage 1 (proof runs + verify_dataset.py gate) verified clean; Stage 2 (real 25-run pilot) authorized with staged ramp. |
+| 2026-10-19 | A-007 | VM Conn | RESOLVED (DIAGNOSED) | User executed routes and daemon kickstart. Network diagnostics confirmed /usr/bin/ssh and /usr/bin/nc connect to 192.168.252.2:22 with 100% success; multipass CLI binary is blocked by macOS Local Network privacy sandbox. Resolution via native Apple OpenSSH identity key (A-008). |
 
 ---
 
 ## Active Approval Items
 
-### Entry `A-007` — Host macOS Routing and Multipassd Service Kickstart
+### Entry `A-008` — Extract Multipass Daemon SSH Identity Key for Direct Apple OpenSSH Transport
 
-- **Queue ID:** `A-007`
+- **Queue ID:** `A-008`
 - **Ticket ID:** `Stage 2 Pilot Execution`
-- **Status:** `PENDING HUMAN EXECUTION & CONFIRMATION`
-- **What:** Authorize executing host routing additions and multipass daemon kickstart on macOS to resolve `ssh connection failed: 'Failed to connect: No route to host'`. The Multipass VM (`runtimelens-vm`) reports 3 internal IPs (`192.168.252.2`, `172.17.0.1`, `172.18.0.1`). When `multipassd` attempts to reach the Docker/Kind bridge subnets (`172.17.0.0/16`, `172.18.0.0/16`), macOS attempts to route them to the external Wi-Fi gateway (`10.0.0.2`), which fails. Adding static routes directed to `192.168.252.2` and kickstarting `multipassd` restores immediate, reliable communication.
+- **Status:** `PENDING HUMAN EXECUTION`
+- **What:** Authorize copying the Multipass daemon's guest SSH private key from `/var/root/Library/Application Support/multipassd/ssh-keys/id_rsa` to `~/.ssh/multipass_key`.
+  - **Empirical Diagnostic Evidence:**
+    - `printf "" | nc -w 2 192.168.252.2 22` returns `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20` immediately.
+    - `/usr/bin/ssh -v ubuntu@192.168.252.2` connects and handshakes immediately, proving the VM, bridge, and OpenSSH are healthy.
+    - The `multipass` CLI binary is blocked by the macOS Local Network privacy sandbox with `[Errno 65] No route to host`.
+    - Apple's signed system binary `/usr/bin/ssh` has system entitlements, completely bypassing the Local Network block.
 - **Exact commands:**
   ```bash
-  sudo route -n add 172.17.0.0/16 192.168.252.2
-  sudo route -n add 172.18.0.0/16 192.168.252.2
-  sudo launchctl kickstart -k system/com.canonical.multipassd
+  sudo cp /var/root/Library/Application\ Support/multipassd/ssh-keys/id_rsa ~/.ssh/multipass_key && sudo chown $(whoami) ~/.ssh/multipass_key && chmod 600 ~/.ssh/multipass_key
   ```
 - **What It Changes:**
-  - Adds two host static routes directing Docker/Kind bridge subnets to the Multipass VM adapter `192.168.252.2`.
-  - Restarts `com.canonical.multipassd` daemon cleanly.
+  - Copies the Multipass SSH private key to user space (`~/.ssh/multipass_key`).
+  - Enables direct `/usr/bin/ssh` and `/usr/bin/scp` transport to `ubuntu@192.168.252.2`.
 - **Undo / Rollback:**
   ```bash
-  sudo route -n delete 172.17.0.0/16 192.168.252.2
-  sudo route -n delete 172.18.0.0/16 192.168.252.2
+  rm -f ~/.ssh/multipass_key
   ```
 - **Risk Assessment:**
-  - *Risk:* Negligible. Subnets `172.17.0.0/16` and `172.18.0.0/16` are private non-routable container networks used exclusively by Docker/Kind inside the VM.
-- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-007`. Execute the exact commands so `multipass exec` can reach the VM without packet drops.
+  - *Risk:* None. Grants the user access to their own local lab VM via standard OpenSSH.
+- **Agent Recommendation:** `[RECOMMENDATION] APPROVE A-008`. Execute the single copy command in Terminal.
 - **What It Blocks:**
-  - Stage 2 25-run pilot execution and all subsequent live cluster operations.
+  - Resuming Stage 2 3-run pilot verification and all cluster checks.
