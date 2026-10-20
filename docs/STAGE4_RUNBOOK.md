@@ -1,0 +1,371 @@
+# STAGE4_RUNBOOK.md — Stage 4 Execution Runbook (offline draft, nothing frozen)
+
+> **Status:** DRAFT for teammate review. Nothing is frozen. No gate is marked passed by this document.
+> **Scope of this file:** it specifies *how* Stage 4a (smoke) and Stage 4b (full 400) will be executed. It does not authorize execution.
+> **Prohibitions honoured while writing this file:** no `git push`, no `sudo`, no `multipass stop/start/restart`, no test-split access, no `SCALEDOWN_API_KEY` usage, no cluster mutation. The only cluster interaction was read-only (`helm list`, `kubectl logs`, `kubectl exec … grep` on a rules file) as explicitly permitted.
+> **Class scope (Decision D-24):** `container_escape`, `privilege_abuse`, `cryptomining` + `benign` + `unknown`. `exfiltration` is **not** an attack class; the 5 historical exfil pilot runs stay in the dataset marked `"pilot only, class dropped"`.
+
+---
+
+## 0. Evidence base for every number in this runbook
+
+Every timing figure below is either (a) **measured** from committed/collected pilot data, with the exact command shown, or (b) explicitly marked **estimate**. Nothing else is stated as fact.
+
+| Quantity | Value | Provenance |
+|:---|:---|:---|
+| Templates in the plan | **55** (benign 21, escape 10, privilege 8, mining 8, unknown 8) | parsed from `docs/SCENARIO_PLAN_v2.md` table rows |
+| Planned runs | **400** (140/80/80/60/40) | parsed from the same table |
+| Per-run wall clock, benign | 7.13 – 9.15 s (one cpu-burst run 25.32 s) | `data/raw/runs/*/index.json` → `duration_seconds` (n=5) |
+| Per-run wall clock, container_escape | 7.12 – 7.15 s | same source (n=5) |
+| Per-run wall clock, privilege_abuse | 7.11 – 9.15 s | same source (n=5) |
+| Per-run wall clock, cryptomining | 124.23 – 130.29 s | same source (n=5) |
+| Per-run wall clock, exfiltration (dropped class, retained) | 9.13 – 9.14 s | same source (n=5) |
+| Pilot 5-source capture completeness | 5/5 sources present in every run dir (`falco/ audit/ hubble/ prometheus/ trivy/`) | `ls data/raw/runs/run-test-01-prv/` |
+| Per-run wall clock == capture window | 9 of 10 pilot runs have `index.json duration_seconds` **identical** to the harness `elapsed_seconds` in `data/scenarios/pilot_25_metrics.json` | pair-compared; one mismatch (`run-p06-mnr`: 130.13 vs 124.24) |
+| Receiver ports | Hubble relay 4245, Falco webhook 8765, Audit webhook 8766 | `scripts/stage2_pilot.py:57-61` |
+| Resource stop thresholds | RAM available < 2048 MB; disk ≥ 80 % | `scripts/stage2_pilot.py:64-88`, enforced at `scripts/stage2_pilot.py:711-713` and `:749-753` |
+
+---
+
+## 1. Prerequisites — all must be satisfied and recorded before Stage 4a starts
+
+### P1. Linter edit for the `etc` hostPath — **REQUIRED, NOT YET APPLIED**
+
+`TMPL-ESC-04` and `TMPL-ESC-09` mount `/opt/runtimelens-dummy/etc` as a `hostPath` of type `Directory`. The safety linter currently rejects it.
+
+Current code (`scripts/scenario_safety_lint.py:21-26`):
+
+```python
+ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
+    {
+        "/opt/runtimelens-dummy/docker.sock",
+        "/opt/runtimelens-dummy/containerd.sock",
+    }
+)
+```
+
+The single required edit (add one entry):
+
+```python
+        "/opt/runtimelens-dummy/etc",   # inert dummy directory, type: Directory
+```
+
+**No other linter rule changes.** The following remain enforced unchanged and must be re-confirmed after the edit:
+
+| Linter rule | Location | Effect |
+|:---|:---|:---|
+| `hostPath` only in `sandbox-workloads` | `scripts/scenario_safety_lint.py:19`, `:130-135` | tenant namespaces can never mount a host path |
+| `hostPID` / `hostNetwork` / `hostIPC: true` unconditionally forbidden | `:102-107` | this is why `TMPL-ESC-07` uses `readlink` on the container's own `/proc/1/root` instead of a host-PID pod |
+| real runtime sockets forbidden | `:28-34`, `:116-120` | `/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio` |
+| `privileged: true` only in `sandbox-workloads` | `:146-150` | `TMPL-ESC-06`, `-08`, `-10` are sandbox-only |
+| class-leak tokens in names/labels | `:36-76`, `:141-142` | no `SC-*`, no class name, in any resource name |
+
+**Verification required after the edit:** the linter must still *reject* a manifest containing `/etc/kubernetes` as a hostPath, and must still reject `hostPID: true` in `sandbox-workloads`. A linter that accepts more paths but silently drops its other checks is worse than no edit. Record both a passing and a failing case.
+
+### P2. `expected_cpu_profile` present in `index.json`
+
+Already implemented end-to-end:
+
+- written by `src/runtimelens/collector/per_run_capture.py:285` (parameter) and `:296` (serialised into `index.json`);
+- read by `scripts/verify_dataset.py:158` and `:268`;
+- passed by `scripts/stage2_pilot.py:778`, `:789`, `:851`;
+- consumed by the variant-aware gate in `scripts/verify_dataset.py:270-299` (`high` / `throttled` / `burst` / `low`).
+
+**Gap to close:** all 25 existing pilot `index.json` files were written **before** this field existed and therefore do not contain it (`grep -c expected_cpu_profile` = 0 for every file). `scripts/verify_dataset.py:158-163` therefore falls back to inferring `high` from `threat_class == "cryptomining"`. Stage 4 runs must be produced with the field populated so the gate is genuinely variant-aware rather than inferred. Verification: after 4a, assert `expected_cpu_profile` is present in **55/55** new `index.json` files and equals the plan's `CPU Profile` column for that template.
+
+### P3. `manifest_v2.json` design (design only — do not freeze)
+
+Draft exists at `docs/PREREGISTRATION.md:66-71` (working draft, explicitly not frozen). It must be extended before 4b to match the new plan:
+
+- per-run directory isolation `data/raw/runs/<run_id>/<source>/` (already the on-disk layout);
+- 55 templates, 400 runs, class mix 140/80/80/60/40;
+- `expected_cpu_profile` per run (P2);
+- the split must be **grouped by template** (see P4), not by `run_id` as `docs/PREREGISTRATION.md:71` currently states;
+- the 5 exfil pilot runs carry `class_status: "pilot only, class dropped"` in `index.json` and must be excluded from every class-level statistic.
+
+**Discrepancy to flag, not silently resolve:** `datasets/splits/manifest_v1.json` is committed and is the manifest of the **invalidated** synthetic dataset (`docs/GATE_REPORTS.md:1285`). It must not be reused or extended. It needs its own deprecation decision at Ticket `07`.
+
+### P4. Split grouped by template (and by run)
+
+- Grouping unit = **template**: every run of a given `TMPL-*` must land entirely on one side of the split, otherwise the same command text and the same Falco rule set appear in both Dev and Test and the Test result is contaminated.
+- Proposed sizes from `docs/SCENARIO_PLAN_v2.md` §1: **Dev 289 / Test 111** (72.25 % / 27.75 %).
+- `docs/PREREGISTRATION.md:71` still says "288 Dev, 112 Test grouped strictly by `run_id`" and `docs/TICKET_TREE.md:204` still says "frozen test split (112 runs)". Both are stale against the new plan and must be reconciled before any split file is written.
+- **The Test split file must not be written during Stage 4.** First access to Test remains Ticket `12c` (row 204; `docs/TICKET_TREE.md:144` Checkpoint I). During 4b, only the *Dev* assignment may be materialised; the Test side is recorded as a name list with no feature/statistic access.
+- Cross-check requirement: `scripts/verify_dataset.py` already runs GroupKFold grouped by scenario variant (`:341-348` region) and a metadata-shuffle invariance test (`:204-227`). A grouped-by-template check must be added or confirmed for the final manifest.
+
+### P5. Signature-table tooling (does not exist yet — must be written before 4a)
+
+- Existing and usable: `scripts/analyze_pilot_signals.py --runs-dir data/raw/runs` → per-class distinct Falco rules and audit verbs. This covers **2 of the 4** signature dimensions.
+- Missing: a script that emits the full 4-field signature `(Falco rule set, audit verbs, Hubble flow band, CPU band)` per class and flags any class where ≥ 60 % of runs share one signature. **No such script exists today** (grep for `signature` in `scripts/` and `src/` returns nothing). It must be written as a read-only script before 4a, and its output in 4a becomes the *real* Table F that replaces the paper Table F in `docs/SCENARIO_PLAN_v2.md` §7.
+- The real pilot already shows the raw material is present: per-run Falco rule sets, audit verb sets and Hubble flow counts were extracted from the 25 collected runs during this review (e.g. benign → `['Interactive Shell Spawned in Non-Debug Container']` / `['create','get']` / `flows=8`; privilege_abuse → `['create','get','list']` / `flows=12-17`; cryptomining → `flows=2-4`).
+
+### P6. Environment readiness (read-only checks, no cluster mutation)
+
+- Receiver pre-check passes (§4.1).
+- `make check-kube-context` confirms context `kind-runtimelens`.
+- VM headroom: RAM available ≥ 2048 MB, disk < 80 % — the same thresholds the runner enforces.
+- `data/raw_backup/` exists and is git-ignored (`.gitignore:16`); `data/raw/`, `data/scenarios/`, `data/audit/` are ignored (`.gitignore:15,22,17`). No raw telemetry or progress file may be committed.
+
+### P7. Open discrepancy to resolve before 06c launches (flagged, not resolved here)
+
+`docs/TICKET_TREE.md:197` still describes the dataset as "400 live cluster runs (60 esc, 60 prv, 60 cry, 40 unk, 180 ben) across 5 seeds; 3 paired families". The new plan is 80/80/60/40/140 over 55 templates. The ticket text is stale and must be updated — or the plan must be re-justified — **before** Checkpoint F. This runbook does not silently resolve it.
+
+---
+
+## 2. Stage 4a — Smoke: exactly 1 run per template (55 runs), then STOP
+
+### 2.1 Purpose
+
+Validate the full 5-source capture path, the per-run gate, the cooldown behaviour and the real Table F across **all 55 templates at once**, using real telemetry, before spending the full 400-run budget. 4a is a smoke stage, not a pilot: 1 run per template, no repeats.
+
+### 2.2 Run count and manifest
+
+- **Exactly 55 runs** — one per `TMPL-*` row in `docs/SCENARIO_PLAN_v2.md`.
+- Run IDs must be derived from the template ID and must not contain class names (the linter's class-leak rule applies to cluster resources; the `index.json` `scenario_id` field is already on the linter's own leakage watch list in `scripts/verify_dataset.py:36-40`, and `verify_dataset.py` scans the telemetry files for `SC-`, `privilege_abuse`, `container_escape`, `cryptomining`).
+- The run list is written to `data/scenarios/stage4a_manifest.json` **before** the first run, with one entry per template: `run_id`, `template_id`, `namespace`, `workload`, `expected_cpu_profile`, `expected_falco_rules`, `expected_features_00_01_02`, `expected_audit_verbs`, `expected_hubble_band`, `length_bin`, `command`.
+
+### 2.3 Execution order
+
+1. **Receivers pre-check** (§4.1) — must pass before the first run.
+2. **Resource pre-check** — RAM ≥ 2048 MB, disk < 80 %.
+3. For each of the 55 runs, in manifest order:
+   - cooldown wait (§4.4);
+   - execute the template command via `kubectl exec -n <ns> <pod> -- /bin/sh -c <cmd>` (shell delivery is identical for every template, by design, so shell cannot separate classes);
+   - periodic cAdvisor sampling every 10 s during execution (as in `scripts/stage2_pilot.py:738-741`);
+   - capture all 5 sources into `data/raw/runs/<run_id>/`;
+   - write `index.json` **with** `expected_cpu_profile` (P2);
+   - per-run gate (§4.3) — a failure aborts 4a immediately;
+   - cleanup, then copy the run directory to `data/raw_backup/<run_id>/`.
+4. **Dataset gate:** `scripts/verify_dataset.py --runs-dir data/raw/runs`
+   (real CLI — the flag is `--runs-dir`, default `data/raw/runs`; there is no `--strict` flag).
+5. **Real Table F:** the new §P5 script, run over the 55 collected runs.
+6. **STOP for human review.** No batch 2 of 4b begins until the review is recorded.
+
+### 2.4 What 4a must produce
+
+| Artifact | Content |
+|:---|:---|
+| `docs/reviews/stage4a_summary.md` | 55/55 runs completed, per-class counts, every failure with its raw error |
+| `docs/reviews/stage4a_verify_output.txt` | verbatim stdout+stderr of `scripts/verify_dataset.py --runs-dir data/raw/runs` |
+| `docs/reviews/stage4a_signature_table.md` | the real Table F (4-field signature per class, largest-share per class, ≥ 60 % flags) |
+| `docs/reviews/stage4a_falco_rules_observed.md` | every Falco rule name actually observed, with event counts and the runs in which it fired |
+
+### 2.5 4a success criteria (all must hold)
+
+1. 55/55 runs present, each with all 5 source files.
+2. `verify_dataset.py` verdict `GATE VERDICT: PASSED` (zero leakage, zero metadata-shuffle failures, zero sustained-CPU violations) — verbatim output saved.
+3. `expected_cpu_profile` present in 55/55 new `index.json` files and matching the plan.
+4. Cooldown behaved as specified on every run that needed it (recorded wait durations).
+5. Real Table F computed. **The paper Table F is not a gate** — it is a hypothesis. If the real table shows a class where ≥ 60 % of runs share one signature, that is a *finding to be reported*, and it blocks 4b until the user decides.
+6. A named list of Falco rules actually observed (see §2.6).
+
+### 2.6 Specific open item the 4a smoke must settle: `Contact K8S API Server From Container`
+
+`docs/SCENARIO_PLAN_v2.md` lists `Contact K8S API Server` as an *expected* Falco rule for `TMPL-PRV-01`, `-03`, `-05`, `-07`. Verified during this review:
+
+- the rule **is** a stock Falco rule, defined at line 840 of `/etc/falco/falco_rules.yaml` inside the Falco container, shipped by Helm chart **`falco-9.2.0`** (app version `0.45.0`);
+- its tags are `[maturity_stable, container, network, k8s, mitre_discovery, T1565]` — **no class names**;
+- it is **not** in our `customRules` (`lab/falco/falco-values.yaml` → `runtimelens_rules.yaml`; grep count = 0);
+- its condition requires `k8s_api_server` = `(fd.sip.name="kubernetes.default.svc.cluster.local")` and `not user_known_contact_k8s_api_server_activities` (that macro is `never_true`, so it does not block);
+- **it has never fired in any real telemetry collected by this project**: 0 occurrences in the Falco container log, and 0 across all 25 collected pilot runs. The three rules that *did* fire in real pilot data are `Interactive Shell Spawned in Non-Debug Container` (26 events / 25 runs), `Suspicious High Port Egress` (16 / 8) and `Read Sensitive Host Information Untrusted` (5 / 5).
+
+**Therefore the plan's expectation is UNVERIFIED in real telemetry and is treated as unverified.** The 4a smoke must record whether the rule fires for the privilege templates; the templates must use the API server **DNS name** (`kubernetes.default.svc.cluster.local`) rather than the raw ClusterIP for the stock condition to be satisfiable. Until 4a shows it in real events, `docs/SCENARIO_PLAN_v2.md` must not rely on it, and `docs/BASELINES.md:123` (which maps it to `privilege_abuse`) is a design-time claim only.
+
+---
+
+## 3. Stage 4b — Full 400 runs in resumable batches of 20
+
+### 3.1 Batch structure
+
+- Batch size = **20 runs**; 400 runs = **20 batches**.
+- Batches are ordered so that each batch is internally homogeneous enough to be diagnosable but proportional to the class mix: a proportional batch is ≈ 7 benign / 4 escape / 4 privilege / 3 mining / 2 unknown.
+- Mining templates are spread across batches, never clustered, so a single miner-induced resource event cannot take out a whole batch.
+- **Resumability:** on restart the runner skips any `run_id` already present in `data/raw/runs/` and in the progress file. A completed run is never re-executed and never overwritten.
+
+### 3.2 Progress file
+
+`data/scenarios/stage4_progress.json` (git-ignored via `.gitignore:22`), written after every run and after every batch:
+
+```json
+{
+  "stage": "4b",
+  "batch_size": 20,
+  "batches_total": 20,
+  "batches_completed": 0,
+  "runs_completed": 0,
+  "runs_total": 400,
+  "current_batch": 1,
+  "last_completed_run_id": null,
+  "last_completed_template_id": null,
+  "started_at": "<UTC ISO8601>",
+  "updated_at": "<UTC ISO8601>",
+  "cooldown_events": {"count": 0, "max_wait_seconds": 0.0, "timeouts": 0},
+  "stop_reason": null,
+  "receivers_checked_at": "<UTC ISO8601>",
+  "resource_snapshot": {"ram_avail_mb": null, "disk_use_pct": null}
+}
+```
+
+The existing `data/scenarios/run_checkpoint.json` is the artifact of the **invalidated** 06c run and must not be reused as-is.
+
+### 3.3 Per-batch checklist (identical for all 20 batches)
+
+1. Receivers pre-check (§4.1) — record pass/fail and timestamp.
+2. Resource check — RAM and disk (§4.4).
+3. Execute the 20 runs (§2.3 steps 3.1-3.7).
+4. Per-run gate on all 20 runs — any failure aborts the batch.
+5. `scripts/verify_dataset.py --runs-dir data/raw/runs` over the whole dataset to date.
+6. Backup of the batch (§3.5).
+7. Update the progress file; write `docs/reviews/stage4b_batch_NN_report.md`.
+8. Resource snapshot after the batch.
+
+### 3.4 Stop rules — hard, immediate
+
+Stage 4b halts at once, writes `stop_reason` into the progress file, saves the batch report, and does **not** start the next batch, on any of:
+
+1. **RAM available < 2 GiB** (2048 MB) — checked before the run, every second during the run, and after the batch. `scripts/stage2_pilot.py:711-713` (pre-run) and `:749-753` (in-run, which terminates the exec, cleans the pod, and raises).
+2. **Disk utilisation ≥ 80 %** — same three checkpoints, same code path.
+3. **Receiver down** — Hubble 4245, Falco webhook 8765 or Audit webhook 8765→8766 unreachable. `scripts/stage2_pilot.py:57-61` raises `RuntimeError("PRE-RUN CHECK FAILED: …")`.
+4. **Gate failure** — per-run gate (`scripts/stage2_pilot.py:474-632`) or dataset gate (`scripts/verify_dataset.py`) fails for any run; or the cooldown cannot be satisfied within policy after the permitted retry.
+5. **Cooldown timeout** — container CPU does not fall below 20 mcores for 2 consecutive samples within 60 s. The existing code only *warns* (`scripts/stage2_pilot.py:720-722`); Stage 4 requires this to be a **batch-level warning recorded in the report and a pause for the operator**, not a silent continuation.
+6. **Evidence integrity** — a credential-like string, a private key or a token appears in any log, fixture, diff or index file. Immediate stop, quarantine the artefact, and open an approval-queue entry.
+7. **Metadata leakage** — a class name, `SC-*` scenario id or `run-*` id is found inside any telemetry event, feature representation or fact dictionary.
+8. **Flakiness / non-determinism** — the same template run twice produces materially different gate-relevant signals, or a lab health check fails twice consecutively.
+9. **Human stop** — the operator says stop, for any reason.
+
+### 3.5 Backup after each batch
+
+After batch NN passes its gate, copy the 20 run directories to a batch-scoped location before the next batch starts:
+
+```
+data/raw_backup/batch_NN/<run_id>/…
+```
+
+`data/raw_backup/` is git-ignored (`.gitignore:16`). Backups are never committed. A per-run backup already happens inside `scripts/stage2_pilot.py:801-804`; the batch-level copy is an additional, batch-scoped copy for recovery of a whole batch, and its presence on disk is asserted in the batch report.
+
+### 3.6 Batch report template — `docs/reviews/stage4b_batch_NN_report.md`
+
+Batch id · run ids and template ids · receivers pre-check result (verbatim) · per-run gate verdicts · cooldown event count / max wait / timeouts · RAM and disk before and after · `verify_dataset.py` output (trimmed, with the exact command) · deviations, stop triggers, and anything skipped · backup path · cumulative progress counters.
+
+---
+
+## 4. Standing rules for every run in 4a and 4b
+
+### 4.1 Receivers pre-check
+
+Run before the first run of 4a and before **every** batch of 4b. All three must be listening, on loopback / the documented bridge address only — no `NodePort`, no `hostPort`:
+
+| Receiver | Port | Addresses checked | Source |
+|:---|--:|:---|:---|
+| Hubble relay port-forward | 4245 | `127.0.0.1`, `localhost` | `scripts/stage2_pilot.py:58` |
+| Falco webhook receiver | 8765 | `172.18.0.1`, `127.0.0.1` | `scripts/stage2_pilot.py:59` |
+| Audit webhook receiver | 8766 | `172.18.0.1`, `127.0.0.1` | `scripts/stage2_pilot.py:60` |
+
+Implementation: `verify_receiver_ports_listening()` (`scripts/stage2_pilot.py:57-61`). Any failure → stop rule 3.
+
+### 4.2 Per-run capture requirement
+
+Every run directory must contain all 5 sources: `falco/events.jsonl`, `audit/events.jsonl`, `hubble/flows.jsonl`, `prometheus/metrics.json`, `trivy/report.json`. This layout is already produced by the real pilot (`ls data/raw/runs/run-test-01-prv/`) and is the on-disk contract `scripts/verify_dataset.py:56-201` audits.
+
+### 4.3 Per-run gate (variant-aware)
+
+`verify_per_run_gate(run_dir, expected_cpu_profile)` (`scripts/stage2_pilot.py:474-632`) plus the dataset-level variant-aware CPU gate in `scripts/verify_dataset.py:270-299`:
+
+| `expected_cpu_profile` | Duration | Prometheus samples | CPU condition |
+|:---|--:|--:|:---|
+| `high` | ≥ 115 s | ≥ 8 | ≥ 80 % of samples ≥ 100 mcores |
+| `throttled` | ≥ 50 s | ≥ 5 | ≥ 60 % of samples ≥ 40 mcores |
+| `burst` | — | — | **no threshold enforced — see gap below** |
+| `low` | — | — | no sustained-CPU requirement |
+
+**Gap to close before 4a:** the `burst` profile enforces nothing (`scripts/verify_dataset.py:290-299` prints `PASS (Burst profile)` unconditionally). Six templates use `burst` (benign 4, unknown 2). Either a burst threshold is defined and implemented, or burst templates are explicitly exempted in the plan with a written justification. As it stands, a burst run that never spikes CPU passes silently.
+
+### 4.4 Cooldown rule (variant-aware)
+
+`wait_for_pod_cooldown(namespace, pod_name, max_wait_seconds=60.0)` (`scripts/stage2_pilot.py:659-677`):
+
+- poll container CPU from the cAdvisor summary API (`get_container_current_cpu_mcores`, `:633-656`);
+- require CPU **< 20 mcores for 2 consecutive samples**;
+- sample interval 3 s, **hard cap 60 s**;
+- on timeout the current code only logs a warning (`:720-722`).
+
+Stage 4 requirement: the cooldown applies **before every run**, and is **stricter for CPU-intensive profiles** — `high` and `throttled` templates must reach cooldown, `burst` templates should, and `low` templates may skip it. Timeout behaviour is **rotate → warn → abort**: rotate the offending run to the end of the next batch, record a warning in the batch report, and abort the batch if a second timeout occurs on the same template within the same batch. Abort of the batch is a stop-rule-5 trigger.
+
+### 4.5 Telemetry manipulation prohibition
+
+No pausing of Falco, no truncation or editing of audit records, no timestamp skew, no mutation of any cluster component, and no injected synthetic events. Every `unknown` template is real live behaviour (the 4 harness-manipulating templates — `UNK-01`, `-02`, `-06`, `-08` — were withdrawn for exactly this reason). A violation is stop-rule 7.
+
+### 4.6 Safety boundary
+
+Escape templates run only in `sandbox-workloads`; `hostPath` and `privileged` are illegal in tenant namespaces by linter and by Pod Security Standards. No real runtime socket is ever mounted. The API server is contacted only with the pod's own service-account token, and every cross-tenant request is expected to be answered `403 Forbidden` — a `200` on a cross-tenant read is a **lab misconfiguration** and must stop the batch.
+
+---
+
+## 5. Time estimates — all marked **estimate**
+
+> **All figures in §5 are ESTIMATES.** They are derived from the real pilot measurements in §0 and the plan's declared per-template durations. They are planning aids, not commitments, and they are not gate evidence. The first batch of 4b must measure its own wall clock and the estimate must be revised from that measurement.
+
+### 5.1 Basis — the numbers used
+
+**Measured, from `data/raw/runs/*/index.json` → `duration_seconds` (25 real pilot runs):**
+
+| Class | n | mean | min | max |
+|:---|--:|--:|--:|--:|
+| benign | 5 | 11.57 s | 7.13 s | 25.32 s |
+| container_escape | 5 | 7.13 s | 7.12 s | 7.15 s |
+| privilege_abuse | 5 | 7.93 s | 7.11 s | 9.15 s |
+| cryptomining | 5 | 129.02 s | 124.23 s | 130.29 s |
+| exfiltration (dropped) | 5 | 9.14 s | 9.13 s | 9.14 s |
+
+**Plan-declared durations** (`docs/SCENARIO_PLAN_v2.md` → `Duration` column) weighted by planned runs:
+
+| Class | runs | plan scenario time |
+|:---|--:|--:|
+| benign | 140 | 1547 s (25.8 min) |
+| container_escape | 80 | 720 s (12.0 min) |
+| privilege_abuse | 80 | 820 s (13.7 min) |
+| cryptomining | 60 | 5790 s (96.5 min) |
+| unknown | 40 | 955 s (15.9 min) |
+| **Total** | **400** | **9832 s = 163.9 min = 2.73 h** |
+
+### 5.2 Estimates
+
+| Quantity | Estimate | Derivation |
+|:---|--:|:---|
+| **Stage 4a total wall clock (55 runs)** | **≈ 23 min of scenario time**, plus capture/cleanup overhead already included in the pilot per-run figures | plan duration summed once per template = 1362 s = 22.7 min |
+| **Stage 4a per-run** | 7 s – 130 s | plan durations; mining templates dominate (770 s of the 1362 s) |
+| **Stage 4b per batch of 20 (proportional mix)** | **≈ 8.2 min of scenario time** (492 s) | 7 ben × 11.1 s + 4 esc × 9.0 s + 4 prv × 10.2 s + 3 mnr × 96.5 s + 2 unk × 23.9 s |
+| **Stage 4b worst-case batch** (3 mining + 17 fast) | **≈ 9.3 min** (560 s) | 17 × 10 s + 3 × 130 s |
+| **Stage 4b total, all 20 batches** | **≈ 2.73 h of scenario time** (9832 s) | plan durations × planned runs |
+| **Cooldown overhead** | up to +60 s per run that times out, +3 s per sample otherwise | `scripts/stage2_pilot.py:659-677` |
+| **Total 4a + 4b** | **≈ 3.1 h of scenario time** | 1362 s + 9832 s |
+
+**Caveats on these estimates (honest):**
+
+- The pilot's per-run figure already includes capture and cleanup, because for 9 of 10 pilot runs `index.json duration_seconds` equals the harness `elapsed_seconds` exactly. The one mismatch (`run-p06-mnr`, 130.13 vs 124.24) is unexplained and is itself a small data-quality item for 4a to re-check.
+- The **throttled mining templates have no pilot timing** — the pilot mined at `high` only. `MNR-03`, `-04`, `-06`, `-07`, `-08` are declared at 70–90 s in the plan and are unmeasured; their true wall clock may be longer because the throttle must hold a target rate.
+- The **unknown templates have no pilot timing** either; the 9.13 s figure used above is borrowed from the exfiltration pilot, which had a comparable shape but is not the same workload.
+- The per-class means above are computed from **n = 5** per class. They are estimates, and 4a is the first opportunity to replace them with n = 1 per template across 55 templates.
+- These estimates cover **scenario time only**. They exclude batch-level receivers pre-check, dataset-gate execution over the whole dataset, and the operator review pauses.
+
+---
+
+## 6. References
+
+| Document | Relevance |
+|:---|:---|
+| `docs/SCENARIO_PLAN_v2.md` | 55 templates, 400-run budget, paper Tables A–F, linter edit in §4 |
+| `docs/PREREGISTRATION.md:60-76` | unfrozen `manifest_v2` / `manifest_v2_split` draft |
+| `docs/TICKET_TREE.md:193-204` | ticket statuses and dependencies for 06a–08, 09a, 09b, 12a–12c |
+| `docs/DECISIONS.md` | D-20 (invalidation), D-24 (exfil dropped), D-25 (model identity) |
+| `docs/BASELINES.md:123` | design-time mapping of `Contact K8S API Server From Container` to `privilege_abuse` — unverified in real telemetry |
+| `docs/GATE_REPORTS.md:1285` | why `manifest_v1.json` must not be reused |
+| `scripts/verify_dataset.py` | dataset gate, variant-aware CPU gate, leakage + shuffle + GroupKFold diagnostics |
+| `scripts/stage2_pilot.py` | runner, per-run gate, cooldown, receiver pre-check, resource stop rules, backup |
+| `scripts/scenario_safety_lint.py` | safety linter; the single required edit is in §P1 |
+| `scripts/analyze_pilot_signals.py` | existing per-class Falco-rule / audit-verb analysis (2 of 4 signature dimensions) |
+| `src/runtimelens/collector/per_run_capture.py` | writes `index.json` including `expected_cpu_profile` |
+| `data/raw/runs/*/index.json` | the 25 real pilot runs — the timing basis in §0 and §5.1 |
+| `data/scenarios/pilot_25_metrics.json` | harness wall clock for 10 real pilot runs (gate PASSED) |
+
+*AI Assistance Disclosure:* this runbook was authored by an AI assistant under direct human direction, using only offline repository inspection plus read-only cluster inspection. No scenario was executed, no telemetry was fabricated, and no gate is claimed as passed.
