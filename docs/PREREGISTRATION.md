@@ -45,9 +45,9 @@
    - **Calibrated Effect Size:** To be set after a real pilot.
    - **Design Freeze:** Frozen only after human review and approval of the real pilot empirical budget.
 2. **Total Sample Size:** **400 independent live cluster runs** (yielding 400 incidents, 1 per run). Raw data from all 5 sources (Falco, audit, Hubble, Prometheus, Trivy) is archived from run 1.
-3. **Partitioning:** Grouped strictly by `run_id` and scenario variant:
-   - **Dev Split:** 72% (~288 runs), used for training classical ML, prompt tuning, and threshold calibration.
-   - **Held-Out Test Split:** 28% (~112 runs), frozen with a tamper-evident SHA-256 hash in `datasets/splits/manifest_v1.json`.
+3. **Partitioning:** Grouped strictly by **template** (every run of a given `TMPL-*` stays on one side of the split) and by run within that template:
+   - **Dev Split:** **proposed** 72.25% (**289 runs**), used for training classical ML, prompt tuning, and threshold calibration. *(Working draft — not frozen. Source: `docs/SCENARIO_PLAN_v2.md` §1.)*
+   - **Held-Out Test Split:** **proposed** 27.75% (**111 runs**), to be frozen with a tamper-evident SHA-256 hash in `datasets/splits/manifest_v2.json`. *(Working draft — not frozen. `manifest_v1.json` is the manifest of the **invalidated** synthetic dataset and must not be reused.)*
 4. **Equal Tuning Budget:** All three classifiers receive the exact same dev-set exposure and compute budget.
 5. **Air-Gap Rule:** The test split is evaluated exactly ONCE per final model configuration. All access is logged to `data/audit/test_eval_access.log`.
 
@@ -64,13 +64,14 @@
 
 - **Deviation Context:** Following Decision D-20 (invalidation of synthetic log shortcuts) and the Stage 2/3 real multi-source 25-run pilot, the original scenario manifest and split (`manifest_v1.json`) are formally superseded.
 - **Proposed Manifest Architecture (`manifest_v2.json`):**
-  - Will govern 400 genuine live multi-source runs across 5 threat classes (80 runs per class or balanced equivalent) with per-run directory isolation (`data/raw/runs/<run_id>/<source>/`).
+  - Will govern 400 genuine live multi-source runs across 5 threat classes (**proposed** 140 benign / 80 container_escape / 80 privilege_abuse / 60 cryptomining / 40 unknown) over **55 templates**, with per-run directory isolation (`data/raw/runs/<run_id>/<source>/`).
   - Incorporates paired look-alike confounders (benign shells, legitimate high-port services, authorized secret reads, and batch CPU load) to prevent trivial feature shortcuts (e.g., `command_length`).
   - Implements varied attack vectors (throttled mining, diverse path traversals, multi-port exfiltration, cross-tenant API requests).
+  - The `exfiltration` class is **not** part of the corpus (Decision D-24). The 5 historical exfiltration pilot runs are retained for audit traceability, marked `pilot only, class dropped`, and are excluded from every class-level statistic.
 - **Proposed Split Architecture (`manifest_v2_split.json`):**
-  - Grouped 72/28 split (288 Dev, 112 Test) grouped strictly by `run_id` and scenario variant.
+  - Grouped 72/28 split (**proposed** 289 Dev, 111 Test) grouped strictly by **template** and by run within that template, so no template's command text or Falco signature appears on both sides.
   - Frozen with a new SHA-256 air-gap lock after human scenario review.
 - **Strict Single-Access Test Protocol:**
-  - The held-out test split (~112 runs) remains air-gapped and will be evaluated strictly ONCE at Ticket `12c`.
-  - All dev tuning (Random Forest, prompt templates, policy thresholds) operates exclusively on the 288 Dev runs.
+  - The held-out test split (**proposed** 111 runs) remains air-gapped and will be evaluated strictly ONCE at Ticket `12c`.
+  - All dev tuning (Random Forest, prompt templates, policy thresholds) operates exclusively on the **proposed** 289 Dev runs.
 - **Governance Note:** This deviation is currently a **working draft**. It will not be frozen or locked until Stage 4 scenario review and formal user authorization.

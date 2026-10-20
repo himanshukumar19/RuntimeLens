@@ -22,6 +22,9 @@ ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
     {
         "/opt/runtimelens-dummy/docker.sock",
         "/opt/runtimelens-dummy/containerd.sock",
+        # Inert dummy DIRECTORY (type: Directory) for TMPL-ESC-04 / TMPL-ESC-09.
+        # Never a real host path: contains no host state, no credentials, no runtime socket.
+        "/opt/runtimelens-dummy/etc",
     }
 )
 

@@ -118,6 +118,40 @@ def test_safety_lint_permits_dummy_hostpath_in_lab_namespace() -> None:
     assert errors == [], f"Expected clean pass in lab namespace, got: {errors}"
 
 
+def test_safety_lint_permits_dummy_etc_directory_in_lab_namespace() -> None:
+    """P1: the inert dummy DIRECTORY allowlisted for TMPL-ESC-04 / TMPL-ESC-09."""
+    manifest = _valid_pod_manifest()
+    manifest["metadata"]["namespace"] = "sandbox-workloads"
+    manifest["spec"]["volumes"] = [
+        {
+            "name": "dummy-dir",
+            "hostPath": {"path": "/opt/runtimelens-dummy/etc", "type": "Directory"},
+        }
+    ]
+    errors = lint_manifest(manifest)
+    assert errors == [], f"Expected clean pass for dummy etc dir, got: {errors}"
+
+
+def test_safety_lint_still_fails_on_real_kubernetes_hostpath() -> None:
+    """P1 regression: widening the allowlist must NOT admit a real host path."""
+    manifest = _valid_pod_manifest()
+    manifest["metadata"]["namespace"] = "sandbox-workloads"
+    manifest["spec"]["volumes"] = [
+        {"name": "bad-dir", "hostPath": {"path": "/etc/kubernetes", "type": "Directory"}}
+    ]
+    errors = lint_manifest(manifest)
+    assert any("hostPath outside dummy allowlist" in e for e in errors)
+
+
+def test_safety_lint_still_fails_on_hostpid_in_lab_namespace() -> None:
+    """P1 regression: hostPID stays forbidden even in the lab namespace."""
+    manifest = _valid_pod_manifest()
+    manifest["metadata"]["namespace"] = "sandbox-workloads"
+    manifest["spec"]["hostPID"] = True
+    errors = lint_manifest(manifest)
+    assert any("Forbidden hostPID: true" in e for e in errors)
+
+
 def test_safety_lint_fails_on_privileged_outside_lab_namespace() -> None:
     manifest = _valid_pod_manifest()
     manifest["spec"]["containers"][0]["securityContext"] = {"privileged": True}

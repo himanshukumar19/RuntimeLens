@@ -31,6 +31,22 @@ Worst-case binomial 95% half-width at the proposed test counts (`p = 0.5`): beni
 6. **Workload and tenancy balance:** templates rotate evenly across `tenant-a`, `tenant-b`, `tenant-c` and across `web`, `api`, `database`, `payment-style`.
 7. **No telemetry manipulation:** the harness never pauses Falco, never truncates or edits an audit record, never injects timestamp skew and never mutates a cluster component.
 
+### 2.1 Expected Falco Rules — grounded in observed telemetry only
+
+The `Expected Falco Rules` column may name a rule **only if that rule has actually fired in real telemetry captured by this project**. Verified against the 25 collected pilot runs (`data/raw/runs/*/falco/events.jsonl`):
+
+| Rule | Origin | Events / runs observed | Used in this plan |
+|:---|:---|:---|:---|
+| `Interactive Shell Spawned in Non-Debug Container` | Custom lab rule (`lab/falco/falco-values.yaml`) | 26 events / 25 runs | yes — every template |
+| `Suspicious High Port Egress` | Custom lab rule (`lab/falco/falco-values.yaml`) | 16 events / 8 runs | yes — high-port templates |
+| `Read Sensitive Host Information Untrusted` | Custom lab rule (`lab/falco/falco-values.yaml`) | 5 events / 5 runs | yes — sensitive-file templates |
+| `Launch Sensitive Mount Container` | Custom lab rule (`lab/falco/falco-values.yaml`) | not fired in the 25-run pilot (hostPath mount templates are in `sandbox-workloads` only) | yes — escape mount templates, subject to 4a confirmation |
+| `Contact K8S API Server From Container` | **Stock** Falco rule, chart `falco-9.2.0`, `/etc/falco/falco_rules.yaml:840` | **0 events / 0 runs** | **no — removed from this column** |
+
+**`Contact K8S API Server From Container` was removed from the `Expected Falco Rules` column of `TMPL-PRV-01`, `-03`, `-05` and `-07`.** It is a genuine stock rule and its tags (`[maturity_stable, container, network, k8s, mitre_discovery, T1565]`) contain no class names, but it has **never fired in any telemetry this project has collected**: 0 occurrences in the deployed Falco log and 0 across all 25 real pilot runs. Its condition requires the API server to be contacted by DNS name (`fd.sip.name="kubernetes.default.svc.cluster.local"`), whereas the pilot's privilege commands connect to the raw ClusterIP `https://10.96.0.1:443/`, so the condition cannot match as written. Naming it as an *expected* rule would be an unverified claim about a signal that has never been observed.
+
+The privilege templates therefore expect **only** `Shell Spawn` (the `Interactive Shell Spawned in Non-Debug Container` lab rule), and their class-level signal rests on the audit verbs, the Hubble flow band and the CPU band. Whether the stock API-server rule can be made to fire — and therefore whether it should be reintroduced into the plan — is a question for the Stage 4a smoke, and is tracked in `docs/STAGE4_RUNBOOK.md` §2.6.
+
 ---
 
 ## 3. Master Template Registry (55 templates, 400 runs, all proposed)
@@ -82,13 +98,13 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 
 | ID | Description | Length Bin | Duration | Tenant / Workload | Intensity | CPU Profile | Expected Falco Rules | Feature Values 00/01/02 | Audit Verbs | Hubble Band | Safety Notes | Runs |
 |:---|:---|:---:|:---:|:---|:---:|:---:|:---|:---:|:---|:---:|:---|--:|
-| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 30–80 | 7s | tenant-a / api | Low | low | Shell Spawn, Contact K8S API Server | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
+| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 30–80 | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
 | `TMPL-PRV-02` | Cross-tenant Pods enumeration against adjacent namespace | 30–80 | 7s | tenant-b / web | Low | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 81–150 | 8s | tenant-c / database | Medium | low | Shell Spawn, Contact K8S API Server | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
+| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 81–150 | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
 | `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 81–150 | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-05` | ClusterRoleBinding inspection attempt using pod SA | 81–150 | 10s | tenant-b / api | Medium | low | Shell Spawn, Contact K8S API Server | F/F/F | get, create, list | MID | 403 Forbidden | 10 |
+| `TMPL-PRV-05` | ClusterRoleBinding inspection attempt using pod SA | 81–150 | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden | 10 |
 | `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 151–250+ | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn, Contact K8S API Server | F/F/F | get, create | MID | 403 Forbidden, short burst | 10 |
+| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst | 10 |
 | `TMPL-PRV-08` | Batch multi-namespace resource scraping with extracted token | 151–250+ | 12s | tenant-b / payment-style | High | low | Shell Spawn | F/F/F | get, create, list | HIGH | All attempts 403 logged | 10 |
 
 ### 3.4 Class `cryptomining` — 8 templates, 60 runs (proposed)
@@ -125,28 +141,32 @@ Two templates deliberately use ports **outside** the Falco rule range so that po
 
 ---
 
-## 4. Safety Linter Changes Required (not yet applied)
+## 4. Safety Linter Changes Required — **APPLIED 2026-10-20**
 
-`TMPL-ESC-04`, `TMPL-ESC-09` and any future dummy-directory mount require **one** linter change, at `scripts/scenario_safety_lint.py` line 21:
+`TMPL-ESC-04`, `TMPL-ESC-09` and any future dummy-directory mount required **one** linter change, at `scripts/scenario_safety_lint.py` line 21. That change has been applied:
 
 ```python
 ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
     {
         "/opt/runtimelens-dummy/docker.sock",
         "/opt/runtimelens-dummy/containerd.sock",
-        "/opt/runtimelens-dummy/etc",   # <-- proposed addition (type: Directory)
+        # Inert dummy DIRECTORY (type: Directory) for TMPL-ESC-04 / TMPL-ESC-09.
+        # Never a real host path: contains no host state, no credentials, no runtime socket.
+        "/opt/runtimelens-dummy/etc",
     }
 )
 ```
 
-No other linter rule needs to change. Already enforced and unchanged:
+No other linter rule changed. Already enforced and unchanged, each with a regression test in `tests/unit/test_scenario_safety_lint.py`:
 
 - `hostPath` permitted only in `ALLOWED_LAB_NAMESPACES = {"sandbox-workloads"}` (line 129–136).
 - `privileged: true` permitted only in that same namespace (line 146–150).
 - `hostPID`, `hostNetwork`, `hostIPC: true` unconditionally forbidden (lines 101–107) — this is why `TMPL-ESC-07` uses a readlink on the container's own `/proc/1/root` instead of a host-PID pod.
 - Real runtime sockets `/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio` forbidden (lines 28–34, 116–120).
 - External destinations rejected except `*.svc`, `*.cluster.local`, `127.`, `10.`, `172.18.`, `localhost`, `kubernetes.default` (lines 166–186).
-- Class-leak tokens in any name, label or container name (lines 36–76, 141–142).
+- Class-leak tokens in any name, label or container name (lines 36–76, 141–142). Note this includes `esc`, `prv` and `mnr`, so a *cluster resource* may not be named after a template id; template ids are documentation identifiers only.
+
+**Verification (offline, 3 manifest cases, all passing):** the dummy `etc` directory in `sandbox-workloads` PASSes; `/etc/kubernetes` as a hostPath FAILS (`hostPath outside dummy allowlist`); `hostPID: true` in `sandbox-workloads` FAILS (`Forbidden hostPID: true`).
 
 ---
 
@@ -157,3 +177,38 @@ No other linter rule needs to change. Already enforced and unchanged:
 3. **Single-node kind.** One control-plane node means inter-node overlay latency, cross-node scheduling jitter and multi-node kernel variance are all unobservable.
 4. **Controlled synthetic scenarios.** Probes are benign-intent simulations of attack primitives. They measure detector and policy behaviour, not evasion by a sophisticated adversary, and escape scenarios simulate the exploit payload rather than performing a real host breakout.
 5. **Shell-delivery invariance.** Because every template runs through `kubectl exec ... /bin/sh -c`, `is_shell_process` and `is_root_user` are constant across all 400 runs and therefore contribute nothing to classification. This is deliberate (shell must not separate classes) but it also means those two features are untested by this dataset.
+
+---
+
+## 6. Table F — Telemetry Signature Diversity
+
+Signature = `(Falco rule set | audit verbs | Hubble flow band | CPU band)`. Hubble bands: LOW 0–6 flows, MID 7–11, HIGH 12+. CPU bands: LOW (peak < 40 m), MID (peak 40–100 m), HIGH (median ≥ 100 m).
+
+A class where **≥ 60 %** of runs share one signature is **FLAGGED**: that means one telemetry signature would by itself identify the class, i.e. a trivial shortcut exists.
+
+### 6.1 Plan-level Table F (expected, computed from the registry above)
+
+Computed from this plan's own columns, weighted by the planned run counts. **This is a prediction, not a measurement.**
+
+| Class | Runs | Distinct signatures | Largest single signature | Flagged |
+|:---|--:|--:|--:|:--|
+| `benign` | 140 | 6 | 30.0 % | no |
+| `container_escape` | 80 | 6 | 30.0 % | no |
+| `privilege_abuse` | 80 | 5 | 37.5 % | no |
+| `cryptomining` | 60 | 5 | 36.7 % | no |
+| `unknown` | 40 | 7 | 25.0 % | no |
+
+### 6.2 Real Table F (measured, 25 real pilot runs)
+
+Computed by `scripts/signature_table.py --runs-dir data/raw/runs` over the 25 collected real runs. **This is a measurement, and it contradicts §6.1.**
+
+| Class | Runs | Distinct signatures | Largest single signature | Flagged |
+|:---|--:|--:|--:|:--|
+| `benign` | 5 | 2 | 80.0 % | **yes** |
+| `container_escape` | 5 | 1 | **100.0 %** | **yes** |
+| `cryptomining` | 5 | 2 | 80.0 % | **yes** |
+| `privilege_abuse` | 5 | 3 | 40.0 % | no |
+
+**Why the two tables disagree, stated plainly:** the pilot executed only **one scenario per class** (`SC-BEN-01`, `SC-ESC-01`, `SC-PRV-01`, `SC-MNR-01`, `SC-EXF-01`), so every run inside a class had the same Falco rule set, the same audit verbs, the same Hubble flow count and the same CPU band. The 100 % figure for `container_escape` is therefore a property of the **pilot's scenario count**, not evidence that this plan is broken. The 55 templates exist precisely to create the signature variety that §6.1 predicts.
+
+**Consequence:** the plan-level table in §6.1 remains an unverified hypothesis. The Stage 4a smoke (1 run per template = 55 runs) is the first measurement that can test it, and the real table produced there replaces §6.1 as the authoritative table. Until then, no claim of signature diversity may be made in the report. The 5 dropped exfiltration runs are reported in the per-run detail and excluded from the per-class statistics.

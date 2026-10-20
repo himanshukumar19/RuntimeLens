@@ -29,38 +29,38 @@ Every timing figure below is either (a) **measured** from committed/collected pi
 
 ## 1. Prerequisites — all must be satisfied and recorded before Stage 4a starts
 
-### P1. Linter edit for the `etc` hostPath — **REQUIRED, NOT YET APPLIED**
+### P1. Linter edit for the `etc` hostPath — **APPLIED**
 
-`TMPL-ESC-04` and `TMPL-ESC-09` mount `/opt/runtimelens-dummy/etc` as a `hostPath` of type `Directory`. The safety linter currently rejects it.
+`TMPL-ESC-04` and `TMPL-ESC-09` mount `/opt/runtimelens-dummy/etc` as a `hostPath` of type `Directory`. The safety linter previously rejected it.
 
-Current code (`scripts/scenario_safety_lint.py:21-26`):
+Code at `scripts/scenario_safety_lint.py:21-29` (as applied):
 
 ```python
 ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
     {
         "/opt/runtimelens-dummy/docker.sock",
         "/opt/runtimelens-dummy/containerd.sock",
+        # Inert dummy DIRECTORY (type: Directory) for TMPL-ESC-04 / TMPL-ESC-09.
+        # Never a real host path: contains no host state, no credentials, no runtime socket.
+        "/opt/runtimelens-dummy/etc",
     }
 )
 ```
 
-The single required edit (add one entry):
+**No other linter rule was changed.** The following remain enforced unchanged and are covered by regression tests in `tests/unit/test_scenario_safety_lint.py`:
 
-```python
-        "/opt/runtimelens-dummy/etc",   # inert dummy directory, type: Directory
-```
+| Linter rule | Location | Effect | Regression test |
+|:---|:---|:---|:---|
+| `hostPath` only in `sandbox-workloads` | `scripts/scenario_safety_lint.py:19`, `:130-135` | tenant namespaces can never mount a host path | `test_safety_lint_fails_on_hostpath_in_tenant_namespace` |
+| `hostPID` / `hostNetwork` / `hostIPC: true` unconditionally forbidden | `:102-107` | this is why `TMPL-ESC-07` uses `readlink` on the container's own `/proc/1/root` instead of a host-PID pod | `test_safety_lint_still_fails_on_hostpid_in_lab_namespace` |
+| real runtime sockets forbidden | `:28-34`, `:116-120` | `/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio` | `test_safety_lint_fails_on_real_runtime_socket_mount` |
+| `privileged: true` only in `sandbox-workloads` | `:146-150` | `TMPL-ESC-06`, `-08`, `-10` are sandbox-only | `test_safety_lint_fails_on_privileged_outside_lab_namespace` |
+| class-leak tokens in names/labels | `:36-76`, `:141-142` | no `SC-*`, no class name, in any resource name | `test_safety_lint_fails_on_class_leak_in_name` |
+| real host paths still rejected after widening the allowlist | `:123-127` | `/etc/kubernetes` is **not** accepted | `test_safety_lint_still_fails_on_real_kubernetes_hostpath` |
 
-**No other linter rule changes.** The following remain enforced unchanged and must be re-confirmed after the edit:
+**Verification performed (offline, 3 manifest cases):** a manifest mounting `/opt/runtimelens-dummy/etc` in `sandbox-workloads` PASSes; a manifest mounting `/etc/kubernetes` in `sandbox-workloads` FAILS with `hostPath outside dummy allowlist`; a manifest with `hostPID: true` in `sandbox-workloads` FAILS with `Forbidden hostPID: true`. All three are now permanent unit tests (16 passed).
 
-| Linter rule | Location | Effect |
-|:---|:---|:---|
-| `hostPath` only in `sandbox-workloads` | `scripts/scenario_safety_lint.py:19`, `:130-135` | tenant namespaces can never mount a host path |
-| `hostPID` / `hostNetwork` / `hostIPC: true` unconditionally forbidden | `:102-107` | this is why `TMPL-ESC-07` uses `readlink` on the container's own `/proc/1/root` instead of a host-PID pod |
-| real runtime sockets forbidden | `:28-34`, `:116-120` | `/var/run/docker.sock`, `/run/containerd`, `/var/run/containerd`, `/var/run/crio`, `/run/crio` |
-| `privileged: true` only in `sandbox-workloads` | `:146-150` | `TMPL-ESC-06`, `-08`, `-10` are sandbox-only |
-| class-leak tokens in names/labels | `:36-76`, `:141-142` | no `SC-*`, no class name, in any resource name |
-
-**Verification required after the edit:** the linter must still *reject* a manifest containing `/etc/kubernetes` as a hostPath, and must still reject `hostPID: true` in `sandbox-workloads`. A linter that accepts more paths but silently drops its other checks is worse than no edit. Record both a passing and a failing case.
+> Note: the linter's class-leak token list includes `esc`, `prv` and `mnr`, so a *cluster resource* may not be named after a template id. Template ids are documentation identifiers only; live resource names must be leak-free.
 
 ### P2. `expected_cpu_profile` present in `index.json`
 
@@ -93,11 +93,18 @@ Draft exists at `docs/PREREGISTRATION.md:66-71` (working draft, explicitly not f
 - **The Test split file must not be written during Stage 4.** First access to Test remains Ticket `12c` (row 204; `docs/TICKET_TREE.md:144` Checkpoint I). During 4b, only the *Dev* assignment may be materialised; the Test side is recorded as a name list with no feature/statistic access.
 - Cross-check requirement: `scripts/verify_dataset.py` already runs GroupKFold grouped by scenario variant (`:341-348` region) and a metadata-shuffle invariance test (`:204-227`). A grouped-by-template check must be added or confirmed for the final manifest.
 
-### P5. Signature-table tooling (does not exist yet — must be written before 4a)
+### P5. Signature-table tooling — **WRITTEN**
 
-- Existing and usable: `scripts/analyze_pilot_signals.py --runs-dir data/raw/runs` → per-class distinct Falco rules and audit verbs. This covers **2 of the 4** signature dimensions.
-- Missing: a script that emits the full 4-field signature `(Falco rule set, audit verbs, Hubble flow band, CPU band)` per class and flags any class where ≥ 60 % of runs share one signature. **No such script exists today** (grep for `signature` in `scripts/` and `src/` returns nothing). It must be written as a read-only script before 4a, and its output in 4a becomes the *real* Table F that replaces the paper Table F in `docs/SCENARIO_PLAN_v2.md` §7.
-- The real pilot already shows the raw material is present: per-run Falco rule sets, audit verb sets and Hubble flow counts were extracted from the 25 collected runs during this review (e.g. benign → `['Interactive Shell Spawned in Non-Debug Container']` / `['create','get']` / `flows=8`; privilege_abuse → `['create','get','list']` / `flows=12-17`; cryptomining → `flows=2-4`).
+`scripts/signature_table.py` now exists and is read-only (it opens telemetry files for reading only; it never writes, moves or deletes).
+
+```bash
+PYTHONPATH=src:. uv run python scripts/signature_table.py --runs-dir data/raw/runs
+PYTHONPATH=src:. uv run python scripts/signature_table.py --runs-dir data/raw/runs --json
+```
+
+Signature = `(Falco rule set | audit verbs | Hubble flow band | CPU band)`. Hubble bands: LOW 0–6, MID 7–11, HIGH 12+. CPU bands: LOW (peak < 40 m), MID (peak 40–100 m), HIGH (median ≥ 100 m). Runs carrying a `class_status` (the 5 dropped exfiltration runs) are printed in the per-run detail but **excluded** from the per-class statistics.
+
+The script has been run on the 25 real pilot runs. **Three of four classes are FLAGGED at ≥ 60 %** — see §2.5 and the caveat in §2.7. The 4a smoke must recompute this on 55 fresh runs; the pilot result is a warning, not the final table.
 
 ### P6. Environment readiness (read-only checks, no cluster mutation)
 
@@ -156,7 +163,7 @@ Validate the full 5-source capture path, the per-run gate, the cooldown behaviou
 2. `verify_dataset.py` verdict `GATE VERDICT: PASSED` (zero leakage, zero metadata-shuffle failures, zero sustained-CPU violations) — verbatim output saved.
 3. `expected_cpu_profile` present in 55/55 new `index.json` files and matching the plan.
 4. Cooldown behaved as specified on every run that needed it (recorded wait durations).
-5. Real Table F computed. **The paper Table F is not a gate** — it is a hypothesis. If the real table shows a class where ≥ 60 % of runs share one signature, that is a *finding to be reported*, and it blocks 4b until the user decides.
+5. Real Table F computed with `scripts/signature_table.py`. **The plan-level Table F in `docs/SCENARIO_PLAN_v2.md` §6.1 is not a gate** — it is a hypothesis, and on the 25-run pilot it was already contradicted (§2.7). The 4a requirement is that the table is computed from real telemetry and reported faithfully, with every class at ≥ 60 % flagged. Whether a flag blocks 4b is a human decision.
 6. A named list of Falco rules actually observed (see §2.6).
 
 ### 2.6 Specific open item the 4a smoke must settle: `Contact K8S API Server From Container`
@@ -170,6 +177,25 @@ Validate the full 5-source capture path, the per-run gate, the cooldown behaviou
 - **it has never fired in any real telemetry collected by this project**: 0 occurrences in the Falco container log, and 0 across all 25 collected pilot runs. The three rules that *did* fire in real pilot data are `Interactive Shell Spawned in Non-Debug Container` (26 events / 25 runs), `Suspicious High Port Egress` (16 / 8) and `Read Sensitive Host Information Untrusted` (5 / 5).
 
 **Therefore the plan's expectation is UNVERIFIED in real telemetry and is treated as unverified.** The 4a smoke must record whether the rule fires for the privilege templates; the templates must use the API server **DNS name** (`kubernetes.default.svc.cluster.local`) rather than the raw ClusterIP for the stock condition to be satisfiable. Until 4a shows it in real events, `docs/SCENARIO_PLAN_v2.md` must not rely on it, and `docs/BASELINES.md:123` (which maps it to `privilege_abuse`) is a design-time claim only.
+
+**Action taken 2026-10-20:** `Contact K8S API Server` has been **removed** from the `Expected Falco Rules` column of `TMPL-PRV-01`, `-03`, `-05` and `-07` in `docs/SCENARIO_PLAN_v2.md`, and the plan gained a new §2.1 table grounding the remaining rule names in observed telemetry only.
+
+### 2.7 Real Table F on the 25 pilot runs — three of four classes FLAGGED
+
+`scripts/signature_table.py` was run against the 25 collected pilot runs (read-only). Result:
+
+| Class | Runs | Distinct signatures | Largest single signature | Flagged (≥ 60 %) |
+|:---|--:|--:|--:|:--|
+| `benign` | 5 | 2 | 80.0 % | **yes** |
+| `container_escape` | 5 | 1 | **100.0 %** | **yes** |
+| `cryptomining` | 5 | 2 | 80.0 % | **yes** |
+| `privilege_abuse` | 5 | 3 | 40.0 % | no |
+
+**This contradicts the plan-level Table F in `docs/SCENARIO_PLAN_v2.md` §6.1, which reported no class at or above 60 %.** The plan-level table was computed from the *plan's expected columns*, not from telemetry. On real telemetry the pilot's 25 runs collapse into very few signatures because the pilot executed only **one scenario per class** (`SC-BEN-01`, `SC-ESC-01`, `SC-PRV-01`, `SC-MNR-01`, `SC-EXF-01`) — every benign run had the same Falco rule set, the same audit verbs, the same Hubble flow count and the same CPU band.
+
+**Reading this correctly:** the 100 % for `container_escape` is **not** evidence that the plan is broken; it is evidence that the pilot had only one escape scenario. The new plan's 55 templates exist precisely to create signature variety inside each class. The 4a smoke is the first measurement that can settle this, because it runs **1 run per template** and therefore samples 21 benign / 10 escape / 8 privilege / 8 mining / 8 unknown distinct template shapes.
+
+**Consequence for the 4a success criteria (§2.5):** criterion 5 is restated as *report the real table faithfully and flag every class at ≥ 60 %*. Whether the flag blocks 4b is a human decision, and it is a decision that must be made on 4a data, not on this 25-run pilot.
 
 ---
 
@@ -275,10 +301,12 @@ Every run directory must contain all 5 sources: `falco/events.jsonl`, `audit/eve
 |:---|--:|--:|:---|
 | `high` | ≥ 115 s | ≥ 8 | ≥ 80 % of samples ≥ 100 mcores |
 | `throttled` | ≥ 50 s | ≥ 5 | ≥ 60 % of samples ≥ 40 mcores |
-| `burst` | — | — | **no threshold enforced — see gap below** |
+| `burst` | — | ≥ 1 | **peak in [30, 100] mcores AND median < 100 mcores** |
 | `low` | — | — | no sustained-CPU requirement |
 
-**Gap to close before 4a:** the `burst` profile enforces nothing (`scripts/verify_dataset.py:290-299` prints `PASS (Burst profile)` unconditionally). Six templates use `burst` (benign 4, unknown 2). Either a burst threshold is defined and implemented, or burst templates are explicitly exempted in the plan with a written justification. As it stands, a burst run that never spikes CPU passes silently.
+**Closed 2026-10-20:** the `burst` profile previously enforced **nothing** — it printed `PASS (Burst profile)` unconditionally, so a burst template that never spiked CPU passed silently. `scripts/verify_dataset.py` now enforces the band above (peak between 30 and 100 mcores, median strictly below 100), counts violations in a new `burst_violations` counter, and reports them in the gate verdict. Covered by 7 unit tests in `tests/unit/test_verify_dataset_cpu_band.py`.
+
+The `burst` band deliberately **excludes** sustained load: a median at or above 100 mcores is the `high` profile's signature, and a peak above 100 mcores is a mining-shaped spike, not a burst.
 
 ### 4.4 Cooldown rule (variant-aware)
 
@@ -354,7 +382,7 @@ Escape templates run only in `sandbox-workloads`; `hostPath` and `privileged` ar
 
 | Document | Relevance |
 |:---|:---|
-| `docs/SCENARIO_PLAN_v2.md` | 55 templates, 400-run budget, paper Tables A–F, linter edit in §4 |
+| `docs/SCENARIO_PLAN_v2.md` | 55 templates, 400-run budget, tables A–F (§6.1 expected, §6.2 real), linter edit in §4 |
 | `docs/PREREGISTRATION.md:60-76` | unfrozen `manifest_v2` / `manifest_v2_split` draft |
 | `docs/TICKET_TREE.md:193-204` | ticket statuses and dependencies for 06a–08, 09a, 09b, 12a–12c |
 | `docs/DECISIONS.md` | D-20 (invalidation), D-24 (exfil dropped), D-25 (model identity) |
@@ -364,6 +392,7 @@ Escape templates run only in `sandbox-workloads`; `hostPath` and `privileged` ar
 | `scripts/stage2_pilot.py` | runner, per-run gate, cooldown, receiver pre-check, resource stop rules, backup |
 | `scripts/scenario_safety_lint.py` | safety linter; the single required edit is in §P1 |
 | `scripts/analyze_pilot_signals.py` | existing per-class Falco-rule / audit-verb analysis (2 of 4 signature dimensions) |
+| `scripts/signature_table.py` | read-only Table F over real run directories (all 4 signature dimensions) |
 | `src/runtimelens/collector/per_run_capture.py` | writes `index.json` including `expected_cpu_profile` |
 | `data/raw/runs/*/index.json` | the 25 real pilot runs — the timing basis in §0 and §5.1 |
 | `data/scenarios/pilot_25_metrics.json` | harness wall clock for 10 real pilot runs (gate PASSED) |

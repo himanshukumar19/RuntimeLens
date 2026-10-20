@@ -150,6 +150,7 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
 
     min_cpu = float(np.min(sample_cpus)) if sample_cpus else 0.0
     med_cpu = float(np.median(sample_cpus)) if sample_cpus else 0.0
+    max_cpu = float(np.max(sample_cpus)) if sample_cpus else 0.0
     above_100_count = sum(1 for v in sample_cpus if v >= 100.0)
     pct_above_100 = (above_100_count / len(sample_cpus) * 100.0) if sample_cpus else 0.0
     above_40_count = sum(1 for v in sample_cpus if v >= 40.0)
@@ -194,6 +195,7 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         "calculated_duration_seconds": calc_duration,
         "min_cpu_mcores": min_cpu,
         "median_cpu_mcores": med_cpu,
+        "max_cpu_mcores": max_cpu,
         "pct_above_100": pct_above_100,
         "pct_above_40": pct_above_40,
         "expected_cpu_profile": exp_cpu_profile,
@@ -241,6 +243,7 @@ def run_dataset_verification(runs_dir: Path) -> int:
     print(f"\n[1/5] Per-Run Source Counts & Timestamp Audit ({len(run_dirs)} runs)")
     total_leaks = 0
     mining_violations = 0
+    burst_violations = 0
 
     for r_dir in run_dirs:
         audit = audit_run_directory(r_dir)
@@ -262,6 +265,7 @@ def run_dataset_verification(runs_dir: Path) -> int:
 
         min_cpu = audit["min_cpu_mcores"]
         med_cpu = audit["median_cpu_mcores"]
+        max_cpu = audit["max_cpu_mcores"]
 
         # Variant-aware sustained-CPU check
         pct_high = audit["pct_above_100"]
@@ -291,10 +295,18 @@ def run_dataset_verification(runs_dir: Path) -> int:
                 f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) [{cpu_status}]"
             )
         elif exp_profile == "burst":
+            # Burst profile: a short, transient CPU spike that is clearly distinguishable
+            # from both sustained mining (profile=high) and an idle baseline (profile=low).
+            # Band: peak between 30 and 100 mcores, median strictly below 100 mcores.
+            cpu_status = "PASS"
+            if max_cpu < 30.0 or max_cpu > 100.0 or med_cpu >= 100.0:
+                cpu_status = (
+                    f"FAIL (peak={max_cpu:.2f}m not in [30,100], med={med_cpu:.2f}m >= 100)"
+                )
+                burst_violations += 1
             print(
-                f"    --> Sustained CPU [profile=burst]: {pct_high:.1f}% samples >= 100m "
-                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) "
-                "[PASS (Burst profile)]"
+                f"    --> Sustained CPU [profile=burst]: peak={max_cpu:.2f}m (band 30-100m), "
+                f"med={med_cpu:.2f}m (<100m), n={counts['prometheus']} [{cpu_status}]"
             )
         else:
             print(
@@ -346,12 +358,21 @@ def run_dataset_verification(runs_dir: Path) -> int:
 
     # Overall Gate Verdict
     print("\n=======================================================")
-    if total_leaks == 0 and mining_violations == 0 and shuffle_passes == len(run_dirs):
+    if (
+        total_leaks == 0
+        and mining_violations == 0
+        and burst_violations == 0
+        and shuffle_passes == len(run_dirs)
+    ):
         print("GATE VERDICT: PASSED (Zero leakage, verified durations, invariant features)")
         print("=======================================================")
         return 0
     else:
-        print("GATE VERDICT: FAILED (Violations detected)")
+        print(
+            "GATE VERDICT: FAILED (Violations detected: "
+            f"leaks={total_leaks}, sustained_cpu={mining_violations}, "
+            f"burst_cpu={burst_violations}, shuffle_failures={len(run_dirs) - shuffle_passes})"
+        )
         print("=======================================================")
         return 1
 
