@@ -45,7 +45,6 @@ FEATURE_NAMES: Final[list[str]] = [
     "is_root_user",
     "is_shell_process",
     "has_shell_metacharacters",
-    "command_length",
     "is_cpu_abnormal",
     "cpu_usage_mcores",
     "is_outbound_egress",
@@ -60,14 +59,38 @@ FEATURE_NAMES: Final[list[str]] = [
     "orch_verb_get_secret",
 ]
 
+# Decision D-28: `command_length` is EXCLUDED from the classifier feature set.
+#
+# The master template registry (`docs/SCENARIO_PLAN_v2.md` §3.6.3) proves that
+# the `privilege_abuse` class physically cannot occupy the `30-80` or `81-150`
+# command-length bins: the shortest cross-tenant request that the audit
+# collector can attribute to a workload's ServiceAccount costs 120 characters
+# of shell overhead before the URL, and no request that produces a captured
+# audit event fits inside 80 characters. Every `privilege_abuse` template is
+# therefore in the `151-250+` bin and every other class has templates in the
+# shorter bins, which makes the raw command length a near-perfect class
+# marker. A single feature trained on that value reached Macro-F1 = 1.0000 on
+# the Stage 4a Part 1 smoke (ten runs, one per template) purely by memorising
+# the non-overlapping length ranges.
+#
+# `command_length` is therefore retained ONLY as a diagnostic, computed by
+# `extract_command_length()` and reported by `scripts/verify_dataset.py`. It
+# is never part of the vector consumed by the Random Forest baseline or by the
+# ScaleDown state.
+EXCLUDED_DIAGNOSTIC_FEATURES: Final[tuple[str, ...]] = ("command_length",)
+
 
 def extract_features_from_run_dir(
     run_dir: Path,
     baseline_store: BaselineStore | None = None,
 ) -> np.ndarray:
-    """Extract 19 numerical feature values strictly from raw telemetry files in run_dir.
+    """Extract 18 numerical feature values strictly from raw telemetry files in run_dir.
 
     Guarantees zero access to index.json or ground-truth metadata.
+
+    Decision D-28: the returned vector is the *classifier* feature set. It
+    deliberately excludes `command_length`, which is only available as a
+    diagnostic through `extract_command_length()`.
     """
     if baseline_store is None:
         baseline_store = BaselineStore(Path("baselines"))
@@ -122,7 +145,6 @@ def extract_features_from_run_dir(
     root_user = 0.0
     is_shell = 0.0
     has_meta = 0.0
-    max_cmd_len = 0.0
     workload_candidate = "web"
 
     for evt in falco_events:
@@ -132,9 +154,6 @@ def extract_features_from_run_dir(
         fd_name = str(fields.get("fd.name") or "")
         p_name = str(fields.get("proc.name") or "")
         u_name = str(fields.get("user.name") or "")
-
-        if len(cmd) > max_cmd_len:
-            max_cmd_len = float(len(cmd))
 
         if not has_pod_spec:
             if "docker.sock" in fd_name or "docker.sock" in cmd or "socket" in rule:
@@ -290,7 +309,6 @@ def extract_features_from_run_dir(
         root_user,
         is_shell,
         has_meta,
-        max_cmd_len,
         is_cpu_abnormal,
         cpu_mcores,
         is_outbound_egress,
@@ -306,6 +324,32 @@ def extract_features_from_run_dir(
     ]
     assert len(vector) == len(FEATURE_NAMES)
     return np.array(vector, dtype=np.float32)
+
+
+def extract_command_length(run_dir: Path) -> float:
+    """Diagnostic-only helper: the longest observed `proc.cmdline` length in a run.
+
+    Decision D-28: this value is EXCLUDED from the classifier feature set
+    (`FEATURE_NAMES`) because the master template registry proves that command
+    length is a near-perfect class marker for this dataset. It is retained so
+    that `scripts/verify_dataset.py` can keep reporting it as a diagnostic and
+    so that the confound stays visible instead of being silently dropped.
+    """
+    falco_file = run_dir / "falco" / "events.jsonl"
+    max_cmd_len = 0.0
+    if not falco_file.exists():
+        return max_cmd_len
+    with open(falco_file, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                evt = json.loads(line)
+            except Exception:
+                continue
+            cmd = str(evt.get("output_fields", {}).get("proc.cmdline") or "")
+            max_cmd_len = max(max_cmd_len, float(len(cmd)))
+    return max_cmd_len
 
 
 def extract_dataset_from_run_dirs(

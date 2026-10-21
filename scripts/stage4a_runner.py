@@ -195,7 +195,12 @@ TEMPLATES: list[dict[str, Any]] = [
         ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
-        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        # VERIFIED in Stage 4a attempt 2: the dummy-path prefix makes the mount
+        # rule fire on the hostPath File mount.
+        "expect_falco": [
+            "Interactive Shell Spawned in Non-Debug Container",
+            "Launch Sensitive Mount Container",
+        ],
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "MID",
         "expect_features": ["T", "F", "F"],
@@ -219,7 +224,12 @@ TEMPLATES: list[dict[str, Any]] = [
         ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
-        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        # VERIFIED in Stage 4a attempt 2: the dummy-path prefix makes the mount
+        # rule fire on the hostPath Directory mount.
+        "expect_falco": [
+            "Interactive Shell Spawned in Non-Debug Container",
+            "Launch Sensitive Mount Container",
+        ],
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
         "expect_features": ["F", "T", "F"],
@@ -241,6 +251,8 @@ TEMPLATES: list[dict[str, Any]] = [
         ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
+        # Privileged-only pod: there is NO hostPath volume, so
+        # `Launch Sensitive Mount Container` can never fire.
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "MID",
@@ -328,6 +340,352 @@ TEMPLATES: list[dict[str, Any]] = [
         "expect_features": ["F", "F", "F"],
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Stage 4a ROUND 2 template set: 13 templates, 1 run each.
+#
+# Round 2 covers exactly the templates that were CHANGED since the Stage 4a
+# Part 1 smoke or that have NEVER been run.  The ten Part 1 templates that
+# were unchanged and already executed are NOT repeated, so no telemetry is
+# collected twice and no template is run outside the review loop.
+#
+#   changed since Part 1 : ESC-05, ESC-08, ESC-09, ESC-10 (replacements),
+#                          PRV-02, PRV-04, PRV-05 (re-scoped / new),
+#                          BEN-06 (bin corrected)
+#   never run            : BEN-14, BEN-16, BEN-17, PRV-07, UNK-R2
+#
+# Every command below is PROPOSED: it implements the corresponding
+# `docs/SCENARIO_PLAN_v2.md` registry row, and the exact `proc.cmdline` length
+# is recorded in the registry and in the template comment below.  The round-2
+# run is the first measurement of these templates; the burst CPU profiles
+# (BEN-14, BEN-16, BEN-17, PRV-07, UNK-R2) are explicitly subject to
+# confirmation against the Decision D-26 band (peak 20-150 mcores, median
+# < 100 mcores) and Decision D-27 (post-lag ratio + post-lag median floor).
+# ---------------------------------------------------------------------------
+ROUND2_TEMPLATES: list[dict[str, Any]] = [
+    {
+        "run_id": "run-s4a-r2-01",
+        "template_id": "TMPL-ESC-05",
+        "threat_class": "container_escape",
+        "namespace": SANDBOX_NS,
+        "app": "worker",
+        "mode": "sandbox",
+        "pod_name": "worker-task-5e21",
+        "pod_spec": _pod_spec("worker-task-5e21", privileged=True),
+        # Cgroup v2 hierarchy exposure in a privileged sandbox (replaces the
+        # cgroup v1 `release_agent` traversal, which cannot execute on v2).
+        # proc.cmdline length: 168 -> bin 151-250+
+        "command": (
+            "cat /proc/self/cgroup; head -n 30 /proc/self/mountinfo; "
+            "grep Cap /proc/self/status; ls -l /proc/self/fd 2>&1 | head -n 10; "
+            "cat /proc/self/mounts 2>&1 | head -n 10"
+        ),
+        "sleep_after": 6,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "T"],
+    },
+    {
+        "run_id": "run-s4a-r2-02",
+        "template_id": "TMPL-ESC-08",
+        "threat_class": "container_escape",
+        "namespace": SANDBOX_NS,
+        "app": "worker",
+        "mode": "sandbox",
+        "pod_name": "worker-task-6f33",
+        "pod_spec": _pod_spec("worker-task-6f33", privileged=True),
+        # Host device namespace enumeration in a privileged sandbox (replaces
+        # the `mknod` device-node attempt, which the device cgroup blocks even
+        # when privileged).
+        # proc.cmdline length: 57 -> bin 30-80
+        "command": "ls -l /dev | head -n 20; grep Cap /proc/self/status",
+        "sleep_after": 7,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "T"],
+    },
+    {
+        "run_id": "run-s4a-r2-03",
+        "template_id": "TMPL-ESC-09",
+        "threat_class": "container_escape",
+        "namespace": SANDBOX_NS,
+        "app": "worker",
+        "mode": "sandbox",
+        "pod_name": "worker-task-7a44",
+        "pod_spec": _pod_spec(
+            "worker-task-7a44",
+            host_path="/opt/runtimelens-dummy/etc",
+            host_path_type="Directory",
+        ),
+        # Multi-file read over the inert dummy /etc directory.  Requires the
+        # four 0-byte dummy files (shadow, passwd, group, hosts) provisioned by
+        # the Stage 4a runbook prerequisites.
+        # proc.cmdline length: 183 -> bin 151-250+
+        "command": (
+            "head -n 2 /opt/runtimelens-dummy/etc/shadow 2>&1 || true; "
+            "dd if=/opt/runtimelens-dummy/etc/passwd of=/dev/null 2>&1 || true; "
+            "find /opt/runtimelens-dummy/etc -type f 2>&1 || true"
+        ),
+        "sleep_after": 6,
+        "expected_cpu_profile": "low",
+        "expect_falco": [
+            "Interactive Shell Spawned in Non-Debug Container",
+            "Launch Sensitive Mount Container",
+            "Read Sensitive Host Information Untrusted",
+        ],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "T", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-04",
+        "template_id": "TMPL-ESC-10",
+        "threat_class": "container_escape",
+        "namespace": SANDBOX_NS,
+        "app": "worker",
+        "mode": "sandbox",
+        "pod_name": "worker-task-8b56",
+        "pod_spec": _pod_spec(
+            "worker-task-8b56",
+            host_path="/opt/runtimelens-dummy/containerd.sock",
+            host_path_type="File",
+        ),
+        # Runtime socket (containerd) exposure in a privileged sandbox: the
+        # third allowlisted dummy hostPath, which restores a real
+        # `Launch Sensitive Mount Container` expectation.
+        # proc.cmdline length: 112 -> bin 81-150
+        "command": (
+            "ls -l /opt/runtimelens-dummy/containerd.sock; "
+            "grep Cap /proc/self/status; nc -z -w 1 10.96.0.10 53 || true"
+        ),
+        "sleep_after": 7,
+        "expected_cpu_profile": "low",
+        "expect_falco": [
+            "Interactive Shell Spawned in Non-Debug Container",
+            "Launch Sensitive Mount Container",
+        ],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["T", "F", "T"],
+    },
+    {
+        "run_id": "run-s4a-r2-05",
+        "template_id": "TMPL-PRV-02",
+        "threat_class": "privilege_abuse",
+        "namespace": "tenant-b",
+        "app": "web",
+        "mode": "exec",
+        # Re-scoped (proposed): unauthenticated own-namespace collection
+        # enumeration.  No ServiceAccount credential is presented, so the
+        # API server answers 403; the request is still captured by the audit
+        # collector through the objectRef.namespace match.  This is the
+        # credential-less counterfactual of TMPL-BEN-06.
+        # proc.cmdline length: 88 -> bin 81-150
+        "command": "wget -qO- --no-check-certificate https://10.96.0.1/api/v1/namespaces/tenant-b/pods",
+        "sleep_after": 6,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get", "list"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-06",
+        "template_id": "TMPL-PRV-04",
+        "threat_class": "privilege_abuse",
+        "namespace": "tenant-a",
+        "app": "payment-style",
+        "mode": "exec",
+        # ServiceAccount-authenticated cross-tenant ConfigMap extraction.
+        # proc.cmdline length: 181 -> bin 151-250+
+        "command": (
+            "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
+            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            "https://10.96.0.1/api/v1/namespaces/tenant-b/configmaps"
+        ),
+        "sleep_after": 6,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get", "list"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-07",
+        "template_id": "TMPL-PRV-05",
+        "threat_class": "privilege_abuse",
+        "namespace": "tenant-b",
+        "app": "api",
+        "mode": "exec",
+        # Re-scoped (proposed): ServiceAccount-authenticated API group
+        # discovery, i.e. reconnaissance of the full authorization surface
+        # using the workload's own identity.  The request is attributed to the
+        # pod ServiceAccount in the audit log.
+        # proc.cmdline length: 148 -> bin 81-150
+        "command": (
+            "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
+            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            "https://10.96.0.1/apis"
+        ),
+        "sleep_after": 7,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-08",
+        "template_id": "TMPL-BEN-06",
+        "threat_class": "benign",
+        "namespace": "tenant-b",
+        "app": "payment-style",
+        "mode": "exec",
+        # ServiceAccount-authenticated self-introspection of the workload's own
+        # namespace.  The lab grants the tenant ServiceAccount no RBAC, so the
+        # response is 403 even for the own namespace; the class signal is the
+        # own-namespace target, not the status code.
+        # proc.cmdline length: 175 -> bin 151-250+
+        "command": (
+            "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
+            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            "https://10.96.0.1/api/v1/namespaces/tenant-b/pods"
+        ),
+        "sleep_after": 6,
+        "expected_cpu_profile": "low",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get", "list"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-09",
+        "template_id": "TMPL-BEN-14",
+        "threat_class": "benign",
+        "namespace": "tenant-a",
+        "app": "database",
+        "mode": "exec",
+        # Developer debug session: process, memory and load inspection plus a
+        # short bounded arithmetic loop.
+        # proc.cmdline length: 172 -> bin 151-250+
+        "command": (
+            "ps aux 2>&1 | head -n 20; cat /proc/meminfo 2>&1 | head -n 10; "
+            "free -m 2>&1 | head -n 3; "
+            "for i in $(seq 400); do j=0; while [ $j -lt 2000 ]; do j=$((j+1)); done; done"
+        ),
+        "sleep_after": 8,
+        "expected_cpu_profile": "burst",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-10",
+        "template_id": "TMPL-BEN-16",
+        "threat_class": "benign",
+        "namespace": "tenant-c",
+        "app": "web",
+        "mode": "exec",
+        # Log compression routine over two ephemeral files in /tmp.
+        # proc.cmdline length: 192 -> bin 151-250+
+        "command": (
+            "dd if=/dev/urandom of=/tmp/a.log bs=1M count=12 2>/dev/null; "
+            "dd if=/dev/urandom of=/tmp/b.log bs=1M count=12 2>/dev/null; "
+            "gzip -f /tmp/a.log /tmp/b.log; rm -f /tmp/a.log.gz /tmp/b.log.gz"
+        ),
+        "sleep_after": 8,
+        "expected_cpu_profile": "burst",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-11",
+        "template_id": "TMPL-BEN-17",
+        "threat_class": "benign",
+        "namespace": "tenant-a",
+        "app": "api",
+        "mode": "exec",
+        # Batch calculation script: iterative numeric search loop.
+        # proc.cmdline length: 164 -> bin 151-250+
+        "command": (
+            "cat /proc/loadavg; for i in $(seq 1200); do j=0; "
+            "while [ $j -lt 1500 ]; do k=0; while [ $k -lt 4000 ]; do k=$((k+1)); done; "
+            "j=$((j+1)); done; sleep 0.05; done"
+        ),
+        "sleep_after": 8,
+        "expected_cpu_profile": "burst",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-12",
+        "template_id": "TMPL-PRV-07",
+        "threat_class": "privilege_abuse",
+        "namespace": "tenant-a",
+        "app": "database",
+        "mode": "exec",
+        # Node proxy endpoint reconnaissance loop via the API server.
+        # proc.cmdline length: 223 -> bin 151-250+
+        "command": (
+            "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
+            "for i in 1 2 3 4 5;do "
+            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            "https://10.96.0.1/api/v1/nodes/runtimelens-control-plane/proxy/metrics;done"
+        ),
+        "sleep_after": 8,
+        "expected_cpu_profile": "burst",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "MID",
+        "expect_features": ["F", "F", "F"],
+    },
+    {
+        "run_id": "run-s4a-r2-13",
+        "template_id": "TMPL-UNK-R2",
+        "threat_class": "unknown",
+        "namespace": "tenant-b",
+        "app": "database",
+        "mode": "exec",
+        # Authorised batch recomputation: a throttled arithmetic loop with no
+        # egress.  The plan originally specified 110 mcores, which is above
+        # the Decision D-26 burst ceiling; the loop is calibrated below the
+        # 100 mcores median floor so the run is a genuine transient burst.
+        # proc.cmdline length: 95 -> bin 81-150
+        "command": (
+            "for i in $(seq 900); do j=0; "
+            "while [ $j -lt 2000 ]; do j=$((j+1)); done; sleep 0.05; done"
+        ),
+        "sleep_after": 8,
+        "expected_cpu_profile": "burst",
+        "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
+        "expect_verbs": ["create", "get"],
+        "expect_hubble_band": "LOW",
+        "expect_features": ["F", "F", "F"],
+    },
+]
+
+# Round identifiers accepted by the CLI.
+ROUND1_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in TEMPLATES)
+ROUND2_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in ROUND2_TEMPLATES)
+
+
+def select_templates(round_id: str) -> list[dict[str, Any]]:
+    """Return the template set for the requested Stage 4a round."""
+    if round_id == "1":
+        return list(TEMPLATES)
+    if round_id == "2":
+        return list(ROUND2_TEMPLATES)
+    raise ValueError(f"unknown round: {round_id!r} (expected '1' or '2')")
 
 
 class Stage4aStop(RuntimeError):
@@ -695,11 +1053,23 @@ def run_one(
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    round_id = "1"
+    if len(sys.argv) > 1:
+        round_id = sys.argv[1]
+    try:
+        selected = select_templates(round_id)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    print(
+        f"=== STAGE 4a ROUND {round_id}: {len(selected)} templates, 1 run each "
+        f"(stop for human review after the last run) ==="
+    )
     collector = PerRunTelemetryCapture(base_dir=RUNS_DIR)
     results: list[dict[str, Any]] = []
     stop_reason: str | None = None
 
-    for template in TEMPLATES:
+    for template in selected:
         try:
             result = run_one(template, collector)
             results.append(result)
@@ -712,9 +1082,9 @@ def main() -> int:
             PROGRESS_FILE.write_text(
                 json.dumps(
                     {
-                        "stage": "4a-part1",
+                        "stage": f"4a-round{round_id}",
                         "completed": len(results),
-                        "total": len(TEMPLATES),
+                        "total": len(selected),
                         "runs": results,
                         "stop_reason": stop_reason,
                         "updated_at": _t(),
@@ -724,7 +1094,7 @@ def main() -> int:
                 encoding="utf-8",
             )
 
-    print("\n================ STAGE 4a-PART1 SUMMARY ================")
+    print(f"\n================ STAGE 4a ROUND {round_id} SUMMARY ================")
     for res in results:
         sc = res["source_counts"]
         print(
@@ -736,7 +1106,7 @@ def main() -> int:
             f"cpu[{res['cpu_min_mcores']}/{res['cpu_median_mcores']}/{res['cpu_max_mcores']}] "
             f"profile={res['expected_cpu_profile']:<9} gate={res['gate_status']}"
         )
-    print(f"completed={len(results)}/{len(TEMPLATES)} stop_reason={stop_reason}")
+    print(f"completed={len(results)}/{len(selected)} stop_reason={stop_reason}")
     return 0 if stop_reason is None else 2
 
 

@@ -34,6 +34,7 @@ from runtimelens.eval.cpu_bands import (
 )
 from runtimelens.features.extractor import (
     FEATURE_NAMES,
+    extract_command_length,
     extract_dataset_from_run_dirs,
     extract_features_from_run_dir,
 )
@@ -407,6 +408,23 @@ def run_dataset_verification(runs_dir: Path) -> int:
             preds = rf.predict(feat_col)
             score = float(f1_score(y, preds, average="macro", zero_division=0))
             print(f"  Feature {i:02d} ({fname}): Macro-F1 = {score:.4f}")
+
+        # Decision D-28: `command_length` is EXCLUDED from the classifier feature
+        # set and is reported here as a diagnostic only, so that the confound
+        # stays visible instead of being silently dropped.
+        cmd_len_col = np.array(
+            [[extract_command_length(r_dir)] for r_dir in run_dirs],
+            dtype=np.float32,
+        )
+        rf_diag = RandomForestClassifier(n_estimators=10, random_state=42)
+        rf_diag.fit(cmd_len_col, y)
+        diag_score = float(
+            f1_score(y, rf_diag.predict(cmd_len_col), average="macro", zero_division=0)
+        )
+        print(
+            "  Diagnostic (EXCLUDED from classifier feature set, Decision D-28): "
+            f"command_length: Macro-F1 = {diag_score:.4f}"
+        )
 
         print("\n[5/5] Label-Permutation Baseline Test")
         rng = np.random.default_rng(42)

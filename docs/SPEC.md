@@ -97,7 +97,7 @@ The architecture avoids distributed microservices in favor of a single modular P
 
 ### State Hardening & Sanitization
 - Untrusted text (process arguments, container image names, pod labels) is normalized under Unicode NFC, stripped of control, zero-width, and bidi characters, truncated to 128 characters, and wrapped in `<untrusted_args>` tags.
-- Deterministic security features (length, shell metacharacters, sensitive path references) are computed from the full raw string *before* truncation and passed as trusted factual booleans.
+- Deterministic security features (shell metacharacters, runtime-socket reference, sensitive-path reference, identity-file reference) are computed from the full raw string *before* truncation and passed as trusted factual booleans. The raw string's character count is recorded in the audit record for forensics but is **not** a classifier feature: Decision D-28 excludes `command_length` from the 18-feature classifier feature set and from the ScaleDown state.
 - A SHA-256 hash of the complete raw string is retained in the audit record for forensic traceability.
 
 ### Containment Mechanics & Safety Guardrails

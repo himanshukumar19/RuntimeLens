@@ -62,6 +62,48 @@ ALLOWED_DUMMY_HOSTPATHS: Final[frozenset[str]] = frozenset(
 
 > Note: the linter's class-leak token list includes `esc`, `prv` and `mnr`, so a *cluster resource* may not be named after a template id. Template ids are documentation identifiers only; live resource names must be leak-free.
 
+### P1b. Inert dummy identity files for `TMPL-ESC-09` — **PROVISIONING STEP, NOT YET EXECUTED**
+
+`TMPL-ESC-09` performs a *multi-file* read (`head`, `dd` and `find`) over the mounted dummy `/etc` directory, and `TMPL-ESC-10` mounts the third allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock`. Both require node-side files that do not exist yet.
+
+The files are **inert, 0-byte and completely empty**. They carry no real user, group, host or credential data of any kind; they exist only so that the multi-file read produces real filesystem telemetry and so that the `Read Sensitive Host Information Untrusted` rule can fire on the dummy path `/opt/runtimelens-dummy/etc/shadow`.
+
+| Dummy path (name only) | Size | Mode | Used by |
+|:---|--:|:---:|:---|
+| `/opt/runtimelens-dummy/docker.sock` | 0 bytes | `0644` | `TMPL-ESC-03` (already provisioned) |
+| `/opt/runtimelens-dummy/containerd.sock` | 0 bytes | `0644` | `TMPL-ESC-10` (replaced) |
+| `/opt/runtimelens-dummy/etc/shadow` | 0 bytes | `0640` | `TMPL-ESC-04`, `TMPL-ESC-09` (already provisioned) |
+| `/opt/runtimelens-dummy/etc/passwd` | 0 bytes | `0644` | `TMPL-ESC-09` (new) |
+| `/opt/runtimelens-dummy/etc/group` | 0 bytes | `0644` | `TMPL-ESC-09` (new) |
+| `/opt/runtimelens-dummy/etc/hosts` | 0 bytes | `0644` | `TMPL-ESC-09` (new) |
+
+Provisioning commands (run **inside the kind control-plane node only**; nothing is created on the VM host or anywhere outside `/opt/runtimelens-dummy/`):
+
+```bash
+docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/docker.sock
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/docker.sock
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/containerd.sock
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/containerd.sock
+docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy/etc
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/shadow
+docker exec runtimelens-control-plane chmod 0640 /opt/runtimelens-dummy/etc/shadow
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/passwd
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/passwd
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/group
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/group
+docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/hosts
+docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/hosts
+```
+
+Verification (read-only, must be pasted into the Round 2 evidence):
+
+```bash
+docker exec runtimelens-control-plane ls -la /opt/runtimelens-dummy /opt/runtimelens-dummy/etc
+```
+
+Invariants: no file is created outside `/opt/runtimelens-dummy/`; every file is 0 bytes; no file is a socket, device node or symlink; the `etc` directory is mounted with `hostPath` **type `Directory`** and the two socket proxies with **type `File`**.
+
 ### P2. `expected_cpu_profile` present in `index.json`
 
 Already implemented end-to-end:
@@ -196,6 +238,61 @@ Validate the full 5-source capture path, the per-run gate, the cooldown behaviou
 **Reading this correctly:** the 100 % for `container_escape` is **not** evidence that the plan is broken; it is evidence that the pilot had only one escape scenario. The new plan's 55 templates exist precisely to create signature variety inside each class. The 4a smoke is the first measurement that can settle this, because it runs **1 run per template** and therefore samples 21 benign / 10 escape / 8 privilege / 8 mining / 8 unknown distinct template shapes.
 
 **Consequence for the 4a success criteria (§2.5):** criterion 5 is restated as *report the real table faithfully and flag every class at ≥ 60 %*. Whether the flag blocks 4b is a human decision, and it is a decision that must be made on 4a data, not on this 25-run pilot.
+
+---
+
+### 2.8 Stage 4a **Round 2** — the changed and never-run templates only, one run each, then STOP
+
+Round 1 (the Part 1 smoke) executed ten templates. Between Round 1 and Round 2 the plan changed for a set of templates, and a second set had never been executed at all. Round 2 therefore re-runs **only** the templates that were *changed* or *never run*, exactly once each, and then stops for human review. No template that was already executed unchanged is repeated, so no telemetry is collected twice.
+
+| # | Run ID | Template | Class | Why it is in Round 2 | `proc.cmdline` | Bin | CPU profile |
+|--:|:---|:---|:---|:---|--:|:---:|:---|
+| 1 | `run-s4a-r2-01` | `TMPL-ESC-05` | `container_escape` | **changed** — replaced (cgroup v2 hierarchy exposure replaces the cgroup v1 `release_agent` traversal) | 168 | 151–250+ | `low` |
+| 2 | `run-s4a-r2-02` | `TMPL-ESC-08` | `container_escape` | **changed** — replaced (read-only `/dev` enumeration replaces the blocked `mknod` attempt) | 57 | 30–80 | `low` |
+| 3 | `run-s4a-r2-03` | `TMPL-ESC-09` | `container_escape` | **never run** — needs the four inert dummy files (P1b) | 183 | 151–250+ | `low` |
+| 4 | `run-s4a-r2-04` | `TMPL-ESC-10` | `container_escape` | **changed** — replaced (containerd dummy socket exposure; `Policy Warning` expectation removed) | 112 | 81–150 | `low` |
+| 5 | `run-s4a-r2-05` | `TMPL-PRV-02` | `privilege_abuse` | **changed** — re-scoped to the unauthenticated own-namespace enumeration (88 chars) | 88 | 81–150 | `low` |
+| 6 | `run-s4a-r2-06` | `TMPL-PRV-04` | `privilege_abuse` | **never run** — cross-tenant ConfigMap extraction with the ServiceAccount token | 181 | 151–250+ | `low` |
+| 7 | `run-s4a-r2-07` | `TMPL-PRV-05` | `privilege_abuse` | **changed** — re-scoped to ServiceAccount-authenticated API group discovery (148 chars) | 148 | 81–150 | `low` |
+| 8 | `run-s4a-r2-08` | `TMPL-BEN-06` | `benign` | **never run** — ServiceAccount-authenticated own-namespace self-introspection (175 chars) | 175 | 151–250+ | `low` |
+| 9 | `run-s4a-r2-09` | `TMPL-BEN-14` | `benign` | **never run** — developer debug session with a bounded arithmetic loop | 172 | 151–250+ | `burst` |
+| 10 | `run-s4a-r2-10` | `TMPL-BEN-16` | `benign` | **never run** — multi-file log compression routine | 192 | 151–250+ | `burst` |
+| 11 | `run-s4a-r2-11` | `TMPL-BEN-17` | `benign` | **never run** — batch calculation script | 164 | 151–250+ | `burst` |
+| 12 | `run-s4a-r2-12` | `TMPL-PRV-07` | `privilege_abuse` | **never run** — node proxy reconnaissance loop | 223 | 151–250+ | `burst` |
+| 13 | `run-s4a-r2-13` | `TMPL-UNK-R2` | `unknown` | **never run** — authorised batch recomputation (recalibrated below the 100 mcores median floor) | 95 | 81–150 | `burst` |
+
+**Thirteen runs, one per template, then STOP for human review.** No 4b batching starts from this round.
+
+**Execution:** the runner selects the round explicitly. The template set is defined in `scripts/stage4a_runner.py` as `TEMPLATES` (Round 1) and `ROUND2_TEMPLATES` (Round 2), selected by `select_templates(round_id)`.
+
+```bash
+# inside the VM, from the synced repository root
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 2
+```
+
+**Round 2 stop rules (identical to Round 1, plus one extra):**
+
+| Stop trigger | Action |
+|:---|:---|
+| per-run gate FAIL | hard stop, preserve the run directory, report |
+| RAM available < 2 GiB | hard stop |
+| disk usage > 80 % | hard stop |
+| any receiver (4245 / 8765 / 8766) not listening | hard stop |
+| leftover pod or namespace after cleanup | hard stop |
+| **`burst` peak outside the Decision D-26 band (20–150 mcores) or median >= 100 mcores** | hard stop — the burst calibration of `BEN-14`, `BEN-16`, `BEN-17`, `PRV-07`, `UNK-R2` is **unmeasured**, and the first measurement decides whether the template's CPU profile is correct or must be re-specified |
+| any template completes | **STOP for human review — do not proceed to 4b** |
+
+**Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
+
+**Round 2 decisions that must be settled before 4b may start:**
+
+1. Did `Launch Sensitive Mount Container` fire on `TMPL-ESC-09` and `TMPL-ESC-10`?
+2. Did `Read Sensitive Host Information Untrusted` fire on the dummy `shadow` read in `TMPL-ESC-09`?
+3. Did the four escape runs report the planned feature triples (F/F/T, F/F/T, F/T/F, T/F/T)?
+4. Did `TMPL-PRV-02` (unauthenticated) and `TMPL-PRV-05` (API group discovery) both produce a **captured** audit record with the expected verbs?
+5. Do the five `burst` templates land inside the Decision D-26 band with a Decision D-27-compliant post-lag median?
+6. Does the Round 2 signature table flag any class as having >= 60 % of its runs in a single signature?
 
 ---
 

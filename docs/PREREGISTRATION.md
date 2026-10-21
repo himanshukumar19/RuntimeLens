@@ -65,7 +65,7 @@
 - **Deviation Context:** Following Decision D-20 (invalidation of synthetic log shortcuts) and the Stage 2/3 real multi-source 25-run pilot, the original scenario manifest and split (`manifest_v1.json`) are formally superseded.
 - **Proposed Manifest Architecture (`manifest_v2.json`):**
   - Will govern 400 genuine live multi-source runs across 5 threat classes (**proposed** 140 benign / 80 container_escape / 80 privilege_abuse / 60 cryptomining / 40 unknown) over **55 templates**, with per-run directory isolation (`data/raw/runs/<run_id>/<source>/`).
-  - Incorporates paired look-alike confounders (benign shells, legitimate high-port services, authorized secret reads, and batch CPU load) to prevent trivial feature shortcuts (e.g., `command_length`).
+  - Incorporates paired look-alike confounders (benign shells, legitimate high-port services, authorized secret reads, and batch CPU load) to prevent trivial feature shortcuts. **Decision D-28:** the `command_length` feature is *excluded from the classifier feature set* (18 features, not 19) and retained only as a diagnostic, because the template registry proves that command length is a near-perfect class marker for this dataset (every `privilege_abuse` template is necessarily in the longest length bin). See `docs/SCENARIO_PLAN_v2.md` §3.6.3 and `docs/REPORT_DELTA.md` §6.
   - Implements varied attack vectors (throttled mining, diverse path traversals, multi-port exfiltration, cross-tenant API requests).
   - The `exfiltration` class is **not** part of the corpus (Decision D-24). The 5 historical exfiltration pilot runs are retained for audit traceability, marked `pilot only, class dropped`, and are excluded from every class-level statistic.
 - **Proposed Split Architecture (`manifest_v2_split.json`):**
