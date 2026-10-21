@@ -30,6 +30,7 @@ Worst-case binomial 95% half-width at the proposed test counts (`p = 0.5`): beni
 5. **Feature variation:** features `host_runtime_socket_mounted` (00), `sensitive_host_path_mounted` (01) and `privileged_container` (02) vary inside `container_escape` and are `False` everywhere else.
 6. **Workload and tenancy balance:** templates rotate evenly across `tenant-a`, `tenant-b`, `tenant-c` and across `web`, `api`, `database`, `payment-style`.
 7. **No telemetry manipulation:** the harness never pauses Falco, never truncates or edits an audit record, never injects timestamp skew and never mutates a cluster component.
+8. **Network-observation coverage (Decision D-29):** every template must produce at least one Hubble flow, because the per-run gate requires all five telemetry sources to carry at least one event. A scenario that opens no socket and resolves no name is therefore given exactly **one declared benign network observation** from a shared vocabulary (§3.6.4). The observation type is varied so that it is **not a class marker**: the same A / B / C mix appears in the `benign`, `container_escape`, `privilege_abuse` and `unknown` classes, and the pre-existing type D is shared with the mining and benign classes. The observation is in-cluster, read-only and carries no credential; type C targets the world-readable API discovery document, which the audit collector does not attribute to the workload, so it is audit-neutral.
 
 ### 2.1 Expected Falco Rules — grounded in observed telemetry only
 
@@ -60,7 +61,7 @@ The privilege templates therefore expect **only** `Shell Spawn` (the `Interactiv
 | `TMPL-BEN-03` | Container environment verification: date and hostname | 30–80 | 7s | tenant-c / database | Low | low | Shell Spawn | F/F/F | get, create | MID | Read-only | 6 |
 | `TMPL-BEN-04` | Internal health probe to service port **3333** | 30–80 | 8s | tenant-a / api | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-05` | Local cache client ping on port 6379 | 30–80 | 8s | tenant-c / web | Low | low | Shell Spawn | F/F/F | get, create | LOW | Out-of-list port | 6 |
-| `TMPL-BEN-06` | Service account token read for in-cluster client auth | 151–250+ | 8s | tenant-b / payment-style | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Authorized SA read (175 chars) | 7 |
+| `TMPL-BEN-06` | Service account token read for in-cluster client auth | 151–250+ | 8s | tenant-b / payment-style | Low | low | Shell Spawn | F/F/F | get, create, list | MID | Authorized SA read (175 chars); band predicted from the measured `TMPL-BEN-11` shape (10 flows, own-namespace collection read) | 7 |
 | `TMPL-BEN-07` | Internal metrics scrape probe on port **9999** | 81–150 | 8s | tenant-a / database | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-08` | Disk usage audit: `df -h` and `du -sk /tmp` | 81–150 | 8s | tenant-c / web | Low | low | Shell Spawn | F/F/F | get, create | MID | Read-only | 6 |
 | `TMPL-BEN-09` | Internal metrics gateway check on port 9090 | 81–150 | 8s | tenant-b / database | Low | low | Shell Spawn | F/F/F | get, create | LOW | Out-of-list port | 6 |
@@ -68,10 +69,10 @@ The privilege templates therefore expect **only** `Shell Spawn` (the `Interactiv
 | `TMPL-BEN-11` | Security compliance self-audit: UID and capability check | 81–150 | 8s | tenant-c / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Read-only self-inspection | 7 |
 | `TMPL-BEN-12` | In-cluster DNS benchmark: multi-lookup latency check | 81–150 | 10s | tenant-b / api | Low | low | Shell Spawn | F/F/F | get, create | MID | Normal UDP 53 | 6 |
 | `TMPL-BEN-13` | Legacy cache cluster client on port **7777** | 151–250+ | 10s | tenant-c / payment-style | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
-| `TMPL-BEN-14` | Developer debug session: process and memory inspection | 151–250+ | 12s | tenant-a / database | Medium | burst | Shell Spawn | F/F/F | get, create | MID | Standard debug | 7 |
+| `TMPL-BEN-14` | Developer debug session: process and memory inspection | 151–250+ | 12s | tenant-a / database | Medium | burst | Shell Spawn | F/F/F | get, create | MID | Standard debug; **network observation B** (D-29), 206 chars | 7 |
 | `TMPL-BEN-15` | Database backup maintenance: dump file and md5 checksum | 151–250+ | 15s | tenant-b / payment-style | Medium | low | Shell Spawn | F/F/F | get, create | LOW | Uses `/tmp`, cleaned | 7 |
-| `TMPL-BEN-16` | Log compression routine: multi-file gzip in ephemeral storage | 151–250+ | 25s | tenant-c / web | High | burst | Shell Spawn | F/F/F | get, create | LOW | CPU burst < 80m, cleaned | 7 |
-| `TMPL-BEN-17` | Batch calculation script: iterative numeric search loop | 151–250+ | 30s | tenant-a / api | High | burst | Shell Spawn | F/F/F | get, create | LOW | CPU burst ~75m | 7 |
+| `TMPL-BEN-16` | Log compression routine: multi-file gzip in ephemeral storage | 151–250+ | 25s | tenant-c / web | High | burst | Shell Spawn | F/F/F | get, create | LOW | CPU burst < 80m, cleaned; **network observation A** (D-29), 252 chars | 7 |
+| `TMPL-BEN-17` | Batch calculation script: iterative numeric search loop | 151–250+ | 30s | tenant-a / api | High | burst | Shell Spawn | F/F/F | get, create | MID | CPU burst ~75m; **network observation C** (D-29), 233 chars | 7 |
 | `TMPL-BEN-18` | Configuration sync via in-cluster ConfigMap query | 151–250+ | 10s | tenant-b / database | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Authorized API read | 7 |
 | `TMPL-BEN-19` | Internal edge proxy health check on port **4444** | 151–250+ | 10s | tenant-c / payment-style | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-20` | Internal queue consumer connection on port **5555** | 151–250+ | 10s | tenant-a / web | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
@@ -87,11 +88,11 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 | `TMPL-ESC-02` | Probe `/proc/kcore` and `/proc/sys/kernel` parameters | 30–80 | 7s | sandbox-workloads / worker | Low | low | **Shell Spawn** | F/F/F | get, create | LOW | Read-only inspection; no identity-file read, so Sensitive File Read cannot fire | 8 |
 | `TMPL-ESC-03` | Runtime socket exposure: `hostPath` **File** mount of `/opt/runtimelens-dummy/docker.sock` | 81–150 | 8s | sandbox-workloads / worker | Medium | low | Shell Spawn, Sensitive Mount | **T**/F/F | get, create | MID | Already allowlisted; inert 0-byte file; **rule firing VERIFIED in Stage 4a attempt 2** | 8 |
 | `TMPL-ESC-04` | Sensitive host path exposure: `hostPath` **Directory** mount of `/opt/runtimelens-dummy/etc` | 81–150 | 8s | sandbox-workloads / worker | Medium | low | Shell Spawn, Sensitive Mount | F/**T**/F | get, create | LOW | **rule firing VERIFIED in Stage 4a attempt 2** | 8 |
-| `TMPL-ESC-05` | **Cgroup hierarchy exposure in privileged sandbox** (replaces the cgroup v1 `release_agent` traversal) | 151–250+ | 8s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | LOW | Read-only; uses cgroup v2 paths that exist (`/proc/self/cgroup`, `/proc/self/mountinfo`, `/proc/self/mounts`) | 8 |
+| `TMPL-ESC-05` | **Cgroup hierarchy exposure in privileged sandbox** (replaces the cgroup v1 `release_agent` traversal) | 151–250+ | 8s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | LOW | Read-only; uses cgroup v2 paths that exist (`/proc/self/cgroup`, `/proc/self/mountinfo`, `/proc/self/mounts`); **network observation A** (D-29), 228 chars | 8 |
 | `TMPL-ESC-06` | Privileged container capability probe: debugfs and namespace tool check | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | MID | `privileged: true`, sandbox ns only; **no `hostPath` volume, so Sensitive Mount cannot fire** | 8 |
 | `TMPL-ESC-07` | Container `/proc/1/root` symlink traversal check (readlink only) | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/F | get, create | LOW | No `hostPID`; readlink only; no identity-file read, so Sensitive File Read cannot fire | 8 |
-| `TMPL-ESC-08` | **Host device namespace enumeration in privileged sandbox** (replaces the `mknod` attempt) | 30–80 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | LOW | Read-only `/dev` listing; `mknod` removed because the device cgroup blocks it even when privileged | 8 |
-| `TMPL-ESC-09` | Sensitive host path multi-file read via `head`, `dd` and `find` on the dummy dir | 151–250+ | 12s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount, Sensitive File Read | F/**T**/F | get, create | MID | Requires the four inert dummy files in `/opt/runtimelens-dummy/etc/` (see §4) | 8 |
+| `TMPL-ESC-08` | **Host device namespace enumeration in privileged sandbox** (replaces the `mknod` attempt) | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | MID | Read-only `/dev` listing; `mknod` removed because the device cgroup blocks it even when privileged; **network observation B** (D-29), 91 chars | 8 |
+| `TMPL-ESC-09` | Sensitive host path multi-file read via `head`, `dd` and `find` on the dummy dir | 151–250+ | 12s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount, Sensitive File Read | F/**T**/F | get, create | MID | Requires the four inert dummy files in `/opt/runtimelens-dummy/etc/` (see §4); **network observation C** (D-29), 252 chars | 8 |
 | `TMPL-ESC-10` | **Runtime socket (containerd) exposure in privileged sandbox** (replaces the non-existent "Policy Warning" expectation) | 81–150 | 10s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount | **T**/F/**T** | get, create | MID | `privileged: true` + `hostPath` File mount of the third allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock` | 8 |
 
 ### 3.3 Class `privilege_abuse` — 8 templates, 80 runs (proposed)
@@ -101,7 +102,7 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 | `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 151–250+ | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth (219 chars, VERIFIED) | 10 |
 | `TMPL-PRV-02` | **Unauthenticated own-namespace Pod collection enumeration** (credential-less API enumeration) | 81–150 | 7s | tenant-b / web | Low | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden; **no credential presented** (88 chars) | 10 |
 | `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 151–250+ | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth (207 chars, VERIFIED) | 10 |
-| `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 151–250+ | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden; SA token auth (181 chars) | 10 |
+| `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 151–250+ | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden; SA token auth (181 chars); band predicted from the measured `TMPL-PRV-03` shape (16 flows, no extra DNS probe) | 10 |
 | `TMPL-PRV-05` | **API group surface reconnaissance using the pod ServiceAccount** (authenticated discovery of the full authorization surface) | 81–150 | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create | MID | SA-attributed audit record (148 chars) | 10 |
 | `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 151–250+ | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden; SA token auth (180 chars) | 10 |
 | `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst; SA token auth (223 chars) | 10 |
@@ -134,7 +135,7 @@ Two templates deliberately use ports **outside** the Falco rule range so that po
 | `TMPL-UNK-R3` | Health-check liveness probe to an internal service on port **3333** | 30–80 | 8s | tenant-b / web | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | Fully authorised; real ambiguity | 5 |
 | `TMPL-UNK-03` | Legitimate log compression: high CPU with zero egress | 151–250+ | 25s | tenant-c / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | Real high-CPU-no-egress case; **185 chars after the Stage 4a Part 1 burst command was lengthened** | 5 |
 | `TMPL-UNK-05` | Rapid egress probe across 3333–9999 dropped by default-deny | 81–150 | 8s | tenant-a / api | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | HIGH | Blocked by NetworkPolicy | 5 |
-| `TMPL-UNK-R2` | Authorised batch recomputation at 110 mcores for 90s | 81–150 | 95s | tenant-b / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | No pool egress; real ambiguity | 5 |
+| `TMPL-UNK-R2` | Authorised batch recomputation (recalibrated below the 100 mcores median floor of the D-26 burst band) | 151–250+ | 95s | tenant-b / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | No pool egress; the only egress is the **network observation A** (D-29), 155 chars; real ambiguity | 5 |
 | `TMPL-UNK-07` | Maintenance script that trips a policy rule without being malicious | 151–250+ | 12s | tenant-c / payment-style | Low | low | **Shell Spawn** | F/F/F | get, create | MID | Ambiguous by design of policy; no `Policy Warning` rule is deployed, so only Shell Spawn can fire | 5 |
 | `TMPL-UNK-R1` | Shared-ServiceAccount contention: two workloads, one identity | 151–250+ | 15s | tenant-a / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | Real attribution ambiguity | 5 |
 | `TMPL-UNK-R4` | Rollout-induced exec burst across four pods in one namespace | 151–250+ | 20s | tenant-b / payment-style | Medium | low | Shell Spawn | F/F/F | get, create | HIGH | Real orchestration burst | 5 |
@@ -180,7 +181,96 @@ Rationale:
 
 **Escape length-bin distribution after the replacements:** 3 in `30–80` (`ESC-01`, `ESC-02`, `ESC-08`), 5 in `81–150` (`ESC-03`, `ESC-04`, `ESC-06`, `ESC-07`, `ESC-10`), 2 in `151–250+` (`ESC-05`, `ESC-09`).
 
-#### 3.6.3 Measured command lengths and the rebalanced bin table
+#### 3.6.3 Decision D-29 — the benign network-observation vocabulary
+
+The per-run gate requires **all five** telemetry sources to carry at least one event. A scenario that opens no socket and resolves no name produces **zero** Hubble flows and therefore fails that gate even though nothing is wrong with the scenario. Decision D-29 keeps the gate **unchanged** and instead gives every purely local scenario exactly **one declared benign network observation**.
+
+| Type | Observation (exact) | Length | Mechanism | Hubble flows observed in Part 1 | Credential |
+|:--:|:---|--:|:---|--:|:---|
+| **A** | `nslookup kubernetes.default.svc.cluster.local 2>&1 \|\| true` | 58 | DNS query to the cluster resolver | 3 | none |
+| **B** | `nc -z -w 1 10.96.0.10 53 \|\| true` | 32 | TCP probe against the cluster DNS service | 7–8 | none |
+| **C** | `wget -qO- --no-check-certificate https://10.96.0.1/api 2>&1 \|\| true` | 67 | HTTP(S) GET of the in-cluster API discovery document | 10 | none (world-readable) |
+| **D** | `echo p \| nc -u -w 1 198.51.100.22 8080 \|\| true` | 57 | UDP datagram to the inert external test IP | 1–2 | none |
+
+All four are in-cluster, read-only and carry no credential. Type C is **audit-neutral** for the collector: an unauthenticated request to the non-resource path `/api` is neither namespace-matching nor ServiceAccount-attributed, so it adds no audit event and does not change any template's expected audit verb set.
+
+**Observation type per template (full 55-template registry).** `+` marks a template that is purely local and therefore *receives* a D-29 observation; `=` marks a template whose own scenario already provides the observation.
+
+| Class | Template | Type | Source |
+|:---|:---|:--:|:---|
+| `benign` | `TMPL-BEN-01` | B | = own probe |
+| `benign` | `TMPL-BEN-02` | B | **+ D-29** |
+| `benign` | `TMPL-BEN-03` | A | **+ D-29** |
+| `benign` | `TMPL-BEN-04` | D | = own probe |
+| `benign` | `TMPL-BEN-05` | B | = own probe |
+| `benign` | `TMPL-BEN-06` | C | = own API request |
+| `benign` | `TMPL-BEN-07` | B | = own probe |
+| `benign` | `TMPL-BEN-08` | C | **+ D-29** |
+| `benign` | `TMPL-BEN-09` | B | = own probe |
+| `benign` | `TMPL-BEN-10` | A | **+ D-29** |
+| `benign` | `TMPL-BEN-11` | C | = own API request |
+| `benign` | `TMPL-BEN-12` | A | = own lookup |
+| `benign` | `TMPL-BEN-13` | B | = own probe |
+| `benign` | `TMPL-BEN-14` | B | **+ D-29** |
+| `benign` | `TMPL-BEN-15` | C | **+ D-29** |
+| `benign` | `TMPL-BEN-16` | A | **+ D-29** |
+| `benign` | `TMPL-BEN-17` | C | **+ D-29** |
+| `benign` | `TMPL-BEN-18` | C | = own API request |
+| `benign` | `TMPL-BEN-19` | B | = own probe |
+| `benign` | `TMPL-BEN-20` | B | = own probe |
+| `benign` | `TMPL-BEN-21` | B | = own probe |
+| `container_escape` | `TMPL-ESC-01` | B | **+ D-29** |
+| `container_escape` | `TMPL-ESC-02` | A | **+ D-29** |
+| `container_escape` | `TMPL-ESC-03` | B | = own probe |
+| `container_escape` | `TMPL-ESC-04` | D | = own probe |
+| `container_escape` | `TMPL-ESC-05` | A | **+ D-29** |
+| `container_escape` | `TMPL-ESC-06` | B | = own probe |
+| `container_escape` | `TMPL-ESC-07` | C | **+ D-29** |
+| `container_escape` | `TMPL-ESC-08` | B | **+ D-29** |
+| `container_escape` | `TMPL-ESC-09` | C | **+ D-29** |
+| `container_escape` | `TMPL-ESC-10` | B | = own probe |
+| `privilege_abuse` | `TMPL-PRV-01` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-02` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-03` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-04` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-05` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-06` | B | **+ D-29** |
+| `privilege_abuse` | `TMPL-PRV-07` | C | = own API request |
+| `privilege_abuse` | `TMPL-PRV-08` | A | **+ D-29** |
+| `cryptomining` | `TMPL-MNR-01` … `TMPL-MNR-08` | D | = own pool connect |
+| `unknown` | `TMPL-UNK-04` | B | **+ D-29** |
+| `unknown` | `TMPL-UNK-R3` | B | = own probe |
+| `unknown` | `TMPL-UNK-03` | D | = own probe |
+| `unknown` | `TMPL-UNK-05` | B | = own probe |
+| `unknown` | `TMPL-UNK-R2` | A | **+ D-29** |
+| `unknown` | `TMPL-UNK-07` | A | **+ D-29** |
+| `unknown` | `TMPL-UNK-R1` | C | **+ D-29** |
+| `unknown` | `TMPL-UNK-R4` | B | **+ D-29** |
+
+**Per-class observation mix (the anti-confounder check).**
+
+| Class | A | B | C | D | Templates |
+|:---|--:|--:|--:|--:|--:|
+| `benign` | 4 | 9 | 6 | 2 | 21 |
+| `container_escape` | 3 | 4 | 2 | 1 | 10 |
+| `privilege_abuse` | 2 | 1 | 7 | 0 | 8 |
+| `unknown` | 3 | 4 | 1 | 1 | 8 |
+| `cryptomining` | 0 | 0 | 0 | 8 | 8 |
+
+**Why the `privilege_abuse` mix is not widened further inside Round 2.** All eight `privilege_abuse` templates already produce Hubble flows through their own API request (type C), so none of them is in the "predicted zero flows" set and none of them *needs* a D-29 observation. Two of them (`TMPL-PRV-06`, `TMPL-PRV-08`) do receive one so that the class carries the A / B / C mix. Adding an observation to the four Round 2 privilege templates was considered and **rejected**: their API request already yields 10–17 flows, and a second observation would push their total into the `HIGH` Hubble band (>= 12 flows) and concentrate the class's flow-count distribution, which is a *new* confound of exactly the kind D-28 was created to remove.
+
+**Effect on the length bins.** Two Round 2 templates change bin because their command grew: `TMPL-ESC-08` moves from `30–80` to `81–150` (57 -> 91 characters) and `TMPL-UNK-R2` moves from `81–150` to `151–250+` (95 -> 155 characters). `TMPL-PRV-06` (180 -> 214) and `TMPL-PRV-08` (216 -> 276) stay in `151–250+`. The rebalanced table therefore becomes:
+
+| Class | `30–80` | `81–150` | `151–250+` | Templates | Runs |
+|:---|--:|--:|--:|--:|--:|
+| `benign` | 5 | 6 | 10 | 21 | 140 |
+| `container_escape` | 2 | 6 | 2 | 10 | 80 |
+| `privilege_abuse` | 0 | 2 | 6 | 8 | 80 |
+| `cryptomining` | 2 | 3 | 3 | 8 | 60 |
+| `unknown` | 2 | 1 | 5 | 8 | 40 |
+| **Total** | 11 | 18 | 26 | **55** | **400** |
+
+#### 3.6.4 Measured command lengths and the rebalanced bin table
 
 All lengths below are the **measured** `proc.cmdline` length (`sh -c ` + command, i.e. `len(command) + 6`) of the exact command the template executes, computed from the command text. `TMPL-PRV-01` (219) and `TMPL-PRV-03` (207) were measured live in Stage 4a; the remainder are computed from the exact command strings.
 
@@ -208,11 +298,11 @@ All lengths below are the **measured** `proc.cmdline` length (`sh -c ` + command
 | Class | `30–80` | `81–150` | `151–250+` | Templates | Runs |
 |:---|--:|--:|--:|--:|--:|
 | `benign` | 5 | 6 | 10 | 21 | 140 |
-| `container_escape` | 3 | 5 | 2 | 10 | 80 |
+| `container_escape` | 2 | 6 | 2 | 10 | 80 |
 | `privilege_abuse` | **0** | **2** | 6 | 8 | 80 |
 | `cryptomining` | 2 | 3 | 3 | 8 | 60 |
-| `unknown` | 2 | 2 | 4 | 8 | 40 |
-| **Total** | 12 | 18 | 25 | **55** | **400** |
+| `unknown` | 2 | 1 | 5 | 8 | 40 |
+| **Total** | 11 | 18 | 26 | **55** | **400** |
 
 **Declared confound and compensating control.** The `30–80` band contains no `privilege_abuse` template at all, and six of the eight sit in the `151–250+` band. `command_length` was therefore a **declared confound** for this dataset, and Decision D-28 removes it from the classifier feature set entirely (18 features, not 19); it is retained only as a labelled diagnostic in `scripts/verify_dataset.py`. The following controls are mandatory:
 

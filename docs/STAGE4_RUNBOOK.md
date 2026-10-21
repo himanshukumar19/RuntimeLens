@@ -245,21 +245,23 @@ Validate the full 5-source capture path, the per-run gate, the cooldown behaviou
 
 Round 1 (the Part 1 smoke) executed ten templates. Between Round 1 and Round 2 the plan changed for a set of templates, and a second set had never been executed at all. Round 2 therefore re-runs **only** the templates that were *changed* or *never run*, exactly once each, and then stops for human review. No template that was already executed unchanged is repeated, so no telemetry is collected twice.
 
-| # | Run ID | Template | Class | Why it is in Round 2 | `proc.cmdline` | Bin | CPU profile |
-|--:|:---|:---|:---|:---|--:|:---:|:---|
-| 1 | `run-s4a-r2-01` | `TMPL-ESC-05` | `container_escape` | **changed** — replaced (cgroup v2 hierarchy exposure replaces the cgroup v1 `release_agent` traversal) | 168 | 151–250+ | `low` |
-| 2 | `run-s4a-r2-02` | `TMPL-ESC-08` | `container_escape` | **changed** — replaced (read-only `/dev` enumeration replaces the blocked `mknod` attempt) | 57 | 30–80 | `low` |
-| 3 | `run-s4a-r2-03` | `TMPL-ESC-09` | `container_escape` | **never run** — needs the four inert dummy files (P1b) | 183 | 151–250+ | `low` |
-| 4 | `run-s4a-r2-04` | `TMPL-ESC-10` | `container_escape` | **changed** — replaced (containerd dummy socket exposure; `Policy Warning` expectation removed) | 112 | 81–150 | `low` |
-| 5 | `run-s4a-r2-05` | `TMPL-PRV-02` | `privilege_abuse` | **changed** — re-scoped to the unauthenticated own-namespace enumeration (88 chars) | 88 | 81–150 | `low` |
-| 6 | `run-s4a-r2-06` | `TMPL-PRV-04` | `privilege_abuse` | **never run** — cross-tenant ConfigMap extraction with the ServiceAccount token | 181 | 151–250+ | `low` |
-| 7 | `run-s4a-r2-07` | `TMPL-PRV-05` | `privilege_abuse` | **changed** — re-scoped to ServiceAccount-authenticated API group discovery (148 chars) | 148 | 81–150 | `low` |
-| 8 | `run-s4a-r2-08` | `TMPL-BEN-06` | `benign` | **never run** — ServiceAccount-authenticated own-namespace self-introspection (175 chars) | 175 | 151–250+ | `low` |
-| 9 | `run-s4a-r2-09` | `TMPL-BEN-14` | `benign` | **never run** — developer debug session with a bounded arithmetic loop | 172 | 151–250+ | `burst` |
-| 10 | `run-s4a-r2-10` | `TMPL-BEN-16` | `benign` | **never run** — multi-file log compression routine | 192 | 151–250+ | `burst` |
-| 11 | `run-s4a-r2-11` | `TMPL-BEN-17` | `benign` | **never run** — batch calculation script | 164 | 151–250+ | `burst` |
-| 12 | `run-s4a-r2-12` | `TMPL-PRV-07` | `privilege_abuse` | **never run** — node proxy reconnaissance loop | 223 | 151–250+ | `burst` |
-| 13 | `run-s4a-r2-13` | `TMPL-UNK-R2` | `unknown` | **never run** — authorised batch recomputation (recalibrated below the 100 mcores median floor) | 95 | 81–150 | `burst` |
+| # | Run ID | Template | Class | Why it is in Round 2 | `proc.cmdline` | Bin | Net obs. | CPU profile |
+|--:|:---|:---|:---|:---|--:|:---:|:--:|:---|
+| 1 | `run-s4a-r2-01` | `TMPL-ESC-05` | `container_escape` | **changed** — replaced (cgroup v2 hierarchy exposure replaces the cgroup v1 `release_agent` traversal) | 228 | 151–250+ | A | `low` |
+| 2 | `run-s4a-r2-02` | `TMPL-ESC-08` | `container_escape` | **changed** — replaced (read-only `/dev` enumeration replaces the blocked `mknod` attempt) | 91 | 81–150 | B | `low` |
+| 3 | `run-s4a-r2-03` | `TMPL-ESC-09` | `container_escape` | **never run** — needs the four inert dummy files (P1b) | 252 | 151–250+ | C | `low` |
+| 4 | `run-s4a-r2-04` | `TMPL-ESC-10` | `container_escape` | **changed** — replaced (containerd dummy socket exposure; `Policy Warning` expectation removed) | 112 | 81–150 | = own probe | `low` |
+| 5 | `run-s4a-r2-05` | `TMPL-PRV-02` | `privilege_abuse` | **changed** — re-scoped to the unauthenticated own-namespace enumeration | 88 | 81–150 | = own API request | `low` |
+| 6 | `run-s4a-r2-06` | `TMPL-PRV-04` | `privilege_abuse` | **never run** — cross-tenant ConfigMap extraction with the ServiceAccount token | 181 | 151–250+ | = own API request | `low` |
+| 7 | `run-s4a-r2-07` | `TMPL-PRV-05` | `privilege_abuse` | **changed** — re-scoped to ServiceAccount-authenticated API group discovery | 148 | 81–150 | = own API request | `low` |
+| 8 | `run-s4a-r2-08` | `TMPL-BEN-06` | `benign` | **never run** — ServiceAccount-authenticated own-namespace self-introspection | 175 | 151–250+ | = own API request | `low` |
+| 9 | `run-s4a-r2-09` | `TMPL-BEN-14` | `benign` | **never run** — developer debug session with a bounded arithmetic loop | 206 | 151–250+ | B | `burst` |
+| 10 | `run-s4a-r2-10` | `TMPL-BEN-16` | `benign` | **never run** — multi-file log compression routine | 252 | 151–250+ | A | `burst` |
+| 11 | `run-s4a-r2-11` | `TMPL-BEN-17` | `benign` | **never run** — batch calculation script | 233 | 151–250+ | C | `burst` |
+| 12 | `run-s4a-r2-12` | `TMPL-PRV-07` | `privilege_abuse` | **never run** — node proxy reconnaissance loop | 223 | 151–250+ | = own API request | `burst` |
+| 13 | `run-s4a-r2-13` | `TMPL-UNK-R2` | `unknown` | **never run** — authorised batch recomputation (recalibrated below the 100 mcores median floor) | 155 | 151–250+ | A | `burst` |
+
+The **Net obs.** column is the Decision D-29 benign network observation: `A` = `nslookup kubernetes.default.svc.cluster.local`, `B` = `nc -z -w 1 10.96.0.10 53`, `C` = `wget -qO- --no-check-certificate https://10.96.0.1/api`, `D` = `echo p | nc -u -w 1 198.51.100.22 8080`. `= own probe` / `= own API request` marks a template whose scenario already produces Hubble flow telemetry and therefore needs no added observation. The full per-template mapping and the per-class A/B/C mix are in `docs/SCENARIO_PLAN_v2.md` §3.6.3.
 
 **Thirteen runs, one per template, then STOP for human review.** No 4b batching starts from this round.
 
@@ -284,6 +286,8 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 2
 | any template completes | **STOP for human review — do not proceed to 4b** |
 
 **Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
+
+**Round 2 attempt 1 — failed at run 1 and quarantined.** The first Round 2 attempt stopped on its first template: `TMPL-ESC-05` produced `hubble = 0` flows (a 0-byte `hubble/flows.jsonl`) because the scenario opens no socket and resolves no name, and the per-run gate requires all five sources to be non-empty. The gate was **not** relaxed; Decision D-29 gave every purely local scenario one declared benign network observation instead. The failed attempt is retained for audit: `data/raw_backup/run-s4a-r2-01` is the authoritative copy, and the working copy was moved to `data/raw/failed_runs/run-s4a-r2-01` so that it is neither reused as a dataset run nor overwritten by the re-run.
 
 **Round 2 decisions that must be settled before 4b may start:**
 

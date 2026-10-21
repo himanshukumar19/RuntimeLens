@@ -37,7 +37,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from runtimelens.collector.per_run_capture import PerRunTelemetryCapture
 from runtimelens.eval.cpu_bands import (
@@ -343,6 +343,42 @@ TEMPLATES: list[dict[str, Any]] = [
 
 
 # ---------------------------------------------------------------------------
+# Decision D-29: the benign network-observation vocabulary.
+#
+# The per-run gate requires all five telemetry sources to carry at least one
+# event.  A scenario that opens no socket and resolves no name produces zero
+# Hubble flows and therefore fails that gate, even though nothing is wrong
+# with the scenario itself.  The gate is NOT relaxed: instead, every purely
+# local scenario carries exactly ONE declared benign network observation.
+#
+# The observation type is varied on purpose so that it is not a class marker:
+# the same A / B / C mix appears in the benign, container_escape,
+# privilege_abuse and unknown classes, and the fourth type (D) is already used
+# by the Part 1 corpus.  All four observations are in-cluster, read-only and
+# carry no credential.
+#
+#   A  DNS resolution via the cluster resolver
+#   B  TCP probe against the cluster DNS service
+#   C  HTTP(S) GET of the in-cluster Kubernetes API discovery document
+#      (world-readable, unauthenticated, and therefore audit-neutral for the
+#       collector, which only records namespace-matching or ServiceAccount-
+#       attributed requests)
+#   D  UDP datagram to the inert external test IP  (pre-existing corpus type)
+# ---------------------------------------------------------------------------
+NET_OBSERVATIONS: Final[dict[str, str]] = {
+    "A": "nslookup kubernetes.default.svc.cluster.local 2>&1 || true",
+    "B": "nc -z -w 1 10.96.0.10 53 || true",
+    "C": "wget -qO- --no-check-certificate https://10.96.0.1/api 2>&1 || true",
+    "D": "echo p | nc -u -w 1 198.51.100.22 8080 || true",
+}
+
+
+def with_observation(command: str, observation_type: str) -> str:
+    """Append exactly one declared benign network observation to a command."""
+    return f"{command}; {NET_OBSERVATIONS[observation_type]}"
+
+
+# ---------------------------------------------------------------------------
 # Stage 4a ROUND 2 template set: 13 templates, 1 run each.
 #
 # Round 2 covers exactly the templates that were CHANGED since the Stage 4a
@@ -375,11 +411,14 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "pod_spec": _pod_spec("worker-task-5e21", privileged=True),
         # Cgroup v2 hierarchy exposure in a privileged sandbox (replaces the
         # cgroup v1 `release_agent` traversal, which cannot execute on v2).
-        # proc.cmdline length: 168 -> bin 151-250+
-        "command": (
+        # Decision D-29: one declared benign network observation (type A, DNS)
+        # is appended so the run produces Hubble flow telemetry.
+        # proc.cmdline length: 228 -> bin 151-250+
+        "command": with_observation(
             "cat /proc/self/cgroup; head -n 30 /proc/self/mountinfo; "
             "grep Cap /proc/self/status; ls -l /proc/self/fd 2>&1 | head -n 10; "
-            "cat /proc/self/mounts 2>&1 | head -n 10"
+            "cat /proc/self/mounts 2>&1 | head -n 10",
+            "A",
         ),
         "sleep_after": 6,
         "expected_cpu_profile": "low",
@@ -400,13 +439,18 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # Host device namespace enumeration in a privileged sandbox (replaces
         # the `mknod` device-node attempt, which the device cgroup blocks even
         # when privileged).
-        # proc.cmdline length: 57 -> bin 30-80
-        "command": "ls -l /dev | head -n 20; grep Cap /proc/self/status",
+        # Decision D-29: one declared benign network observation (type B, TCP
+        # probe against the cluster DNS service).
+        # proc.cmdline length: 91 -> bin 81-150
+        "command": with_observation(
+            "ls -l /dev | head -n 20; grep Cap /proc/self/status",
+            "B",
+        ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "LOW",
+        "expect_hubble_band": "MID",
         "expect_features": ["F", "F", "T"],
     },
     {
@@ -425,11 +469,14 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # Multi-file read over the inert dummy /etc directory.  Requires the
         # four 0-byte dummy files (shadow, passwd, group, hosts) provisioned by
         # the Stage 4a runbook prerequisites.
-        # proc.cmdline length: 183 -> bin 151-250+
-        "command": (
+        # Decision D-29: one declared benign network observation (type C, HTTP
+        # GET of the in-cluster API discovery document).
+        # proc.cmdline length: 252 -> bin 151-250+
+        "command": with_observation(
             "head -n 2 /opt/runtimelens-dummy/etc/shadow 2>&1 || true; "
             "dd if=/opt/runtimelens-dummy/etc/passwd of=/dev/null 2>&1 || true; "
-            "find /opt/runtimelens-dummy/etc -type f 2>&1 || true"
+            "find /opt/runtimelens-dummy/etc -type f 2>&1 || true",
+            "C",
         ),
         "sleep_after": 6,
         "expected_cpu_profile": "low",
@@ -485,8 +532,12 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # API server answers 403; the request is still captured by the audit
         # collector through the objectRef.namespace match.  This is the
         # credential-less counterfactual of TMPL-BEN-06.
+        # No D-29 observation added: this template already produces Hubble
+        # flow telemetry through its own API request (observation type C).
         # proc.cmdline length: 88 -> bin 81-150
-        "command": "wget -qO- --no-check-certificate https://10.96.0.1/api/v1/namespaces/tenant-b/pods",
+        "command": (
+            "wget -qO- --no-check-certificate https://10.96.0.1/api/v1/namespaces/tenant-b/pods"
+        ),
         "sleep_after": 6,
         "expected_cpu_profile": "low",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
@@ -502,6 +553,8 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "payment-style",
         "mode": "exec",
         # ServiceAccount-authenticated cross-tenant ConfigMap extraction.
+        # No D-29 observation added: this template already produces Hubble
+        # flow telemetry through its own API request (observation type C).
         # proc.cmdline length: 181 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
@@ -572,17 +625,19 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "mode": "exec",
         # Developer debug session: process, memory and load inspection plus a
         # short bounded arithmetic loop.
-        # proc.cmdline length: 172 -> bin 151-250+
-        "command": (
+        # Decision D-29: one declared benign network observation (type B).
+        # proc.cmdline length: 206 -> bin 151-250+
+        "command": with_observation(
             "ps aux 2>&1 | head -n 20; cat /proc/meminfo 2>&1 | head -n 10; "
             "free -m 2>&1 | head -n 3; "
-            "for i in $(seq 400); do j=0; while [ $j -lt 2000 ]; do j=$((j+1)); done; done"
+            "for i in $(seq 400); do j=0; while [ $j -lt 2000 ]; do j=$((j+1)); done; done",
+            "B",
         ),
         "sleep_after": 8,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "LOW",
+        "expect_hubble_band": "MID",
         "expect_features": ["F", "F", "F"],
     },
     {
@@ -593,11 +648,13 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "web",
         "mode": "exec",
         # Log compression routine over two ephemeral files in /tmp.
-        # proc.cmdline length: 192 -> bin 151-250+
-        "command": (
+        # Decision D-29: one declared benign network observation (type A).
+        # proc.cmdline length: 252 -> bin 151-250+
+        "command": with_observation(
             "dd if=/dev/urandom of=/tmp/a.log bs=1M count=12 2>/dev/null; "
             "dd if=/dev/urandom of=/tmp/b.log bs=1M count=12 2>/dev/null; "
-            "gzip -f /tmp/a.log /tmp/b.log; rm -f /tmp/a.log.gz /tmp/b.log.gz"
+            "gzip -f /tmp/a.log /tmp/b.log; rm -f /tmp/a.log.gz /tmp/b.log.gz",
+            "A",
         ),
         "sleep_after": 8,
         "expected_cpu_profile": "burst",
@@ -614,17 +671,19 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "api",
         "mode": "exec",
         # Batch calculation script: iterative numeric search loop.
-        # proc.cmdline length: 164 -> bin 151-250+
-        "command": (
+        # Decision D-29: one declared benign network observation (type C).
+        # proc.cmdline length: 233 -> bin 151-250+
+        "command": with_observation(
             "cat /proc/loadavg; for i in $(seq 1200); do j=0; "
             "while [ $j -lt 1500 ]; do k=0; while [ $k -lt 4000 ]; do k=$((k+1)); done; "
-            "j=$((j+1)); done; sleep 0.05; done"
+            "j=$((j+1)); done; sleep 0.05; done",
+            "C",
         ),
         "sleep_after": 8,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "LOW",
+        "expect_hubble_band": "MID",
         "expect_features": ["F", "F", "F"],
     },
     {
@@ -656,14 +715,18 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "namespace": "tenant-b",
         "app": "database",
         "mode": "exec",
-        # Authorised batch recomputation: a throttled arithmetic loop with no
-        # egress.  The plan originally specified 110 mcores, which is above
-        # the Decision D-26 burst ceiling; the loop is calibrated below the
-        # 100 mcores median floor so the run is a genuine transient burst.
-        # proc.cmdline length: 95 -> bin 81-150
-        "command": (
+        # Authorised batch recomputation: a throttled arithmetic loop.  The
+        # plan originally specified 110 mcores, which is above the Decision D-26
+        # burst ceiling; the loop is calibrated below the 100 mcores median
+        # floor so the run is a genuine transient burst.  The scenario is
+        # "no pool egress" -- the only egress is the declared benign
+        # observation below.
+        # Decision D-29: one declared benign network observation (type A).
+        # proc.cmdline length: 155 -> bin 151-250+
+        "command": with_observation(
             "for i in $(seq 900); do j=0; "
-            "while [ $j -lt 2000 ]; do j=$((j+1)); done; sleep 0.05; done"
+            "while [ $j -lt 2000 ]; do j=$((j+1)); done; sleep 0.05; done",
+            "A",
         ),
         "sleep_after": 8,
         "expected_cpu_profile": "burst",

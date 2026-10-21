@@ -449,3 +449,45 @@ Four inert, 0-byte dummy identity files (`shadow`, `passwd`, `group`, `hosts`) a
 
 ### 7.3 Round 2 scope
 Round 2 runs **thirteen** templates, one run each — exactly the templates that were changed since the Part 1 smoke (`ESC-05`, `ESC-08`, `ESC-09`, `ESC-10`, `PRV-02`, `PRV-04`, `PRV-05`, `BEN-06`) or that have never been run (`BEN-14`, `BEN-16`, `BEN-17`, `PRV-07`, `UNK-R2`) — and then **stops for human review**. No template that was already executed unchanged is repeated, so no telemetry is collected twice. The five `burst` templates in Round 2 are the first measurement of their CPU profiles and are subject to the Decision D-26 band (peak 20–150 mcores, median < 100 mcores) and the Decision D-27 post-lag ratio with a strict post-lag median floor.
+
+---
+
+## 8. Decision D-29 — The Network-Observation Requirement (Gate Unchanged)
+
+### 8.1 The discrepancy
+- **Discrepancy:** the per-run gate requires all five telemetry sources to carry at least one event, but a scenario that opens no socket and resolves no name produces **zero** Hubble flows. The Stage 4a Round 2 attempt 1 stopped on its very first run: `TMPL-ESC-05` reported `hubble = 0` (a 0-byte `hubble/flows.jsonl`) and the gate rejected the run with `Missing telemetry from source 'hubble': count=0`.
+- **What was *not* wrong:** the Falco rule fired with exactly the expected rule (`Interactive Shell Spawned in Non-Debug Container`), five authentic `pods/exec` audit events were captured, cAdvisor returned two samples, Trivy attached the static report, the safety linter passed the manifest, the cleanup left zero leftovers, and the run was backed up. The captured stdout proves the replacement scenario genuinely executed and is genuinely cgroup **v2**: `0::/kubelet.slice/kubelet-kubepods.slice/…cri-containerd-….scope` followed by a real overlay `mountinfo` line.
+
+### 8.2 The resolution (option 1: gate unchanged)
+Decision D-29 leaves the gate **exactly as it is** and makes the scenario speak instead. Every purely local scenario now carries exactly **one declared benign network observation** appended to its command, drawn from a shared four-type vocabulary:
+
+| Type | Observation | Length | Hubble flows observed in Part 1 | Credential |
+|:--:|:---|--:|--:|:---|
+| **A** | `nslookup kubernetes.default.svc.cluster.local 2>&1 \|\| true` | 58 | 3 | none |
+| **B** | `nc -z -w 1 10.96.0.10 53 \|\| true` | 32 | 7–8 | none |
+| **C** | `wget -qO- --no-check-certificate https://10.96.0.1/api 2>&1 \|\| true` | 67 | 10 | none (world-readable) |
+| **D** | `echo p \| nc -u -w 1 198.51.100.22 8080 \|\| true` | 57 | 1–2 | none |
+
+Type C is **audit-neutral**: an unauthenticated request to the non-resource path `/api` is neither namespace-matching nor ServiceAccount-attributed, so it adds no audit event and does not change any template's expected audit verb set.
+
+### 8.3 The anti-confounder property
+The observation type is varied so that it cannot act as a class marker. The per-class mix over the full 55-template registry is:
+
+| Class | A | B | C | D | Templates |
+|:---|--:|--:|--:|--:|--:|
+| `benign` | 4 | 9 | 6 | 2 | 21 |
+| `container_escape` | 3 | 4 | 2 | 1 | 10 |
+| `privilege_abuse` | 2 | 1 | 7 | 0 | 8 |
+| `unknown` | 3 | 4 | 1 | 1 | 8 |
+| `cryptomining` | 0 | 0 | 0 | 8 | 8 |
+
+Every one of the four named classes carries at least one template of types A, B and C. `cryptomining` is uniformly type D, but type D is also used by `TMPL-BEN-04`, `TMPL-ESC-04` and `TMPL-UNK-03`, so the type itself is not exclusive to mining; the mining class is separated by its CPU time series, not by its observation.
+
+### 8.4 Why the privilege class was not widened inside Round 2
+All eight `privilege_abuse` templates already produce Hubble flows through their own API request (type C), so none of them is in the "predicted zero flows" set. Adding a *second* observation to the four Round 2 privilege templates was considered and **rejected**: their API request already yields 10–17 flows, so a second observation would push their totals into the `HIGH` Hubble band (>= 12 flows) and concentrate the class's flow-count distribution — a **new** confound of exactly the kind D-28 exists to remove. Two templates that are not in Round 2 (`TMPL-PRV-06`, `TMPL-PRV-08`) do receive an observation so that the class carries the full A / B / C mix.
+
+### 8.5 Length-bin consequence
+Two Round 2 templates change bin because their command grew: `TMPL-ESC-08` moves from `30–80` to `81–150` (57 -> 91 characters) and `TMPL-UNK-R2` moves from `81–150` to `151–250+` (95 -> 155 characters). `TMPL-PRV-06` (180 -> 214) and `TMPL-PRV-08` (216 -> 276) stay in `151–250+`. The rebalanced registry becomes `11 / 18 / 26` templates across the three bins. Per Decision D-28, `command_length` remains a **diagnostic only** and is never a classifier feature, so the bin reshuffle cannot become a model shortcut.
+
+### 8.6 The failed attempt
+`data/raw_backup/run-s4a-r2-01` is retained verbatim as **"failed gate, kept for audit"** and is never reused as a dataset run. The corresponding working copy was moved out of `data/raw/runs/` into `data/raw/failed_runs/` so that `scripts/verify_dataset.py --runs-dir data/raw/runs` cannot pick it up and so that the Round 2 re-run cannot overwrite it. The raw telemetry of the failed attempt is not deleted.

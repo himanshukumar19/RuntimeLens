@@ -14,6 +14,7 @@ import pytest
 
 from scripts.scenario_safety_lint import lint_manifest
 from scripts.stage4a_runner import (
+    NET_OBSERVATIONS,
     ROUND1_TEMPLATE_IDS,
     ROUND2_TEMPLATE_IDS,
     ROUND2_TEMPLATES,
@@ -78,7 +79,7 @@ def test_expected_command_lengths_match_the_plan_bins() -> None:
     """Each runner command must land in the bin recorded in the plan registry."""
     expected_bins = {
         "TMPL-ESC-05": "151-250+",
-        "TMPL-ESC-08": "30-80",
+        "TMPL-ESC-08": "81-150",
         "TMPL-ESC-09": "151-250+",
         "TMPL-ESC-10": "81-150",
         "TMPL-PRV-02": "81-150",
@@ -89,7 +90,7 @@ def test_expected_command_lengths_match_the_plan_bins() -> None:
         "TMPL-BEN-16": "151-250+",
         "TMPL-BEN-17": "151-250+",
         "TMPL-PRV-07": "151-250+",
-        "TMPL-UNK-R2": "81-150",
+        "TMPL-UNK-R2": "151-250+",
     }
     for tpl in ROUND2_TEMPLATES:
         length = len(tpl["command"]) + 6  # `sh -c ` prefix
@@ -144,3 +145,154 @@ def test_burst_profile_templates_exist_for_round2() -> None:
         "TMPL-PRV-07",
         "TMPL-UNK-R2",
     }
+
+
+def test_net_observation_vocabulary_is_declared() -> None:
+    assert set(NET_OBSERVATIONS) == {"A", "B", "C", "D"}
+    for snippet in NET_OBSERVATIONS.values():
+        assert snippet.strip().endswith("|| true")
+
+
+def test_every_local_only_round2_template_carries_a_network_observation() -> None:
+    """Decision D-29: a purely local scenario must still produce Hubble flows.
+
+    The per-run gate requires all five sources to be non-empty, so each Round 2
+    template that performs no network activity of its own must end with
+    exactly one declared benign observation.
+    """
+    for tpl in ROUND2_TEMPLATES:
+        command = tpl["command"]
+        has_own_network = any(
+            marker in command for marker in ("nslookup", "nc ", "wget", "nc -z", "nc -u")
+        )
+        carries_observation = any(
+            command.endswith(NET_OBSERVATIONS[kind]) for kind in NET_OBSERVATIONS
+        )
+        assert has_own_network or carries_observation, (
+            f"{tpl['template_id']} performs no network activity at all"
+        )
+
+
+def test_observation_mix_is_present_in_every_named_class() -> None:
+    """The observation type must not be a class marker (Decision D-29).
+
+    The claim is corpus-level: over the full 55-template registry every one of
+    the four named classes carries at least one template of each added
+    observation type A, B and C.  The mapping below is the registry recorded in
+    `docs/SCENARIO_PLAN_v2.md` section 3.6.3.
+    """
+    # Template -> observation type, for the templates that receive a declared
+    # D-29 observation (marked "+" in the plan registry).
+    plan_added_observation = {
+        # benign
+        "TMPL-BEN-02": "B",
+        "TMPL-BEN-03": "A",
+        "TMPL-BEN-08": "C",
+        "TMPL-BEN-10": "A",
+        "TMPL-BEN-14": "B",
+        "TMPL-BEN-15": "C",
+        "TMPL-BEN-16": "A",
+        "TMPL-BEN-17": "C",
+        # container_escape
+        "TMPL-ESC-01": "B",
+        "TMPL-ESC-02": "A",
+        "TMPL-ESC-05": "A",
+        "TMPL-ESC-07": "C",
+        "TMPL-ESC-08": "B",
+        "TMPL-ESC-09": "C",
+        # privilege_abuse
+        "TMPL-PRV-06": "B",
+        "TMPL-PRV-08": "A",
+        # unknown
+        "TMPL-UNK-04": "B",
+        "TMPL-UNK-07": "A",
+        "TMPL-UNK-R1": "C",
+        "TMPL-UNK-R2": "A",
+        "TMPL-UNK-R4": "B",
+    }
+    # Threat class of every template referenced above, from the plan registry.
+    class_of = {tpl["template_id"]: tpl["threat_class"] for tpl in ROUND2_TEMPLATES}
+    class_of.update(
+        {
+            "TMPL-BEN-01": "benign",
+            "TMPL-BEN-02": "benign",
+            "TMPL-BEN-03": "benign",
+            "TMPL-BEN-04": "benign",
+            "TMPL-BEN-05": "benign",
+            "TMPL-BEN-07": "benign",
+            "TMPL-BEN-08": "benign",
+            "TMPL-BEN-09": "benign",
+            "TMPL-BEN-10": "benign",
+            "TMPL-BEN-11": "benign",
+            "TMPL-BEN-12": "benign",
+            "TMPL-BEN-13": "benign",
+            "TMPL-BEN-15": "benign",
+            "TMPL-BEN-18": "benign",
+            "TMPL-BEN-19": "benign",
+            "TMPL-BEN-20": "benign",
+            "TMPL-BEN-21": "benign",
+            "TMPL-ESC-01": "container_escape",
+            "TMPL-ESC-02": "container_escape",
+            "TMPL-ESC-03": "container_escape",
+            "TMPL-ESC-04": "container_escape",
+            "TMPL-ESC-06": "container_escape",
+            "TMPL-ESC-07": "container_escape",
+            "TMPL-PRV-01": "privilege_abuse",
+            "TMPL-PRV-03": "privilege_abuse",
+            "TMPL-PRV-06": "privilege_abuse",
+            "TMPL-PRV-08": "privilege_abuse",
+            "TMPL-UNK-03": "unknown",
+            "TMPL-UNK-04": "unknown",
+            "TMPL-UNK-05": "unknown",
+            "TMPL-UNK-07": "unknown",
+            "TMPL-UNK-R1": "unknown",
+            "TMPL-UNK-R3": "unknown",
+            "TMPL-UNK-R4": "unknown",
+        }
+    )
+    # Templates whose own scenario already provides the observation.
+    plan_own_observation = {
+        "TMPL-BEN-01": "B",
+        "TMPL-BEN-04": "D",
+        "TMPL-BEN-05": "B",
+        "TMPL-BEN-06": "C",
+        "TMPL-BEN-07": "B",
+        "TMPL-BEN-09": "B",
+        "TMPL-BEN-11": "C",
+        "TMPL-BEN-12": "A",
+        "TMPL-BEN-13": "B",
+        "TMPL-BEN-18": "C",
+        "TMPL-BEN-19": "B",
+        "TMPL-BEN-20": "B",
+        "TMPL-BEN-21": "B",
+        "TMPL-ESC-03": "B",
+        "TMPL-ESC-04": "D",
+        "TMPL-ESC-06": "B",
+        "TMPL-ESC-10": "B",
+        "TMPL-PRV-01": "C",
+        "TMPL-PRV-02": "C",
+        "TMPL-PRV-03": "C",
+        "TMPL-PRV-04": "C",
+        "TMPL-PRV-05": "C",
+        "TMPL-PRV-07": "C",
+        "TMPL-UNK-03": "D",
+        "TMPL-UNK-05": "B",
+        "TMPL-UNK-R3": "B",
+    }
+    per_class: dict[str, set[str]] = {}
+    for tid, kind in {**plan_own_observation, **plan_added_observation}.items():
+        cls = class_of.get(tid)
+        if cls is None:
+            continue
+        per_class.setdefault(cls, set()).add(kind)
+    for cls in ("benign", "container_escape", "privilege_abuse", "unknown"):
+        assert {"A", "B", "C"} <= per_class.get(cls, set()), (
+            f"{cls} cannot carry {sorted({'A', 'B', 'C'} - per_class.get(cls, set()))}"
+        )
+
+
+def test_observations_are_audit_neutral_and_credential_free() -> None:
+    """Type C must not present a credential (it would add an audit event)."""
+    for kind, snippet in NET_OBSERVATIONS.items():
+        assert "Authorization" not in snippet, f"type {kind} must not carry a credential"
+        assert "serviceaccount/token" not in snippet, f"type {kind} must not read a token"
