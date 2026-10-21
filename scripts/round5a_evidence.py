@@ -265,7 +265,9 @@ def main() -> int:
         extra = [r for r in fired_short if r not in expect_short]
 
         flows = len(read_jsonl(run_dir / "hubble" / "flows.jsonl"))
-        measured_band = hubble_band(flows)
+        # A run with no flow at all is an EMPTY SOURCE, not a band value: the
+        # band function would map 0 flows into LOW and report a false match.
+        measured_band = hubble_band(flows) if flows else "EMPTY SOURCE"
         band_match = measured_band == template["expect_hubble_band"]
 
         verbs = sorted(audit_verbs(run_dir))
@@ -283,6 +285,8 @@ def main() -> int:
             f"  Hubble expected band: {template['expect_hubble_band']}  measured band: "
             f"{measured_band} ({flows} flows)  {'MATCH' if band_match else 'MISMATCH'}"
         )
+        if not flows:
+            print("         the Hubble source is EMPTY: the per-run gate fails on it")
         print(
             f"  Audit  expected verbs: {expect_verbs}  measured verbs: {verbs}  "
             f"{'MATCH' if verbs_match else 'MISMATCH'}"
@@ -315,7 +319,9 @@ def main() -> int:
                 f"missing={[r for r in expect_short if r not in fired_short]} "
                 f"extra={[r for r in fired_short if r not in expect_short]}"
             )
-        if measured_band != template["expect_hubble_band"]:
+        if flows == 0:
+            problems.append("hubble source is EMPTY (0 flows) -> the per-run gate fails")
+        elif measured_band != template["expect_hubble_band"]:
             problems.append(
                 f"hubble band expected={template['expect_hubble_band']} measured={measured_band} "
                 f"({flows} flows)"
