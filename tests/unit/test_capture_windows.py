@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -64,6 +65,7 @@ def test_falco_cutoff_margin_is_two_seconds() -> None:
 
 
 def test_falco_capture_command_uses_no_fixed_relative_window(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The ``kubectl logs`` invocation must not carry a fixed ``--since=<N>s``."""
@@ -79,7 +81,7 @@ def test_falco_capture_command_uses_no_fixed_relative_window(
         return _Result()
 
     monkeypatch.setattr("runtimelens.collector.per_run_capture.subprocess.run", _fake_run)
-    collector = PerRunTelemetryCapture()
+    collector = PerRunTelemetryCapture(base_dir=tmp_path)
     run_dir = collector.prepare_run_dir("t")
     collector.capture_falco_alerts("pod-1", "tenant-a", RUN2_T_START, run_dir)
 

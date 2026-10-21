@@ -83,6 +83,27 @@ def test_audit_webhook_auth_and_deduplication(monkeypatch: pytest.MonkeyPatch) -
             raw_log_path.unlink()
 
 
+def _wait_for_log_record(
+    caplog: pytest.LogCaptureFixture,
+    needle: str,
+    timeout: float = 5.0,
+) -> None:
+    """Wait until `needle` appears in the captured log text (bounded).
+
+    The audit webhook handler emits its request log *after* the HTTP response
+    has been written, so a client that asserts on the log immediately after
+    the response races the handler thread. The assertion is unchanged; only
+    the wait is made deterministic.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while needle not in caplog.text:
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"log record {needle!r} not seen within {timeout}s")
+        time.sleep(0.01)
+
+
 def test_audit_webhook_logging_never_records_tokens(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -110,6 +131,13 @@ def test_audit_webhook_logging_never_records_tokens(
                 headers={"Authorization": f"Bearer {secret_canary}"},
             )
             assert resp.status_code == 200
+
+            # The handler writes the HTTP response *before* it emits the log
+            # record (audit_webhook.py: `wfile.write(response)` precedes
+            # `log_request_event(...)`), so the client can be answered before
+            # the record exists. Wait for the record with a bounded poll
+            # instead of racing it.
+            _wait_for_log_record(caplog, "method=POST path=/k8s-audit status=200")
 
             # Canary token must NEVER appear in logger records
             assert secret_canary not in caplog.text

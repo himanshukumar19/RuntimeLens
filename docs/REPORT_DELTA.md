@@ -853,3 +853,86 @@ mismatches: 0  (class, length bin, cpu profile, falco rules, features, verbs, ba
 * **The mining intensities are predictions**, computed from the measured `TMPL-MNR-03` anchor (89.69 / 100.51 / 100.58 mcores for the 3000-iteration inner loop with a 50 ms pause) by scaling only the pause and the outer iteration count. **Decision D-34** recomputed them from the Round 5a measurement (5.87 / 6.00 ms of CPU per 3000-iteration inner loop): `MNR-04` ~64 m, `MNR-06` ~55 m, `MNR-07` ~64 m, `MNR-08` ~77 m. The `high` templates are expected to saturate the 200 mcores cgroup cap — the plan's earlier "cgroup-capped at 500m" note was **wrong** and is corrected to 200 m, the measured tenant limit.
 * **The `30–80` band is under-populated relative to the plan's intent** (§13.6). This is a design tension, not a data defect, and it is disclosed in `docs/SCENARIO_PLAN_v2.md` §3.6.6 and in Decision D-33.
 * **The four flagged classes have not been "fixed"**, because the degeneracy is the intended anti-shortcut property (§13.5). Fixing it would mean adding Falco rules that describe privilege attempts or mining CPU, which would make the rule set class-discriminative and destroy the comparison the whole project is built on.
+
+---
+
+## 14. Stage 4a Round 5a — Attempt 2 (after Decision D-34): 3 of 10, hard stop at run 3
+
+### 14.1 What the attempt produced
+
+| Run | Template | Duration (wall) | Falco | Audit | Hubble | Prom | Trivy | Per-run gate (runner output) |
+|:---|:---|--:|--:|--:|--:|--:|--:|:---|
+| `run-s4a-r4-01` | `TMPL-MNR-01` | **126.03 s** | 2 | 8 | 4 | 13 | 1 | `PASS: CLEAN` |
+| `run-s4a-r4-02` | `TMPL-MNR-02` | **124.55 s** | 2 | 7 | 4 | 13 | 1 | `PASS: CLEAN` |
+| `run-s4a-r4-03` | `TMPL-MNR-04` | 78.42 s | 2 | 5 | **0** | 9 | 1 | **`FAIL: Missing telemetry from source 'hubble': count=0`** |
+
+The Decision D-34 duration target is confirmed by measurement: the two `high` runs lasted **126.03 s** and **124.55 s** against the predicted ~130 s (a −3 % deviation), and their cAdvisor series is at the 200 mcores cap (median 198.34 and 199.59 m, 100 % and 90.9 % of the post-lag samples >= 100 m, post-lag medians 199.82 and 199.74 m — the D-27 floor is 100 m). The D-34 **capture fix also works**: `run-s4a-r4-01` and `run-s4a-r4-02` both captured 2 Falco events, and the absolute `--since-time` window is what made that possible for a 126 s run.
+
+The run that stopped the batch, `run-s4a-r4-03` (`TMPL-MNR-04`), was **quarantined automatically** into `data/raw/failed_runs/run-s4a-r4-03` by the runner (the D-34 change), with the authoritative copy in `data/raw_backup/run-s4a-r4-03`.
+
+### 14.2 The root cause of the 0-flow run: the pool probe sends no packet
+
+`TMPL-MNR-04` produced **zero** Hubble flows, and the relay confirms the flows do not exist (a direct relay query over the run window and over a ±5 min window returns no flow for `tenant-a` in that period). The Falco events are present and correct:
+
+```text
+2026-10-20T01:39:44.783825460Z | Interactive Shell Spawned in Non-Debug Container
+2026-10-20T01:39:44.785341335Z | Suspicious High Port Egress   (rport=5555 rip=198.51.100.22)
+```
+
+The cause is in the **command**, not in the instrumentation. The Round 4 mining commands use a payload-less probe:
+
+```sh
+nc -u -w 1 198.51.100.22 5555 || true
+```
+
+`nc` in UDP mode copies **stdin** to the socket. Under `kubectl exec` without `-i` the pod's stdin is at EOF, so `nc` sends **no datagram at all** and exits. The socket is still `connect()`ed, which is why the Falco `Suspicious High Port Egress` rule fires (its condition is `evt.type in (connect, sendto)` and `fd.rport` is set by the `connect`), but no packet leaves the pod, so Cilium records **no flow**.
+
+The verified corpus anchor does not have this defect — `TMPL-MNR-03` pipes a payload:
+
+```sh
+echo p | nc -u -w 1 198.51.100.22 8080 || true; for i in $(seq 875); do ...
+```
+
+and its captured telemetry contains the two expected dropped flows:
+
+```text
+run-s4a-02 (TMPL-BEN-04): DROPPED UDP dport=3333 10.244.0.195 -> 198.51.100.22   (x2)
+run-s4a-10 (TMPL-UNK-03): DROPPED UDP dport=8080 10.244.0.81  -> 198.51.100.22   (x2)
+```
+
+The Round 4 rewrite of the mining templates dropped the `echo p | ` prefix (9 characters) that the corpus anchor has. The consequence is confined to the templates whose **only** network activity is the pool probe:
+
+| Template | Network activity | Flows captured | Outcome |
+|:---|:---|--:|:---|
+| `TMPL-MNR-01`, `MNR-02`, `MNR-05` | pool probe **+ type-A DNS observation** | 4 (all DNS, dport 53) | the gate passes, but the pool egress is **invisible in Hubble** — a deviation from the plan's scenario |
+| `TMPL-MNR-07` | pool probe **+ periodic DNS in the loop** | (not reached) | the same deviation |
+| `TMPL-MNR-04`, `MNR-06`, `MNR-08` | pool probe only | **0** | the per-run gate fails |
+
+Every other Round 4 template that probes a port still carries a payload (`echo p | nc -u ...` or `printf '...' | nc -u ...`), including the D-29 type-D observation, so **batches 5b, 5c and 5d are not affected by this defect**.
+
+### 14.3 Proposed fix (NOT applied — approval required)
+
+Restore the corpus anchor's payload to the mining pool probe, i.e. change the `connect` prefix of `mining_high()` and `mining_throttled()` in `scripts/stage4a_round4.py`:
+
+```diff
+-    connect = f"{prefix}nc -u -w 1 198.51.100.22 {port} || true; "
++    connect = f"{prefix}echo p | nc -u -w 1 198.51.100.22 {port} || true; "
+```
+
+Effects that follow from that one-line change and would have to be applied with it:
+
+* the seven mining commands grow by 9 characters (MNR-01/02/05 183 -> 192, MNR-04 135 -> 144, MNR-06 134 -> 143, MNR-07 230 -> 239, MNR-08 135 -> 144). **Every length bin is unchanged** (`151-250+` for MNR-01/02/05/07, `81-150` for MNR-04/06/08), so the bin table and the plan-vs-runner consistency check are unaffected;
+* the two runs already collected in this attempt (`run-s4a-r4-01`, `run-s4a-r4-02`) become **stale** and would have to be re-run and moved to `data/raw/superseded_runs/`;
+* `run-s4a-r4-03` (the failed attempt) would be re-run as well;
+* the D-34 duration calibration is **unaffected** (a 1-byte datagram costs ~1 ms and does not change the CPU cost per inner loop);
+* the expected Hubble band for the mining templates changes from "4 flows (DNS only)" to "6 flows (4 DNS + 2 dropped pool egress)" — still the `LOW` band, so the plan's `Hubble Band` column does not change.
+
+### 14.4 A second, smaller deviation: the throttled mining intensity
+
+`TMPL-MNR-04` measured a cAdvisor median of **80.17 m** (max 88.90 m) against the D-34 prediction of ~64 m, and a wall time of **78.42 s** against the declared 70 s (+12 %). Both stay far inside the Decision D-27 throttled band (post-lag median >= 40 m, >= 60 % of post-lag samples >= 40 m): the measured post-lag median is 80.24 m with 100 % of the 7 post-lag samples >= 40 m. The cause is that the per-iteration wall time of the throttled shape is ~15.5 ms rather than the 12.4 ms extrapolated from the `TMPL-MNR-03` anchor (the `sleep` overshoot and the loop cost are larger than the model). **Proposed correction, not applied:** the `Intensity` column of `TMPL-MNR-04` would move from `~64m` to the measured `~80m` once the template is re-run, and the same correction would be checked for `MNR-06`/`MNR-07`/`MNR-08`.
+
+### 14.5 Two test-hygiene defects found while collecting the evidence
+
+**(a) A unit test wrote into the real dataset directory.** `tests/unit/test_capture_windows.py` (added with Decision D-34) called `PerRunTelemetryCapture().prepare_run_dir("t")` with the *default* base directory, so it created `data/raw/runs/t/` — an empty run directory inside the dataset. The new dataset gate immediately flagged it (`GATE VERDICT: FAILED ... empty_source=1`), which is exactly the behaviour D-34 was meant to produce, but the offending directory was a test artefact. The test now uses a `tmp_path` base directory, and the stray directory was removed from the host and the VM (it was never a dataset row; the VM and host copies of the dataset were reconciled by sha256 afterwards).
+
+**(b) A pre-existing flaky test.** `tests/unit/test_audit_webhook_security.py::test_audit_webhook_logging_never_records_tokens` failed **once in ~15** full-suite runs during this round and passed in 14 others. The cause is a race in the *product's* response/log ordering, not in the assertion: `AuditWebhookHandler.do_POST` writes the HTTP response (`wfile.write(response)`) **before** it emits the request log (`log_request_event(200, request_id)`), so the client can be answered before the log record exists and can assert on an empty `caplog`. The fix is test-only and preserves the assertion exactly: a bounded poll (5 s) waits for the expected record before the assertions run. The product code was **not** changed. Ten consecutive full-suite runs were clean after the fix (193 passed each time).
