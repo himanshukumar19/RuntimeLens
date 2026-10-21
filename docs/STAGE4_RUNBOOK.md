@@ -285,9 +285,33 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 2
 | **`burst` peak outside the Decision D-26 band (20–150 mcores) or median >= 100 mcores** | hard stop — the burst calibration of `BEN-14`, `BEN-16`, `BEN-17`, `PRV-07`, `UNK-R2` is **unmeasured**, and the first measurement decides whether the template's CPU profile is correct or must be re-specified |
 | any template completes | **STOP for human review — do not proceed to 4b** |
 
+**Round 2 attempt 3 — measured outcome of the nine executed templates.**
+
+| Run | Template | `proc.cmdline` | Bin | Falco | Audit | Hubble | Prom | CPU peak/median (m) | Expected rules fired? |
+|:---|:---|--:|:---:|--:|--:|--:|--:|:---|:---|
+| `run-s4a-r2-01` | `TMPL-ESC-05` | 228 | 151–250+ | 1 | 5 | 3 | 2 | 0.68 / 0.34 | yes |
+| `run-s4a-r2-02` | `TMPL-ESC-08` | 91 | 81–150 | 1 | 5 | 7 | 2 | 0.70 / 0.35 | yes |
+| `run-s4a-r2-03` | `TMPL-ESC-09` | 252 | 151–250+ | 3 | 5 | 9 | 2 | 2.33 / 1.17 | **no** — the mount rule shadows the identity rule (REPORT_DELTA §9.1) |
+| `run-s4a-r2-04` | `TMPL-ESC-10` | 112 | 81–150 | 1 | 5 | 7 | 2 | 0.51 / 0.26 | **no** — `ls -l` only stats the file, no open event (REPORT_DELTA §9.2) |
+| `run-s4a-r2-05` | `TMPL-PRV-02` | 88 | 81–150 | 1 | 6 | 10 | 2 | 0.00 / 0.00 | yes (audit: `list` / `system:anonymous` / 403) |
+| `run-s4a-r2-06` | `TMPL-PRV-04` | 187 | 151–250+ | 1 | 6 | 10 | 2 | 0.00 / 0.00 | yes (audit: `list` / `system:serviceaccount:tenant-a:default` / 403) |
+| `run-s4a-r2-07` | `TMPL-PRV-05` | 153 | 151–250+ | 1 | 6 | 10 | 2 | 1.12 / 0.56 | yes (audit: `get` / `system:serviceaccount:tenant-b:default` / 200) |
+| `run-s4a-r2-08` | `TMPL-BEN-06` | 181 | 151–250+ | 1 | 6 | 10 | 2 | 1.61 / 0.81 | yes (audit: `list` / `system:serviceaccount:tenant-b:default` / 403) |
+| `run-s4a-r2-09` | `TMPL-BEN-14` | 206 | 151–250+ | 1 | 5 | 8 | 3 | 0.00 / 0.00 | yes (gate FAILED on the burst band) |
+
+Not executed: `TMPL-BEN-16`, `TMPL-BEN-17`, `TMPL-PRV-07`, `TMPL-UNK-R2`.
+
 **Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
 
-**Round 2 attempt 1 — failed at run 1 and quarantined.** The first Round 2 attempt stopped on its first template: `TMPL-ESC-05` produced `hubble = 0` flows (a 0-byte `hubble/flows.jsonl`) because the scenario opens no socket and resolves no name, and the per-run gate requires all five sources to be non-empty. The gate was **not** relaxed; Decision D-29 gave every purely local scenario one declared benign network observation instead. The failed attempt is retained for audit: `data/raw_backup/run-s4a-r2-01` is the authoritative copy, and the working copy was moved to `data/raw/failed_runs/run-s4a-r2-01` so that it is neither reused as a dataset run nor overwritten by the re-run.
+**Round 2 attempt history.**
+
+| Attempt | Stopped at | Stop reason | Status |
+|:--:|:---|:---|:---|
+| 1 | run 1 (`TMPL-ESC-05`) | `Missing telemetry from source 'hubble': count=0` — the scenario was purely local | Resolved by Decision D-29 (one declared benign network observation per local-only scenario; the **gate was not changed**) |
+| 2 | run 6 (`TMPL-PRV-04`) | `Missing telemetry from source 'hubble': count=0` — the command used the `-H` header option that **BusyBox `wget` does not support**, so it aborted before any network request | Resolved by restoring the verified `--header=` form in `TMPL-PRV-04`, `TMPL-PRV-05`, `TMPL-BEN-06` and `TMPL-PRV-07`; regression tests pin the option form |
+| 3 | run 9 (`TMPL-BEN-14`) | `burst band: FAIL (peak=0.00m not in [20,150])` — the kubelet's cAdvisor collection cadence is ~18–20 s, so a 6-second CPU burst is invisible to the summary API | **Open.** The scenario calibration, not the gate, must change: see `docs/REPORT_DELTA.md` §9.3. The gate and the D-26/D-27 thresholds are unchanged |
+
+Every failed attempt is retained for audit. `data/raw_backup/run-s4a-r2-01` and `data/raw_backup/run-s4a-r2-06` are the authoritative copies; the working copies were moved to `data/raw/failed_runs/` so that they are neither reused as dataset runs nor overwritten by a re-run, and the superseded (gate-passing but pre-fix) copies of runs 01–05 were moved to `data/raw/superseded_runs/`. Nothing was deleted.
 
 **Round 2 decisions that must be settled before 4b may start:**
 

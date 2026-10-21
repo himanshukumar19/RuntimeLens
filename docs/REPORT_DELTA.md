@@ -512,3 +512,46 @@ Two attempts produced failed runs, and both are retained verbatim as **"failed g
 | 2 | `run-s4a-r2-06` | `Missing telemetry from source 'hubble': count=0` — the BusyBox `-H` option aborted before the request | `data/raw/failed_runs/run-s4a-r2-06` |
 
 The working copies were moved out of `data/raw/runs/` into `data/raw/failed_runs/` so that `scripts/verify_dataset.py --runs-dir data/raw/runs` cannot pick them up and so that a re-run cannot overwrite them. The raw telemetry of every failed attempt is preserved and nothing is deleted.
+
+---
+
+## 9. Stage 4a Round 2 — Three Further Findings From Real Telemetry
+
+Round 2 attempt 3 executed 9 of the 13 templates before the per-run gate stopped it. Three findings are recorded here. **None of the three is a gate defect; no gate or threshold was changed.**
+
+### 9.1 The `Launch Sensitive Mount Container` rule **shadows** the identity-file rule on the dummy paths (Falco first-match-wins precedence)
+- **Observed (Round 2 attempt 3, `TMPL-ESC-09`):** the plan expects `Shell Spawn`, `Launch Sensitive Mount Container` **and** `Read Sensitive Host Information Untrusted`. The run produced `Shell Spawn` + `Launch Sensitive Mount Container` **twice** and **no** identity-file event.
+- **Evidence from the raw Falco events:** the same `open_read` event on `fd.name = /opt/runtimelens-dummy/etc/shadow` (opened by `head -n 2`) and on `fd.name = /opt/runtimelens-dummy/etc/passwd` (opened by `dd if=`) produced two `Launch Sensitive Mount Container` events. The deployed identity rule (read from the live `falco-rules` ConfigMap) does contain the dummy paths in its condition:
+  ```text
+  condition: container and (open_read) and (fd.name in (/etc/shadow, /opt/runtimelens-dummy/etc/shadow)
+             or (fd.name in (/etc/passwd, /opt/runtimelens-dummy/etc/passwd) and not proc.name in (...)))
+  ```
+  so the condition was satisfied and the rule still did not fire.
+- **Root cause:** Falco evaluates the rules **in file order and stops at the first matching rule for an event**. The D-29-era mount-rule change extended `Launch Sensitive Mount Container` to the whole `/opt/runtimelens-dummy` prefix, so it now matches *before* the identity rule can. The same mechanism is visible in the Part 1 evidence: the identity rule fired for `/etc/passwd` in `TMPL-BEN-11` only because the mount rule did **not** match that path at the time.
+- **Proposed fix (not applied):** make the more specific rule win — move `Read Sensitive Host Information Untrusted` **above** `Launch Sensitive Mount Container` in `lab/falco/rules/lab-rules.yaml` and `lab/falco/falco-values.yaml`, or equivalently add `and not fd.name in (/opt/runtimelens-dummy/etc/shadow, /opt/runtimelens-dummy/etc/passwd)` to the mount rule. The first option is preferred: it expresses the general precedence principle ("the more specific rule matches first") and needs no exception list that has to track the dummy files. A Helm upgrade would be required to deploy it, so it needs explicit review.
+
+### 9.2 `TMPL-ESC-10`'s expected `Launch Sensitive Mount Container` cannot fire — `ls -l` only `stat()`s the file
+- **Observed (Round 2 attempt 3, `TMPL-ESC-10`):** the plan expects `Shell Spawn` + `Launch Sensitive Mount Container`; the run produced **only** `Shell Spawn`.
+- **Root cause:** the mount rule requires an `open_read` or `open_write` event. `ls -l <file>` performs a `stat()` (and `lstat()`), which is **not** an open, so no open event is generated. `TMPL-ESC-03` fires the rule because its command contains `head -n 1`, which *does* open the file for reading; `TMPL-ESC-09` fires it because `head` and `dd` open the files.
+- **Proposed fix (not applied):** either correct the expectation of `TMPL-ESC-10` to `Shell Spawn` only, or make the command perform a real read (for example `head -c 1 /opt/runtimelens-dummy/containerd.sock 2>&1 || true`), which restores the intended signal that a mounted runtime socket is *accessed* and not merely listed. The second option is preferable, because the escape scenario is about the socket being *reachable from inside the container*.
+
+### 9.3 The kubelet's cAdvisor collection cadence is ~18–20 s, so a CPU burst shorter than that is **invisible** to the summary API
+- **Observed (Round 2 attempt 3, `TMPL-BEN-14`):** the run failed the D-26 burst band with `peak=0.00m`. The command's arithmetic loop demonstrably executed — the captured `ps aux` output shows it running — and an independent diagnostic measured **6 seconds** of wall time for the 800 000 busybox iterations. Yet the cAdvisor **cumulative** counter `usageCoreNanoSeconds` was **frozen at 4.140 s across all three samples** of the 15.15 s run, and the reported rate was `0.00m` throughout.
+- **Direct measurement of the cadence** (a controlled 6 s burn in the same pod, polling the summary API every 2 s):
+  ```text
+  t=  0.0s  rate=0.00m cum=34.400s
+  t=  4.1s  rate=0.00m cum=34.400s
+  t=  8.3s  rate=0.00m cum=34.400s
+  t= 12.4s  rate=78.56m cum=35.749s  delta=1.3495   <-- first collection that closed inside the burn
+  t= 20.6s  rate=78.56m cum=35.749s
+  t= 30.9s  rate=0.00m cum=35.749s                   <-- next collection closed after the burn
+  ```
+  The summary API therefore returns the **last completed collection**: a burst can be missing from both the rate and the cumulative counter for up to a full collection interval, and the reported rate is the **average over the collection window that just closed**, not the instantaneous rate.
+- **Consequences:** (a) a `burst` scenario must hold its load for **longer than one collection interval** (empirically > 20 s, with margin ≥ 30 s) for the burst to be observable at all; (b) the D-26 band `[20, 150]` is partly a measurement of the **collection phase** rather than of the workload — which is the real, deeper explanation of the `25.77 m` versus `117.34 m` spread of the *identical* `TMPL-UNK-03` command across Part 1 attempts; (c) the `median < 100 m` requirement means the burst must occupy **less than half** of the run's samples, so the total run window must be long enough for the burst to be a minority of the samples.
+- **Proposed fixes (not applied, because they change the plan's Duration and CPU Profile columns of templates that have not yet been run):**
+  * `TMPL-BEN-14` — lengthen the burn to ≈ 30 s and the total run window to ≈ 90 s, e.g. `for i in $(seq 2000); do j=0; while [ $j -lt 2000 ]; do j=$((j+1)); done; done` (≈ 16 M iterations ≈ 30 s of CPU) with `sleep_after` raised so the burst is a minority of the samples. The container limit is 200 m, so the reported rate over the collection window that closes inside the burn would be ≈ 120–130 m, inside the D-26 band, with a median of 0.
+  * `TMPL-BEN-16` — the gzip of two 12 MiB files lasts ≈ 2–3 s, far below the collection interval; it needs a larger workload (for example 4 × 48 MiB) or its CPU profile must be re-declared as `low`.
+  * `TMPL-BEN-17` — the current loop is ≈ 50 s of CPU, which is long enough to be captured, but at the 200 m limit it would report a peak **above** the D-26 ceiling of 150 m; it must be throttled (for example a duty cycle of ≈ 60 %) so the reported rate lands inside the band.
+  * `TMPL-PRV-07` — the scenario is an I/O-bound `wget` loop and produces **no** meaningful CPU load at all; its `burst` CPU profile is simply wrong and should be re-declared `low`.
+  * `TMPL-UNK-R2` — the current loop is ≈ 14 s of CPU, right at the collection interval; it should be extended to ≈ 30 s in a ≈ 90 s window.
+- **No gate was changed.** The D-26 band and the D-27 post-lag rule remain exactly as approved; what has to change is the *scenario duration* so that the scenario is long enough for the instrument to see it.
