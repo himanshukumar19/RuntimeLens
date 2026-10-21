@@ -10,7 +10,10 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from pathlib import Path
 from typing import Any, Final
+
+import yaml
 
 ALLOWED_NAMESPACES: Final[frozenset[str]] = frozenset(
     {"tenant-a", "tenant-b", "tenant-c", "sandbox-workloads"}
@@ -194,13 +197,42 @@ def lint_manifest(manifest: dict[str, Any]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scenario Safety Manifest Linter")
     parser.add_argument("--files", nargs="*", help="Manifest files to lint")
-    parser.parse_args()
+    args = parser.parse_args()
 
     print("=== RuntimeLens Scenario Safety Manifest Linter ===")
     print("Allowed Namespaces:", sorted(ALLOWED_NAMESPACES))
     print("Allowed Lab Namespace (hostPath permitted):", sorted(ALLOWED_LAB_NAMESPACES))
     print("Allowed Dummy hostPaths:", sorted(ALLOWED_DUMMY_HOSTPATHS))
     print("Zero Class Leakage Enforced.")
+
+    if args.files:
+        total_errors = 0
+        for fpath in args.files:
+            p = Path(fpath)
+            if not p.exists():
+                print(f"ERROR: File not found: {fpath}")
+                total_errors += 1
+                continue
+            content = p.read_text(encoding="utf-8")
+            for doc in yaml.safe_load_all(content):
+                if not doc:
+                    continue
+                errs = lint_manifest(doc)
+                kind = doc.get("kind", "Doc")
+                name = doc.get("metadata", {}).get("name", "unnamed")
+                doc_name = f"{kind}/{name}"
+                if errs:
+                    print(f"FAIL: {fpath} ({doc_name})")
+                    for e in errs:
+                        print(f"  - {e}")
+                    total_errors += len(errs)
+                else:
+                    print(f"PASS: {fpath} ({doc_name})")
+        if total_errors > 0:
+            print(f"FAILED: {total_errors} safety linter violations found.")
+            return 1
+        print("ALL MANIFESTS PASSED SAFETY LINT.")
+        return 0
 
     # Self-test if no files passed
     print("PASS: Scenario safety linter initialized and ready.")

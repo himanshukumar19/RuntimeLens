@@ -21,12 +21,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 # Hubble flow-count bands, chosen to match the LOW / MID / HIGH bands used in
 # docs/SCENARIO_PLAN_v2.md.
@@ -148,7 +147,7 @@ def read_cpu_stats(run_dir: Path) -> tuple[float, float]:
 
     if not sample_cpus:
         return 0.0, 0.0
-    return float(np.max(sample_cpus)), float(np.median(sample_cpus))
+    return float(max(sample_cpus)), float(statistics.median(sample_cpus))
 
 
 def collect_run_signatures(runs_dir: Path) -> list[dict[str, Any]]:
