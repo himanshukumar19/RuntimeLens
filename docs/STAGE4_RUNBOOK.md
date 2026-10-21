@@ -378,6 +378,25 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d
 
 **Predictions, not measurements.** Every "expected" value in the Round 4 tables of `docs/SCENARIO_PLAN_v2.md` §3.6.5 and `docs/REPORT_DELTA.md` §13.3 is a prediction from the plan and from the measured facts of the earlier rounds. The Hubble bands in particular are predictions (a type-D UDP datagram produced 1–2 flows in the Part 1 corpus, a type-B TCP probe 7–8, a type-C API read 10, a cross-tenant read 16–17), and the mining intensities are scaled from the measured `TMPL-MNR-03` anchor. The first run of each batch is therefore also a *prediction test*: any deviation is reported as a deviation, not silently corrected.
 
+#### 2.11.1 Round 5a — attempt 1 (executed): 2 of 10, hard stop at run 2
+
+| Attempt | Scope | Result | Status |
+|:--:|:---|:---|:---|
+| 5a-1 | the 10 templates of batch A: `MNR-01`, `MNR-02`, `MNR-04`, `MNR-05`, `MNR-06`, `MNR-07`, `MNR-08`, `PRV-06`, `PRV-08`, `ESC-01` | **2 of 10 executed.** `run-s4a-r4-01` (`MNR-01`): the runner's per-run gate reported `PASS: CLEAN` (Falco 2, Audit 5, Hubble 4, Prometheus 30, Trivy 1; post-lag median 199.75 m, 100 % of post-lag samples >= 100 m). `run-s4a-r4-02` (`MNR-02`): the per-run gate **failed** with `Missing telemetry from source 'falco': count=0`, and the runner stopped the batch. | **Closed by Decision D-34.** The failure was a **capture defect, not a template defect**: both expected Falco rules *did* fire (the pod log holds them at `t_start + 0.18 s`, inside the run window) but the collector's fixed `--since=300s` pre-filter cut the log at `t_start + 0.81 s` because the run lasted 300.81 s. The run also exposed a **duration deviation**: 293.64 s and 300.81 s against the 125 s the registry declares. Both are fixed in D-34; the 8 unreached templates remain unexecuted. |
+
+`run-s4a-r4-02` was moved to `data/raw/failed_runs/run-s4a-r4-02` (authoritative copy in `data/raw_backup/run-s4a-r4-02`, with the recovered pod-log evidence in `falco/pod_log_recovered.jsonl`). From D-34 onward the runner performs that move **automatically** on any gate failure.
+
+#### 2.11.2 Round 5a — attempt 2 (the re-run after D-34)
+
+The D-34 remediation changed the commands of `TMPL-MNR-01`, `TMPL-MNR-02`, `TMPL-MNR-05` and `TMPL-MNR-06`, so their previous telemetry is stale and is moved to `data/raw/superseded_runs/`. Batch A is then re-run from `TMPL-MNR-01`:
+
+```bash
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5a
+```
+
+Same stop rules, same per-run protocol, same evidence set. The runner's own log for the attempt is kept at `/home/ubuntu/round5a_logs/round5a.log` on the VM.
+
 **Not executed.** The four batches still require (a) an approval of the batch plan and (b) the four runner round selections, which are now in place (`5a`–`5d`).
 
 **Round 3 attempt history.**

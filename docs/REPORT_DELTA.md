@@ -736,10 +736,10 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d   # 2 templates
 
 | Template | Class | Batch | cmd chars | Bin | CPU profile | Hubble band | Expected Falco rules | Features | Verbs | Observation |
 |:---|:---|:--:|--:|:---|:---|:---|:---|:---|:---|:---|
-| `TMPL-MNR-01` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
-| `TMPL-MNR-02` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
+| `TMPL-MNR-01` | cryptomining | A | 183 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
+| `TMPL-MNR-02` | cryptomining | A | 183 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
 | `TMPL-MNR-04` | cryptomining | A | 135 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
-| `TMPL-MNR-05` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn | F/F/F | create, get | own D + A |
+| `TMPL-MNR-05` | cryptomining | A | 183 | 151-250+ | high | LOW | Shell Spawn | F/F/F | create, get | own D + A |
 | `TMPL-MNR-06` | cryptomining | A | 134 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
 | `TMPL-MNR-07` | cryptomining | A | 230 | 151-250+ | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own A |
 | `TMPL-MNR-08` | cryptomining | A | 135 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
@@ -850,6 +850,6 @@ mismatches: 0  (class, length bin, cpu profile, falco rules, features, verbs, ba
 ### 13.8 What this round did **not** establish
 
 * **No command was executed.** Every "expected" value in §13.3 is a *prediction* from the plan and from the measured facts of the earlier rounds. The Hubble bands in particular are predictions: a type-D UDP datagram produced 1–2 flows in the Part 1 corpus, a type-B TCP probe produced 7–8, a type-C API read produced 10 and a cross-tenant read 16–17, and the two templates that add a *second* network activity to a scenario that already has one (`TMPL-PRV-08`, `TMPL-UNK-05`) are predicted to land in the `HIGH` band. These predictions are **not** measurements and are labelled as such.
-* **The mining intensities are predictions**, computed from the measured `TMPL-MNR-03` anchor (89.69 / 100.51 / 100.58 mcores for the 3000-iteration inner loop with a 50 ms pause) by scaling only the pause and the outer iteration count: `MNR-04` ~70 m, `MNR-06` ~58 m, `MNR-07` ~70 m, `MNR-08` ~85 m. The `high` templates are expected to saturate the 200 mcores cgroup cap — the plan's earlier "cgroup-capped at 500m" note was **wrong** and is corrected to 200 m, the measured tenant limit.
+* **The mining intensities are predictions**, computed from the measured `TMPL-MNR-03` anchor (89.69 / 100.51 / 100.58 mcores for the 3000-iteration inner loop with a 50 ms pause) by scaling only the pause and the outer iteration count. **Decision D-34** recomputed them from the Round 5a measurement (5.87 / 6.00 ms of CPU per 3000-iteration inner loop): `MNR-04` ~64 m, `MNR-06` ~55 m, `MNR-07` ~64 m, `MNR-08` ~77 m. The `high` templates are expected to saturate the 200 mcores cgroup cap — the plan's earlier "cgroup-capped at 500m" note was **wrong** and is corrected to 200 m, the measured tenant limit.
 * **The `30–80` band is under-populated relative to the plan's intent** (§13.6). This is a design tension, not a data defect, and it is disclosed in `docs/SCENARIO_PLAN_v2.md` §3.6.6 and in Decision D-33.
 * **The four flagged classes have not been "fixed"**, because the degeneracy is the intended anti-shortcut property (§13.5). Fixing it would mean adding Falco rules that describe privilege attempts or mining CPU, which would make the rule set class-discriminative and destroy the comparison the whole project is built on.

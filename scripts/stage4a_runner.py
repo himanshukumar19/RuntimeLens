@@ -62,6 +62,9 @@ logger = logging.getLogger("runtimelens.stage4a")
 
 RUNS_DIR = Path("data/raw/runs")
 BACKUP_DIR = Path("data/raw_backup")
+#: Gate-failed runs are quarantined here so that they can never be counted as
+#: dataset rows. The authoritative copy stays in BACKUP_DIR.
+FAILED_RUNS_DIR = Path("data/raw/failed_runs")
 PROGRESS_FILE = Path("data/scenarios/stage4a_part1_progress.json")
 SANDBOX_NS = "sandbox-workloads"
 
@@ -1254,6 +1257,19 @@ def run_one(
     backup_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(run_dir, backup_target, dirs_exist_ok=True)
     print(f"    [backup] {backup_target}")
+
+    # 9b. a gate-failed run must not stay in the dataset directory. The backup
+    # above is the authoritative copy; the working copy is moved to
+    # data/raw/failed_runs/ so that it can neither be counted as a dataset row
+    # nor be silently overwritten by a later re-run.
+    if not gate_ok:
+        failed_target = FAILED_RUNS_DIR / run_id
+        failed_target.parent.mkdir(parents=True, exist_ok=True)
+        if failed_target.exists():
+            shutil.rmtree(failed_target)
+        shutil.move(str(run_dir), str(failed_target))
+        print(f"    [quarantine] gate-failed run moved to {failed_target}")
+        run_dir = failed_target
 
     samples = capture_cpu_samples(run_dir)
     peak = max(samples) if samples else 0.0

@@ -42,6 +42,19 @@ from runtimelens.features.extractor import (
 
 logger = logging.getLogger("runtimelens.verify_dataset")
 
+#: The five telemetry sources every dataset row must carry. A run with an
+#: empty source is not a valid dataset row: the per-run gate
+#: (`verify_per_run_gate`, scripts/stage2_pilot.py) refuses such a run, and
+#: the dataset gate must refuse it too rather than let a failed run pass
+#: because it was left in the runs directory.
+REQUIRED_SOURCES: Final[tuple[str, ...]] = (
+    "falco",
+    "audit",
+    "hubble",
+    "prometheus",
+    "trivy",
+)
+
 LEAK_KEYWORDS: Final[tuple[str, ...]] = (
     "SC-",
     "privilege_abuse",
@@ -368,6 +381,7 @@ def run_dataset_verification(runs_dir: Path) -> int:
     total_leaks = 0
     mining_violations = 0
     burst_violations = 0
+    empty_source_violations = 0
 
     for r_dir in run_dirs:
         audit = audit_run_directory(r_dir)
@@ -386,6 +400,19 @@ def run_dataset_verification(runs_dir: Path) -> int:
         if leaks:
             print(f"    --> FAIL: Telemetry leakage detected: {leaks}")
             total_leaks += len(leaks)
+
+        # Capture sufficiency: every one of the five sources must carry at
+        # least one event. This is the same invariant the per-run gate enforces
+        # (`verify_per_run_gate` in scripts/stage2_pilot.py). It is re-checked
+        # here because a run that failed the per-run gate must never be able to
+        # pass the dataset gate just by being left in the runs directory.
+        empty_sources = [src for src in REQUIRED_SOURCES if counts.get(src, 0) == 0]
+        if empty_sources:
+            print(
+                f"    --> FAIL: empty telemetry source(s) {empty_sources} "
+                "(a run with an empty source is not a valid dataset row)"
+            )
+            empty_source_violations += 1
 
         min_cpu = audit["min_cpu_mcores"]
         med_cpu = audit["median_cpu_mcores"]
@@ -535,6 +562,7 @@ def run_dataset_verification(runs_dir: Path) -> int:
         total_leaks == 0
         and mining_violations == 0
         and burst_violations == 0
+        and empty_source_violations == 0
         and shuffle_passes == len(run_dirs)
     ):
         print("GATE VERDICT: PASSED (Zero leakage, verified durations, invariant features)")
@@ -544,7 +572,9 @@ def run_dataset_verification(runs_dir: Path) -> int:
         print(
             "GATE VERDICT: FAILED (Violations detected: "
             f"leaks={total_leaks}, sustained_cpu={mining_violations}, "
-            f"burst_cpu={burst_violations}, shuffle_failures={len(run_dirs) - shuffle_passes})"
+            f"burst_cpu={burst_violations}, "
+            f"empty_source={empty_source_violations}, "
+            f"shuffle_failures={len(run_dirs) - shuffle_passes})"
         )
         print("=======================================================")
         return 1

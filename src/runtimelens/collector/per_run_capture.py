@@ -3,15 +3,36 @@
 Archives real cluster telemetry from all 5 sources into isolated per-run directories:
 data/raw/runs/<run_id>/{falco,audit,hubble,prometheus,trivy}/
 Ensures zero scenario metadata or ground truth labels leak into telemetry files.
+
+Capture windows
+---------------
+Every collector must read **at least the whole run window**. A collector that
+pre-filters with a *fixed relative* window silently loses the earliest events
+of any run that is longer than that window. This is not hypothetical: the
+Stage 4a Round 5a run ``run-s4a-r4-02`` lasted 300.81 s and the Falco
+collector, which asked ``kubectl logs --since=300s``, cut its window off at
+``t_start + 0.81 s`` and therefore discarded the two events that the Falco
+rules had emitted at ``t_start + 0.18 s`` (both inside the run window). The
+per-run gate then failed with ``Missing telemetry from source 'falco'``.
+
+The rule adopted after that measurement:
+
+* the **Falco** collector uses an **absolute** cutoff, ``t_start - 2 s``;
+* the **audit** collector sizes its tail to the run duration and then
+  *verifies* that the tail actually reached back to ``t_start``, re-reading
+  with a larger tail when it did not;
+* the **Hubble** collector already used the absolute ``--since/--until`` pair;
+* the **cAdvisor** collector takes no time window at all (it appends samples).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import math
 import shutil
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +42,55 @@ DEFAULT_RUNS_DIR = Path("data/raw/runs")
 STATIC_TRIVY_REPORT_PATH = Path(
     "data/raw/trivy/docker.io_library_alpine_sha256_6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1.json"
 )
+
+#: Margin subtracted from the run start when building an absolute log cutoff.
+#: The container runtime stamps each log line with the time it was *written*,
+#: which is a few milliseconds after the kernel event it carries, so the
+#: cutoff must sit slightly before the run start to stay inclusive.
+LOG_WINDOW_MARGIN_SECONDS = 2.0
+
+#: Lower bound for the audit log tail. The measured audit-log growth in this
+#: cluster is ~557 bytes/s (~0.75 lines/s), so 4000 lines already cover more
+#: than an hour of history; the value is only a floor.
+AUDIT_LOG_MIN_TAIL_LINES = 4000
+
+#: Conservative upper bound on the audit-log line rate (lines per second) used
+#: to size the tail to the run duration. The measured rate is ~0.75 lines/s,
+#: so this bound carries a ~26x margin.
+AUDIT_LOG_MAX_LINES_PER_SECOND = 20.0
+
+#: How many times the audit tail may be widened when the first read did not
+#: reach back to the run start.
+AUDIT_LOG_MAX_WIDEN_ATTEMPTS = 3
+
+
+def falco_log_since_time(t_start_iso: str) -> str:
+    """Return the absolute RFC3339 cutoff for the Falco log read.
+
+    The cutoff is the run start minus :data:`LOG_WINDOW_MARGIN_SECONDS`, so it
+    is **independent of the run duration**: a 10 s run and a 10 000 s run are
+    both covered in full.
+    """
+    start = datetime.fromisoformat(t_start_iso.replace("Z", "+00:00"))
+    cutoff = start - timedelta(seconds=LOG_WINDOW_MARGIN_SECONDS)
+    return cutoff.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def audit_log_tail_lines(t_start_iso: str, t_end_iso: str) -> int:
+    """Return the number of audit-log tail lines that must cover the run window.
+
+    The tail is taken *after* the run ends, so it has to contain every line
+    written between ``t_start`` and ``t_end`` plus a margin for the lines
+    written between the end of the run and the moment the tail is taken.
+    """
+    try:
+        start = datetime.fromisoformat(t_start_iso.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(t_end_iso.replace("Z", "+00:00"))
+        duration = max(0.0, (end - start).total_seconds())
+    except Exception:
+        duration = 0.0
+    scaled = int(math.ceil(duration * AUDIT_LOG_MAX_LINES_PER_SECOND)) + AUDIT_LOG_MIN_TAIL_LINES
+    return max(AUDIT_LOG_MIN_TAIL_LINES, scaled)
 
 
 class PerRunTelemetryCapture:
@@ -148,8 +218,15 @@ class PerRunTelemetryCapture:
         t_start_iso: str,
         run_dir: Path,
     ) -> int:
-        """Capture authentic Falco eBPF daemon alerts for the target pod and namespace."""
+        """Capture authentic Falco eBPF daemon alerts for the target pod and namespace.
+
+        The log read uses an **absolute** cutoff (``t_start - 2 s``) rather than
+        a fixed relative window, so the read always covers the whole run
+        however long the run is. See the module docstring for the measurement
+        that forced this change.
+        """
         output_file = run_dir / "falco" / "events.jsonl"
+        since_time = falco_log_since_time(t_start_iso) if t_start_iso else ""
         cmd = [
             "kubectl",
             "logs",
@@ -158,8 +235,9 @@ class PerRunTelemetryCapture:
             "ds/falco",
             "-c",
             "falco",
-            "--since=300s",
         ]
+        if since_time:
+            cmd.append(f"--since-time={since_time}")
         count = 0
         t_cmp = t_start_iso[:19] if t_start_iso else ""
         try:
@@ -201,51 +279,58 @@ class PerRunTelemetryCapture:
         t_end_iso: str,
         run_dir: Path,
     ) -> int:
-        """Capture genuine K8s API audit log events for the run namespace and pod."""
+        """Capture genuine K8s API audit log events for the run namespace and pod.
+
+        The audit log is a plain file, so the read is a ``tail -n N``. That is
+        still a *bounded* window: if the log grew by more than ``N`` lines
+        during the run, the run's earliest audit events would be missing. The
+        tail is therefore sized to the run duration and the collector then
+        **verifies** that the tail actually reached back to ``t_start``,
+        widening it when it did not.
+        """
         output_file = run_dir / "audit" / "events.jsonl"
         audit_log = Path("/var/log/kubernetes/audit/audit.log")
         count = 0
         if not audit_log.exists():
             return 0
 
-        target_sa = f"system:serviceaccount:{namespace}:"
+        tail_lines = audit_log_tail_lines(t_start_iso, t_end_iso)
+        matched_events: list[str] = []
+        oldest_seen: str | None = None
+
+        for attempt in range(AUDIT_LOG_MAX_WIDEN_ATTEMPTS):
+            cmd = ["sudo", "tail", "-n", str(tail_lines), str(audit_log)]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            matched_events, oldest_seen = self._filter_audit_lines(
+                res.stdout,
+                pod_name=pod_name,
+                namespace=namespace,
+                t_start_iso=t_start_iso,
+                t_end_iso=t_end_iso,
+            )
+            reached_start = oldest_seen is None or oldest_seen <= t_start_iso
+            if reached_start or attempt == AUDIT_LOG_MAX_WIDEN_ATTEMPTS - 1:
+                if not reached_start:
+                    logger.warning(
+                        "Audit tail of %d lines did not reach back to the run start "
+                        "(oldest line %s > %s); the earliest audit events of this run "
+                        "may be missing.",
+                        tail_lines,
+                        oldest_seen,
+                        t_start_iso,
+                    )
+                break
+            tail_lines *= 4
+            logger.warning(
+                "Audit tail of %d lines did not reach back to the run start "
+                "(oldest line %s > %s); widening to %d lines.",
+                tail_lines // 4,
+                oldest_seen,
+                t_start_iso,
+                tail_lines,
+            )
 
         try:
-            # Parse audit log tail safely
-            cmd = ["sudo", "tail", "-n", "4000", str(audit_log)]
-            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-            matched_events = []
-            for line in res.stdout.splitlines():
-                if not line.strip() or not line.startswith("{"):
-                    continue
-                try:
-                    item = json.loads(line)
-                    ts = item.get("stageTimestamp") or item.get("requestReceivedTimestamp") or ""
-                    if t_start_iso and ts < t_start_iso:
-                        continue
-                    if t_end_iso and ts > t_end_iso:
-                        continue
-
-                    obj = item.get("objectRef", {})
-                    obj_ns = obj.get("namespace", "")
-                    user_info = item.get("user", {})
-                    user_name = user_info.get("username", "")
-                    extra = user_info.get("extra", {})
-                    extra_pods = extra.get("authentication.kubernetes.io/pod-name", [])
-
-                    # Match criteria:
-                    # 1. Target namespace matches workload pod namespace
-                    # 2. Originating identity matches workload service account (cross-namespace)
-                    # 3. Originating identity specifically names this workload pod
-                    is_ns_match = obj_ns == namespace
-                    is_sa_match = bool(user_name and user_name.startswith(target_sa))
-                    is_pod_match = any(p == pod_name or pod_name in p for p in extra_pods)
-
-                    if is_ns_match or is_sa_match or is_pod_match:
-                        matched_events.append(line.strip())
-                except Exception:
-                    continue
-
             with open(output_file, "w", encoding="utf-8") as f:
                 for line in matched_events:
                     f.write(line + "\n")
@@ -253,6 +338,54 @@ class PerRunTelemetryCapture:
         except Exception as e:
             logger.warning("Audit capture exception: %s", e)
         return count
+
+    @staticmethod
+    def _filter_audit_lines(
+        raw: str,
+        pod_name: str,
+        namespace: str,
+        t_start_iso: str,
+        t_end_iso: str,
+    ) -> tuple[list[str], str | None]:
+        """Return the matching audit lines and the oldest timestamp seen."""
+        target_sa = f"system:serviceaccount:{namespace}:"
+        matched_events: list[str] = []
+        oldest_seen: str | None = None
+        for line in raw.splitlines():
+            if not line.strip() or not line.startswith("{"):
+                continue
+            try:
+                item = json.loads(line)
+            except Exception:
+                continue
+            ts = item.get("stageTimestamp") or item.get("requestReceivedTimestamp") or ""
+            if not ts:
+                continue
+            if oldest_seen is None or ts < oldest_seen:
+                oldest_seen = ts
+            if t_start_iso and ts < t_start_iso:
+                continue
+            if t_end_iso and ts > t_end_iso:
+                continue
+
+            obj = item.get("objectRef", {})
+            obj_ns = obj.get("namespace", "")
+            user_info = item.get("user", {})
+            user_name = user_info.get("username", "")
+            extra = user_info.get("extra", {})
+            extra_pods = extra.get("authentication.kubernetes.io/pod-name", [])
+
+            # Match criteria:
+            # 1. Target namespace matches workload pod namespace
+            # 2. Originating identity matches workload service account (cross-namespace)
+            # 3. Originating identity specifically names this workload pod
+            is_ns_match = obj_ns == namespace
+            is_sa_match = bool(user_name and user_name.startswith(target_sa))
+            is_pod_match = any(p == pod_name or pod_name in p for p in extra_pods)
+
+            if is_ns_match or is_sa_match or is_pod_match:
+                matched_events.append(line.strip())
+        return matched_events, oldest_seen
 
     def attach_trivy_report(self, run_dir: Path) -> bool:
         """Attach the static image vulnerability report into the per-run directory."""
