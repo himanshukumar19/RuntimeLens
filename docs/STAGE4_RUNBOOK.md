@@ -325,6 +325,12 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 3
 
 **Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
 
+**Round 3 attempt history.**
+
+| Attempt | Scope | Result | Status |
+|:--:|:---|:---|:---|
+| 3 | 7 templates: `ESC-09`, `ESC-10`, `BEN-14`, `BEN-16`, `BEN-17`, `PRV-07`, `UNK-R2` | 7/7 executed, no gate failure | Two deviations remain, both reported in `docs/REPORT_DELTA.md` §11.1 (the mount rule cannot fire in `ESC-09` because the identity rule now owns the only files it reads) and §11.2 (`PRV-07` produced 46 Hubble flows, i.e. the HIGH band, not the planned MID). Both need a further approved template edit and a Round 4. The `TMPL-ESC-04` Part 1 telemetry is also stale with respect to the Decision D-31 rule order and must be re-run. |
+
 **Round 2 attempt history.**
 
 | Attempt | Stopped at | Stop reason | Status |

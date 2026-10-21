@@ -606,3 +606,45 @@ The full derivation, including the direct measurement of the collection cadence,
 
 ### 10.4 Round 3 scope
 Round 3 re-runs **seven** templates — the four whose command or pod specification changed (`ESC-09` is re-run because the Falco rule order changed, `ESC-10` because its pod and command changed, `BEN-14`/`BEN-16`/`BEN-17`/`UNK-R2` because of the D-30 calibration) plus the templates that Round 2 never reached. The six unchanged Round 2 runs are kept exactly as they are.
+
+---
+
+## 11. Round 3 Results — Two Residual Deviations and One Side Discovery
+
+Round 3 executed the seven changed or never-run templates with no gate failure. Two deviations from the plan remain, and one unrelated degradation was discovered.
+
+### 11.1 `TMPL-ESC-09` — the identity rule now fires, but the mount rule can no longer fire in that scenario
+- **Measured:** `TMPL-ESC-09` produced `Interactive Shell Spawned in Non-Debug Container` + `Read Sensitive Host Information Untrusted` **twice** (`fd.name = /opt/runtimelens-dummy/etc/shadow` and `.../passwd`). The plan expected the mount rule as well; it did not fire.
+- **Why:** Falco produces **one rule per event** (first match wins). After the Decision D-31 reorder, the identity rule owns the two dummy identity files, and `TMPL-ESC-09` reads **only** identity files (`head` on `shadow`, `dd if=` on `passwd`); the `find` directory walk produces no `open_read` event. The mount rule therefore has no event to match.
+- **Proof of the mechanism (read-only diagnostic, outside the dataset):** reading a **non-identity** dummy file in the same mounted directory produced the mount rule:
+  ```text
+  rule: Launch Sensitive Mount Container   fd.name: /opt/runtimelens-dummy/etc/hosts   cmd: head -c 1 /opt/runtimelens-dummy/etc/hosts
+  rule: Launch Sensitive Mount Container   fd.name: /opt/runtimelens-dummy/etc/group   cmd: head -n 1 /opt/runtimelens-dummy/etc/group
+  ```
+  (`group` is not in the identity rule's file list, so it goes to the mount rule; `hosts` likewise. The diagnostic pod was deleted immediately afterwards.)
+- **Proposed fix (not applied — it needs another template edit and a further round):** add one read of a **non-identity** dummy file to `TMPL-ESC-09` and `TMPL-ESC-04`, e.g. `head -n 1 /opt/runtimelens-dummy/etc/hosts 2>&1 || true`. The diagnostic above proves that this single addition makes the mount rule fire while the identity rule continues to fire for the identity files, which is exactly the three-rule expectation the plan states. `TMPL-ESC-04` additionally needs to be **re-run**, because its Part 1 telemetry recorded the mount rule for the dummy `shadow` read, and under the current rule order that same read now produces the identity rule — i.e. the Part 1 data for `TMPL-ESC-04` is stale with respect to the deployed rule set.
+
+### 11.2 `TMPL-PRV-07` — 46 Hubble flows, not the planned MID band
+- **Measured:** 46 flows (plan: `MID`, i.e. 7–11) and 15 audit events, 10 of them the five `nodes/…/proxy/metrics` requests of the scenario (each recorded twice, `ResponseStarted` and `ResponseComplete`) with `verb=get`, `user=system:serviceaccount:tenant-a:default`, `status=403`.
+- **Why:** the five sequential node-proxy requests each generate a full TCP retry sequence against the API server ClusterIP, so the flow count is an order of magnitude higher than a single request's 10 flows. The band prediction was made from a single-request analogue.
+- **Proposed fix (not applied):** correct the plan's Hubble band for `TMPL-PRV-07` from `MID` to `HIGH` (>= 12 flows). The 403 audit record and the rule set are exactly as planned; only the flow-count band was mispredicted.
+
+### 11.3 Side discovery — the live Falco/Audit webhook receivers are refusing every request
+- **Observed:** `/tmp/falco_webhook.log` and `/tmp/audit_webhook.log` are being written continuously and contain only:
+  ```text
+  RuntimeError: Security violation: FALCO_WEBHOOK_SECRET is not configured. Webhook receiver refuses to operate without authentication.
+  RuntimeError: Security violation: K8S_AUDIT_WEBHOOK_SECRET is not configured. Audit webhook receiver refuses to operate without authentication.
+  ```
+- **Impact on the dataset: none.** The per-run capture reads the **Falco pod's own log** (`kubectl logs -n falco`), not the webhook, so every run in this round captured its Falco events normally.
+- **Impact on the project: real.** The live "Falco → webhook → HMAC audit record" path, which is a core deliverable of the vertical slice, is currently refusing every event because the two receiver processes were started without their secret environment variables. The receivers are refusing *rather than accepting unauthenticated* traffic, which is the correct fail-safe behaviour, but the pipeline is non-functional and must be restarted with the secrets configured. This is a separate defect from the dataset work and is reported here for a dedicated fix.
+
+### 11.4 Round 3 summary against the plan
+| Template | Falco rules | Audit verbs | Hubble band | CPU peak/median | Features 00/01/02 | Verdict |
+|:---|:---|:---|:---|:---|:---|:---|
+| `TMPL-ESC-09` | identity rule now fires; mount rule missing | get, create | 9 MID ✓ | 2.26 / 1.13 ✓ | F/T/F ✓ | **deviation** (§11.1) |
+| `TMPL-ESC-10` | Shell Spawn + Sensitive Mount ✓ | get, create | 7 MID ✓ | 0.00 / 0.00 ✓ | **T/F/T** ✓ | as planned |
+| `TMPL-BEN-14` | Shell Spawn ✓ | get, create | 8 MID ✓ | 104.63 / 0.00 ✓ | F/F/F ✓ | as planned |
+| `TMPL-BEN-16` | Shell Spawn ✓ | get, create | 10 MID ✓ | 62.31 / 2.11 ✓ | F/F/F ✓ | as planned |
+| `TMPL-BEN-17` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 104.22 / 0.00 ✓ | F/F/F ✓ | as planned |
+| `TMPL-PRV-07` | Shell Spawn ✓ | get ✓ | **46 HIGH** | 0.00 / 0.00 ✓ | F/F/F ✓ | **deviation** (§11.2) |
+| `TMPL-UNK-R2` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 117.69 / 15.31 ✓ | F/F/F ✓ | as planned |
