@@ -24,6 +24,7 @@ from typing import Any, Final
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
+from sklearn.model_selection import GroupKFold
 
 from runtimelens.eval.cpu_bands import (
     BURST_MEDIAN_MAX_MCORES,
@@ -230,6 +231,102 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Grouped cross-validation for the diagnostic sections.
+#
+# Decision D-32: the single-feature diagnostic and the label-permutation
+# baseline used to be computed by fitting the classifier on the *same* rows it
+# then scored (train-on-train), which is an optimistically biased estimate and
+# is exactly the shortcut that made `command_length` reach Macro-F1 = 1.0000 on
+# ten runs.  Both diagnostics now use a GroupKFold cross-validation whose
+# groups are the scenario templates, so no template ever contributes to both
+# the training and the evaluation of the same fold - the same discipline the
+# dataset split uses.
+#
+# The estimates are still labelled DIAGNOSTIC until the corpus is large enough
+# for the fold structure to be meaningful (>= 100 runs and >= 10 groups).
+# ---------------------------------------------------------------------------
+DIAGNOSTIC_MIN_RUNS: Final[int] = 100
+DIAGNOSTIC_MIN_GROUPS: Final[int] = 10
+DIAGNOSTIC_MAX_FOLDS: Final[int] = 5
+
+
+def extract_group_labels(run_dirs: list[Path]) -> list[str]:
+    """Return the cross-validation group of each run (its scenario template).
+
+    The group is read from the run's own `index.json` `scenario_id` field, i.e.
+    the template the run executed.  It is used **only** to build the
+    cross-validation folds; it is never a feature and never reaches the
+    classifier.  Runs without an `index.json` fall back to their directory
+    name, which is unique per run and therefore a conservative (finer) group.
+    """
+    labels: list[str] = []
+    for run_dir in run_dirs:
+        label = run_dir.name
+        index_file = run_dir / "index.json"
+        if index_file.exists():
+            try:
+                data = json.loads(index_file.read_text(encoding="utf-8"))
+                scenario_id = data.get("scenario_id")
+                if isinstance(scenario_id, str) and scenario_id:
+                    label = scenario_id
+            except Exception:
+                pass
+        labels.append(label)
+    return labels
+
+
+def make_grouped_cv(n_groups: int) -> GroupKFold | None:
+    """Return a GroupKFold over the available template groups, or None."""
+    if n_groups < 2:
+        return None
+    return GroupKFold(n_splits=min(DIAGNOSTIC_MAX_FOLDS, n_groups))
+
+
+def diagnostic_status(n_runs: int, n_groups: int, cv: GroupKFold | None) -> str:
+    """Human-readable status of the diagnostic estimates."""
+    if cv is None:
+        return (
+            f"DIAGNOSTIC ONLY - not computable: {n_runs} run(s), {n_groups} group(s); "
+            "a grouped cross-validation needs at least 2 groups."
+        )
+    n_splits = cv.n_splits
+    if n_runs < DIAGNOSTIC_MIN_RUNS or n_groups < DIAGNOSTIC_MIN_GROUPS:
+        return (
+            f"DIAGNOSTIC ONLY - {n_runs} run(s) in {n_groups} template group(s) across "
+            f"{n_splits} grouped folds; the estimate is NOT a valid generalisation "
+            f"figure until the corpus reaches {DIAGNOSTIC_MIN_RUNS} runs and "
+            f"{DIAGNOSTIC_MIN_GROUPS} groups."
+        )
+    return (
+        f"Grouped {n_splits}-fold cross-validation by template over {n_runs} runs "
+        f"in {n_groups} groups."
+    )
+
+
+def grouped_macro_f1(
+    features: np.ndarray,
+    labels: np.ndarray,
+    groups: list[str],
+    cv: GroupKFold | None,
+) -> float:
+    """Out-of-fold macro F1 of a Random Forest under a template-grouped split.
+
+    Every fold trains on the templates of the other folds and predicts the
+    held-out templates, so a template never appears in both the training and
+    the evaluation data of the same fold.
+    """
+    if cv is None or features.shape[0] < 2:
+        return 0.0
+    group_arr = np.asarray(groups)
+    predictions = np.zeros_like(labels)
+    for train_idx, test_idx in cv.split(features, labels, group_arr):
+        rf = RandomForestClassifier(n_estimators=10, random_state=42)
+        rf.fit(features[train_idx], labels[train_idx])
+        predictions[test_idx] = rf.predict(features[test_idx])
+    return float(f1_score(labels, predictions, average="macro", zero_division=0))
+
+
 def test_metadata_shuffle_invariance(run_dir: Path) -> bool:
     """Verify that altering index.json metadata produces bit-for-bit identical feature vectors."""
     vec_orig = extract_features_from_run_dir(run_dir)
@@ -399,14 +496,17 @@ def run_dataset_verification(runs_dir: Path) -> int:
 
     # 4. Feature Extraction & Diagnostics (if >= 2 runs)
     if len(run_dirs) >= 2:
-        print("\n[4/5] Single-Feature Diagnostic Scores (Diagnostic Only)")
         X, y, run_ids = extract_dataset_from_run_dirs(run_dirs)
+        groups = extract_group_labels(run_dirs)
+        n_groups = len(set(groups))
+        cv = make_grouped_cv(n_groups)
+        status = diagnostic_status(len(run_dirs), n_groups, cv)
+
+        print("\n[4/5] Single-Feature Diagnostic Scores (grouped cross-validation by template)")
+        print(f"  {status}")
         for i, fname in enumerate(FEATURE_NAMES):
             feat_col = X[:, [i]]
-            rf = RandomForestClassifier(n_estimators=10, random_state=42)
-            rf.fit(feat_col, y)
-            preds = rf.predict(feat_col)
-            score = float(f1_score(y, preds, average="macro", zero_division=0))
+            score = grouped_macro_f1(feat_col, y, groups, cv)
             print(f"  Feature {i:02d} ({fname}): Macro-F1 = {score:.4f}")
 
         # Decision D-28: `command_length` is EXCLUDED from the classifier feature
@@ -416,23 +516,18 @@ def run_dataset_verification(runs_dir: Path) -> int:
             [[extract_command_length(r_dir)] for r_dir in run_dirs],
             dtype=np.float32,
         )
-        rf_diag = RandomForestClassifier(n_estimators=10, random_state=42)
-        rf_diag.fit(cmd_len_col, y)
-        diag_score = float(
-            f1_score(y, rf_diag.predict(cmd_len_col), average="macro", zero_division=0)
-        )
+        diag_score = grouped_macro_f1(cmd_len_col, y, groups, cv)
         print(
             "  Diagnostic (EXCLUDED from classifier feature set, Decision D-28): "
             f"command_length: Macro-F1 = {diag_score:.4f}"
         )
 
-        print("\n[5/5] Label-Permutation Baseline Test")
+        print("\n[5/5] Label-Permutation Baseline Test (grouped cross-validation)")
         rng = np.random.default_rng(42)
         y_perm = rng.permutation(y)
-        rf_perm = RandomForestClassifier(n_estimators=10, random_state=42)
-        rf_perm.fit(X, y_perm)
-        perm_score = float(f1_score(y_perm, rf_perm.predict(X), average="macro", zero_division=0))
+        perm_score = grouped_macro_f1(X, y_perm, groups, cv)
         print(f"  Permuted Labels Macro-F1: {perm_score:.4f} (Chance baseline)")
+        print(f"  {status}")
 
     # Overall Gate Verdict
     print("\n=======================================================")

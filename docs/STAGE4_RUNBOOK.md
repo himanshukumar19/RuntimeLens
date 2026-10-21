@@ -325,6 +325,20 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 3
 
 **Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
 
+### 2.10 Stage 4a **Round 4** — ESC-04 and ESC-09 only, one run each, then STOP
+
+Round 4 re-runs the two templates whose command changed under Decision D-31 (a read of a **non-identity** dummy file was added so that the mount rule has an event of its own, since Falco yields one rule per event). The `TMPL-ESC-04` telemetry collected in Part 1 is stale with respect to the deployed rule order and must be re-collected.
+
+| # | Run ID | Template | Why | `proc.cmdline` | Bin | Expected rules |
+|--:|:---|:---|:---|--:|:---:|:---|
+| 1 | `run-s4a-05` | `TMPL-ESC-04` | the dummy `shadow` read is owned by the identity rule; a `hosts` read gives the mount rule its own event | 161 | 151–250+ | Shell Spawn, Sensitive Mount, Sensitive File Read |
+| 2 | `run-s4a-r2-03` | `TMPL-ESC-09` | same addition | 309 | 151–250+ | Shell Spawn, Sensitive Mount, Sensitive File Read |
+
+```bash
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 4
+```
+
 **Round 3 attempt history.**
 
 | Attempt | Scope | Result | Status |

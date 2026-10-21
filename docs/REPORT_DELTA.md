@@ -648,3 +648,36 @@ Round 3 executed the seven changed or never-run templates with no gate failure. 
 | `TMPL-BEN-17` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 104.22 / 0.00 ✓ | F/F/F ✓ | as planned |
 | `TMPL-PRV-07` | Shell Spawn ✓ | get ✓ | **46 HIGH** | 0.00 / 0.00 ✓ | F/F/F ✓ | **deviation** (§11.2) |
 | `TMPL-UNK-R2` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 117.69 / 15.31 ✓ | F/F/F ✓ | as planned |
+
+---
+
+## 12. Decision D-32 — The Diagnostics Now Use a Template-Grouped Cross-Validation
+
+### 12.1 The defect
+`scripts/verify_dataset.py` computed both diagnostics by **fitting the classifier on the rows it then scored** (train-on-train). That is an optimistically biased estimate, and it is the mechanism that produced the project's most misleading number: `command_length` reached Macro-F1 = 1.0000 on the ten-run Part 1 smoke, and the permuted-label "chance" baseline scored 0.9314 on the same ten runs — a 0.07 gap that was never a signal at all.
+
+### 12.2 The change
+Both diagnostics now use a `GroupKFold` cross-validation whose **groups are the scenario templates** (read from each run's `index.json` `scenario_id`, used *only* to build the folds and never as a feature). Every fold trains on the templates of the other folds and predicts the held-out templates, so no template ever appears in both the training and the evaluation data of the same fold — the same discipline the dataset split uses. The out-of-fold predictions are pooled and the macro F1 is computed over them.
+
+Both sections are now explicitly labelled:
+
+```text
+[4/5] Single-Feature Diagnostic Scores (grouped cross-validation by template)
+  DIAGNOSTIC ONLY - 13 run(s) in 13 template group(s) across 5 grouped folds; the estimate is NOT a
+  valid generalisation figure until the corpus reaches 100 runs and 10 groups.
+```
+
+### 12.3 The effect on the numbers (same 13 runs, same features)
+| Quantity | Train-on-train (old) | Template-grouped out-of-fold (new) |
+|:---|--:|--:|
+| `command_length` diagnostic (D-28, excluded from the feature set) | 0.9365 | **0.2937** |
+| `cpu_usage_mcores` (feature 07) | 0.9365 | **0.4792** |
+| `is_root_user` (feature 03) | 0.4038 | 0.4214 |
+| `deviation_count` (feature 13) | 0.3000 | 0.3201 |
+| `privileged_container` (feature 02) | 0.3571 | 0.3766 |
+| Permuted-label chance baseline | 0.9365 | **0.1042** |
+
+The permuted-label baseline falling from 0.9365 to 0.1042 is the clearest evidence that the old figures were memorisation: a classifier trained on permuted labels and scored on the same rows reproduces the training labels, which is why the "chance" baseline was almost as high as the real one.
+
+### 12.4 The caveat that is now recorded in the code
+With very few template groups a fold can train on a single class, which makes the estimate degenerate. The diagnostic sections therefore state their status explicitly and remain labelled **DIAGNOSTIC ONLY** until the corpus reaches **100 runs and 10 template groups**. No number from sections 4/5 may be quoted as a generalisation figure before that.

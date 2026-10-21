@@ -72,8 +72,38 @@ def test_select_templates_returns_the_requested_round() -> None:
     assert len(select_templates("1")) == 10
     assert len(select_templates("2")) == 13
     assert len(select_templates("3")) == 7
+    assert len(select_templates("4")) == 2
     with pytest.raises(ValueError):
-        select_templates("4")
+        select_templates("5")
+
+
+def test_round3_set_is_exactly_the_changed_and_unrun_templates() -> None:
+    """Round 3 = the templates changed by D-30/D-31 plus the four never run."""
+    from scripts.stage4a_runner import ROUND3_TEMPLATE_IDS, ROUND3_TEMPLATES, select_templates
+
+    assert len(ROUND3_TEMPLATES) == 7
+    assert set(ROUND3_TEMPLATE_IDS) == {
+        "TMPL-ESC-09",
+        "TMPL-ESC-10",
+        "TMPL-BEN-14",
+        "TMPL-BEN-16",
+        "TMPL-BEN-17",
+        "TMPL-PRV-07",
+        "TMPL-UNK-R2",
+    }
+    assert select_templates("3") == ROUND3_TEMPLATES
+
+
+def test_round4_set_is_esc04_and_esc09() -> None:
+    """Round 4 re-runs the two templates whose command changed under D-31."""
+    from scripts.stage4a_runner import ROUND4_TEMPLATE_IDS, ROUND4_TEMPLATES
+
+    assert len(ROUND4_TEMPLATES) == 2
+    assert set(ROUND4_TEMPLATE_IDS) == {"TMPL-ESC-04", "TMPL-ESC-09"}
+    for tpl in ROUND4_TEMPLATES:
+        assert "head -n 1 /opt/runtimelens-dummy/etc/hosts" in tpl["command"]
+        assert "Launch Sensitive Mount Container" in tpl["expect_falco"]
+        assert "Read Sensitive Host Information Untrusted" in tpl["expect_falco"]
 
 
 def test_expected_command_lengths_match_the_plan_bins() -> None:

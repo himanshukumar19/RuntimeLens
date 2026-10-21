@@ -218,17 +218,21 @@ TEMPLATES: list[dict[str, Any]] = [
             host_path="/opt/runtimelens-dummy/etc",
             host_path_type="Directory",
         ),
+        # Decision D-31: `cat` of the dummy `shadow` produces an open event that
+        # the identity rule owns (it is evaluated first), so the mount rule
+        # needs an event of its own: one read of a NON-identity dummy file.
+        # proc.cmdline length: 161 -> bin 151-250+
         "command": (
             "cat /opt/runtimelens-dummy/etc/shadow 2>&1 || true; "
+            "head -n 1 /opt/runtimelens-dummy/etc/hosts 2>&1 || true; "
             "echo p | nc -u -w 1 198.51.100.22 8080 || true"
         ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
-        # VERIFIED in Stage 4a attempt 2: the dummy-path prefix makes the mount
-        # rule fire on the hostPath Directory mount.
         "expect_falco": [
             "Interactive Shell Spawned in Non-Debug Container",
             "Launch Sensitive Mount Container",
+            "Read Sensitive Host Information Untrusted",
         ],
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
@@ -471,10 +475,14 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # the Stage 4a runbook prerequisites.
         # Decision D-29: one declared benign network observation (type C, HTTP
         # GET of the in-cluster API discovery document).
-        # proc.cmdline length: 252 -> bin 151-250+
+        # Decision D-31: the dummy identity files are owned by the identity rule
+        # (evaluated first), so the mount rule needs an event of its own: one
+        # read of a NON-identity dummy file.
+        # proc.cmdline length: 309 -> bin 151-250+
         "command": with_observation(
             "head -n 2 /opt/runtimelens-dummy/etc/shadow 2>&1 || true; "
             "dd if=/opt/runtimelens-dummy/etc/passwd of=/dev/null 2>&1 || true; "
+            "head -n 1 /opt/runtimelens-dummy/etc/hosts 2>&1 || true; "
             "find /opt/runtimelens-dummy/etc -type f 2>&1 || true",
             "C",
         ),
@@ -754,7 +762,10 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "expected_cpu_profile": "low",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "MID",
+        # Measured 46 flows in Round 3: the five sequential node-proxy requests
+        # each generate a full TCP retry sequence against the API server
+        # ClusterIP, an order of magnitude more than a single request's 10.
+        "expect_hubble_band": "HIGH",
         "expect_features": ["F", "F", "F"],
     },
     {
@@ -810,6 +821,21 @@ ROUND3_TEMPLATE_IDS: tuple[str, ...] = (
 ROUND3_TEMPLATES: list[dict[str, Any]] = [_ROUND2_BY_ID[tid] for tid in ROUND3_TEMPLATE_IDS]
 
 
+# ---------------------------------------------------------------------------
+# Stage 4a ROUND 4 template set: 2 templates, 1 run each.
+#
+# Both templates changed under Decision D-31 (a read of a non-identity dummy
+# file was added so that the mount rule has an event of its own) and the
+# TMPL-ESC-04 telemetry collected in Part 1 is stale with respect to the
+# deployed rule order.
+# ---------------------------------------------------------------------------
+_ROUND1_BY_ID: dict[str, dict[str, Any]] = {t["template_id"]: t for t in TEMPLATES}
+ROUND4_TEMPLATE_IDS: tuple[str, ...] = ("TMPL-ESC-04", "TMPL-ESC-09")
+ROUND4_TEMPLATES: list[dict[str, Any]] = [
+    _ROUND1_BY_ID["TMPL-ESC-04"],
+    _ROUND2_BY_ID["TMPL-ESC-09"],
+]
+
 # Round identifiers accepted by the CLI.
 ROUND1_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in TEMPLATES)
 ROUND2_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in ROUND2_TEMPLATES)
@@ -824,7 +850,9 @@ def select_templates(round_id: str) -> list[dict[str, Any]]:
         return list(ROUND2_TEMPLATES)
     if round_id == "3":
         return list(ROUND3_TEMPLATES)
-    raise ValueError(f"unknown round: {round_id!r} (expected '1', '2' or '3')")
+    if round_id == "4":
+        return list(ROUND4_TEMPLATES)
+    raise ValueError(f"unknown round: {round_id!r} (expected '1', '2', '3' or '4')")
 
 
 class Stage4aStop(RuntimeError):
