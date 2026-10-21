@@ -489,5 +489,26 @@ All eight `privilege_abuse` templates already produce Hubble flows through their
 ### 8.5 Length-bin consequence
 Two Round 2 templates change bin because their command grew: `TMPL-ESC-08` moves from `30–80` to `81–150` (57 -> 91 characters) and `TMPL-UNK-R2` moves from `81–150` to `151–250+` (95 -> 155 characters). `TMPL-PRV-06` (180 -> 214) and `TMPL-PRV-08` (216 -> 276) stay in `151–250+`. The rebalanced registry becomes `11 / 18 / 26` templates across the three bins. Per Decision D-28, `command_length` remains a **diagnostic only** and is never a classifier feature, so the bin reshuffle cannot become a model shortcut.
 
-### 8.6 The failed attempt
-`data/raw_backup/run-s4a-r2-01` is retained verbatim as **"failed gate, kept for audit"** and is never reused as a dataset run. The corresponding working copy was moved out of `data/raw/runs/` into `data/raw/failed_runs/` so that `scripts/verify_dataset.py --runs-dir data/raw/runs` cannot pick it up and so that the Round 2 re-run cannot overwrite it. The raw telemetry of the failed attempt is not deleted.
+### 8.6 A second, independent defect found by the same round: BusyBox `wget` has no `-H` option
+- **Finding (Round 2 attempt 2, run 6 — `TMPL-PRV-04`):** the run produced `hubble = 0` flows, **no** audit event for the API request, and `wget` exit code 1. A direct diagnostic in the cluster gave the exact cause:
+  ```text
+  $ kubectl exec -n tenant-a deploy/payment-style -- /bin/sh -c "T=$(cat .../token); wget -qO- --no-check-certificate -H \"Authorization: Bearer $T\" https://10.96.0.1/api/v1/namespaces/tenant-b/configmaps"
+  wget: unrecognized option: H
+  BusyBox v1.36.1 (2025-08-05 16:46:20 UTC) multi-call binary.
+  Usage: wget [-cqS] [--spider] [-O FILE] [-o LOGFILE] [--header STR] ...
+  ```
+  BusyBox `wget` accepts **only** `--header`; the short `-H` option that the Stage 4a Part 2 re-scoping introduced makes the command abort **before any network request is made**. The same defect was latent in `TMPL-PRV-05`, `TMPL-BEN-06` and `TMPL-PRV-07`.
+- **Fix:** all four templates were restored to the verified `--header="Authorization: Bearer $T"` form, which is 5 characters longer than the invalid `-H` form. The corrected lengths are `TMPL-PRV-04` (187), `TMPL-PRV-05` (153), `TMPL-BEN-06` (181) and `TMPL-PRV-07` (229).
+- **Consequence for the plan — a factual correction, not a design change.** The Stage 4a Part 2 claim that "`TMPL-PRV-05` fits the `81–150` bin at 148 characters" was **wrong**: it was derived from the invalid `-H` form. With the working `--header=` form the overhead is 126 characters (57 for the token read + 69 for the authenticated `wget` invocation), the `81–150` bin allows at most 144 characters of command, and the shortest URL the API server actually answers is `https://10.96.0.1/api` (21 characters). **No ServiceAccount-authenticated request fits inside the `81–150` band.** `TMPL-PRV-05` therefore moves to `151–250+` (153 characters) and the `privilege_abuse` class becomes `0 / 1 / 7`, with the corpus totals `11 / 17 / 27`.
+- **Regression control:** `tests/unit/test_stage4a_runner_templates.py::test_no_busybox_incompatible_wget_options` and `::test_service_account_templates_use_the_verified_header_form` pin the option form for every template, so the defect cannot be reintroduced.
+- **Note on the earlier `PRV-05` re-scoping rationale:** the claim that the Kubernetes discovery document is "world-readable" is only true for *unauthenticated* requests to `/api`; the 403 observed in the sandbox came from an anonymous request, while an authenticated request to `/api` returns 200 and an authenticated request to `/` returns 403. The template's audit record is attributed to the ServiceAccount either way, so the class signal is unchanged.
+
+### 8.7 The failed attempts
+Two attempts produced failed runs, and both are retained verbatim as **"failed gate, kept for audit"** and are never reused as dataset runs:
+
+| Attempt | Run | Stop reason | Quarantine |
+|:--:|:---|:---|:---|
+| 1 | `run-s4a-r2-01` | `Missing telemetry from source 'hubble': count=0` — the scenario was purely local (Decision D-29) | `data/raw/failed_runs/run-s4a-r2-01` |
+| 2 | `run-s4a-r2-06` | `Missing telemetry from source 'hubble': count=0` — the BusyBox `-H` option aborted before the request | `data/raw/failed_runs/run-s4a-r2-06` |
+
+The working copies were moved out of `data/raw/runs/` into `data/raw/failed_runs/` so that `scripts/verify_dataset.py --runs-dir data/raw/runs` cannot pick them up and so that a re-run cannot overwrite them. The raw telemetry of every failed attempt is preserved and nothing is deleted.

