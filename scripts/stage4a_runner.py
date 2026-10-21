@@ -40,6 +40,12 @@ from pathlib import Path
 from typing import Any
 
 from runtimelens.collector.per_run_capture import PerRunTelemetryCapture
+from runtimelens.eval.cpu_bands import (
+    BURST_MEDIAN_MAX_MCORES,
+    BURST_PEAK_MAX_MCORES,
+    BURST_PEAK_MIN_MCORES,
+)
+from runtimelens.eval.cpu_bands import median as median_value
 from scripts.scenario_safety_lint import lint_manifest
 from scripts.stage2_pilot import (
     cleanup_pod,
@@ -489,14 +495,28 @@ def check_no_leftovers() -> None:
 
 
 def burst_band(sample_cpus: list[float]) -> tuple[bool, str]:
-    """Variant-aware `burst` CPU band: peak in [30, 100] mcores, median < 100."""
+    """Decision D-26 `burst` CPU band: peak in [20, 150] mcores, median < 100.
+
+    The band width is set by the cAdvisor measurement resolution: the same
+    workload measured 25.77 mcores and 117.34 mcores on two consecutive
+    attempts of an identical command (see `runtimelens.eval.cpu_bands`).
+    """
     if not sample_cpus:
         return False, "FAIL (no cAdvisor samples)"
     peak = max(sample_cpus)
-    median = sorted(sample_cpus)[len(sample_cpus) // 2]
-    if peak < 30.0 or peak > 100.0 or median >= 100.0:
-        return False, f"FAIL (peak={peak:.2f}m not in [30,100], med={median:.2f}m >= 100)"
-    return True, f"PASS (peak={peak:.2f}m, med={median:.2f}m)"
+    med = median_value(sample_cpus)
+    if (
+        peak < BURST_PEAK_MIN_MCORES
+        or peak > BURST_PEAK_MAX_MCORES
+        or med >= BURST_MEDIAN_MAX_MCORES
+    ):
+        msg = (
+            f"FAIL (peak={peak:.2f}m not in "
+            f"[{BURST_PEAK_MIN_MCORES:.0f},{BURST_PEAK_MAX_MCORES:.0f}] "
+            f"or med={med:.2f}m >= {BURST_MEDIAN_MAX_MCORES:.0f})"
+        )
+        return False, msg
+    return True, f"PASS (peak={peak:.2f}m in [20,150], med={med:.2f}m)"
 
 
 def capture_cpu_samples(run_dir: Path) -> list[float]:

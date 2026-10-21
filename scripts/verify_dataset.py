@@ -25,6 +25,13 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
+from runtimelens.eval.cpu_bands import (
+    BURST_MEDIAN_MAX_MCORES,
+    BURST_PEAK_MAX_MCORES,
+    BURST_PEAK_MIN_MCORES,
+    MIN_POST_LAG_SAMPLES,
+    post_lag_cpu_samples,
+)
 from runtimelens.features.extractor import (
     FEATURE_NAMES,
     extract_dataset_from_run_dirs,
@@ -118,6 +125,7 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     prom_file = run_dir / "prometheus" / "metrics.json"
     p_count = 0
     sample_cpus: list[float] = []
+    sample_ts: list[float] = []
     if prom_file.exists():
         try:
             p_data = json.loads(prom_file.read_text(encoding="utf-8"))
@@ -133,7 +141,9 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
                     sample_cpus.append(s_cpu)
                     s_ts = s.get("timestamp")
                     if s_ts:
-                        timestamps.append(parse_iso_ts(s_ts))
+                        parsed = parse_iso_ts(s_ts)
+                        timestamps.append(parsed)
+                        sample_ts.append(parsed)
             else:
                 pod_stats = p_data.get("pod_stats", [])
                 p_count = len(pod_stats)
@@ -155,6 +165,18 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     pct_above_100 = (above_100_count / len(sample_cpus) * 100.0) if sample_cpus else 0.0
     above_40_count = sum(1 for v in sample_cpus if v >= 40.0)
     pct_above_40 = (above_40_count / len(sample_cpus) * 100.0) if sample_cpus else 0.0
+
+    # Decision D-27: post-lag view of the same samples (first-sample lag removed).
+    post_lag_cpus = post_lag_cpu_samples(sample_cpus, sample_ts)
+    post_lag_above_40 = sum(1 for v in post_lag_cpus if v >= 40.0)
+    post_lag_above_100 = sum(1 for v in post_lag_cpus if v >= 100.0)
+    pct_above_40_post_lag = (
+        (post_lag_above_40 / len(post_lag_cpus) * 100.0) if post_lag_cpus else 0.0
+    )
+    pct_above_100_post_lag = (
+        (post_lag_above_100 / len(post_lag_cpus) * 100.0) if post_lag_cpus else 0.0
+    )
+    med_post_lag = float(np.median(post_lag_cpus)) if post_lag_cpus else 0.0
 
     exp_cpu_profile = index_meta.get("expected_cpu_profile")
     if not exp_cpu_profile:
@@ -198,6 +220,10 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         "max_cpu_mcores": max_cpu,
         "pct_above_100": pct_above_100,
         "pct_above_40": pct_above_40,
+        "post_lag_sample_count": len(post_lag_cpus),
+        "pct_above_100_post_lag": pct_above_100_post_lag,
+        "pct_above_40_post_lag": pct_above_40_post_lag,
+        "median_post_lag_cpu_mcores": med_post_lag,
         "expected_cpu_profile": exp_cpu_profile,
         "leak_findings": leak_findings,
     }
@@ -273,40 +299,74 @@ def run_dataset_verification(runs_dir: Path) -> int:
 
         if exp_profile == "high":
             cpu_status = "PASS"
-            if dur < 115.0 or counts["prometheus"] < 8 or pct_high < 80.0:
+            # Decision D-27: the ratio is computed over post-lag samples only, and
+            # a strict post-lag median floor is added so the gate is never weaker
+            # than the legacy all-sample ratio it replaces.
+            pct_high = audit.get("pct_above_100_post_lag", audit["pct_above_100"])
+            med_post = audit.get("median_post_lag_cpu_mcores", 0.0)
+            n_post = audit.get("post_lag_sample_count", counts["prometheus"])
+            if (
+                dur < 115.0
+                or counts["prometheus"] < 8
+                or n_post < MIN_POST_LAG_SAMPLES
+                or pct_high < 80.0
+                or med_post < 100.0
+            ):
                 cpu_status = (
-                    f"FAIL (dur={dur}s, n={counts['prometheus']}, pct_high={pct_high:.1f}%)"
+                    f"FAIL (dur={dur}s, n={counts['prometheus']}, post_lag_n={n_post}, "
+                    f"pct_high={pct_high:.1f}%, med_post_lag={med_post:.2f}m)"
                 )
                 mining_violations += 1
             print(
-                f"    --> Sustained CPU [profile=high]: {pct_high:.1f}% samples >= 100m "
-                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) [{cpu_status}]"
+                f"    --> Sustained CPU [profile=high]: {pct_high:.1f}% post-lag samples >= 100m "
+                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, med_post_lag={med_post:.2f}m, "
+                f"n={counts['prometheus']}, post_lag_n={n_post}) [{cpu_status}]"
             )
         elif exp_profile == "throttled":
             cpu_status = "PASS"
-            pct_throttled = audit.get("pct_above_40", 0.0)
-            if dur < 50.0 or counts["prometheus"] < 5 or pct_throttled < 60.0:
+            # Decision D-27: post-lag ratio + strict post-lag median floor.
+            pct_throttled = audit.get("pct_above_40_post_lag", audit.get("pct_above_40", 0.0))
+            med_post = audit.get("median_post_lag_cpu_mcores", 0.0)
+            n_post = audit.get("post_lag_sample_count", counts["prometheus"])
+            if (
+                dur < 50.0
+                or counts["prometheus"] < 5
+                or n_post < MIN_POST_LAG_SAMPLES
+                or pct_throttled < 60.0
+                or med_post < 40.0
+            ):
                 cpu_status = (
-                    f"FAIL (dur={dur}s, n={counts['prometheus']}, pct_th={pct_throttled:.1f}%)"
+                    f"FAIL (dur={dur}s, n={counts['prometheus']}, post_lag_n={n_post}, "
+                    f"pct_th={pct_throttled:.1f}%, med_post_lag={med_post:.2f}m)"
                 )
                 mining_violations += 1
             print(
-                f"    --> Sustained CPU [profile=throttled]: {pct_throttled:.1f}% samples >= 40m "
-                f"(min={min_cpu:.2f}m, med={med_cpu:.2f}m, n={counts['prometheus']}) [{cpu_status}]"
+                f"    --> Sustained CPU [profile=throttled]: {pct_throttled:.1f}% post-lag samples "
+                f">= 40m (min={min_cpu:.2f}m, med={med_cpu:.2f}m, med_post_lag={med_post:.2f}m, "
+                f"n={counts['prometheus']}, post_lag_n={n_post}) [{cpu_status}]"
             )
         elif exp_profile == "burst":
-            # Burst profile: a short, transient CPU spike that is clearly distinguishable
-            # from both sustained mining (profile=high) and an idle baseline (profile=low).
-            # Band: peak between 30 and 100 mcores, median strictly below 100 mcores.
+            # Decision D-26: the burst band must be wider than the cAdvisor
+            # measurement noise floor (observed 25.77m vs 117.34m for the same
+            # command across two attempts), while staying disjoint from the
+            # `high` (full-throttle mining) band.
             cpu_status = "PASS"
-            if max_cpu < 30.0 or max_cpu > 100.0 or med_cpu >= 100.0:
+            if (
+                max_cpu < BURST_PEAK_MIN_MCORES
+                or max_cpu > BURST_PEAK_MAX_MCORES
+                or med_cpu >= BURST_MEDIAN_MAX_MCORES
+            ):
                 cpu_status = (
-                    f"FAIL (peak={max_cpu:.2f}m not in [30,100], med={med_cpu:.2f}m >= 100)"
+                    f"FAIL (peak={max_cpu:.2f}m not in "
+                    f"[{BURST_PEAK_MIN_MCORES:.0f},{BURST_PEAK_MAX_MCORES:.0f}], "
+                    f"med={med_cpu:.2f}m >= {BURST_MEDIAN_MAX_MCORES:.0f})"
                 )
                 burst_violations += 1
             print(
-                f"    --> Sustained CPU [profile=burst]: peak={max_cpu:.2f}m (band 30-100m), "
-                f"med={med_cpu:.2f}m (<100m), n={counts['prometheus']} [{cpu_status}]"
+                f"    --> Sustained CPU [profile=burst]: peak={max_cpu:.2f}m (band "
+                f"{BURST_PEAK_MIN_MCORES:.0f}-{BURST_PEAK_MAX_MCORES:.0f}m, D-26), "
+                f"med={med_cpu:.2f}m (<{BURST_MEDIAN_MAX_MCORES:.0f}m), "
+                f"n={counts['prometheus']}) [{cpu_status}]"
             )
         else:
             print(

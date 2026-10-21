@@ -28,6 +28,29 @@
     docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/shadow
     docker exec runtimelens-control-plane chmod 0640 /opt/runtimelens-dummy/etc/shadow
     ```
+  - **The Inert Dummy Identity Files required by `TMPL-ESC-09`:** `TMPL-ESC-09` performs a *multi-file* read (`head`, `dd` and `find`) over the mounted dummy `/etc` directory, so the directory must contain more than one file for the scenario to execute as designed. The following **four names only, all 0-byte and completely empty** files are created strictly inside `/opt/runtimelens-dummy/etc/`. They contain **no** real user, group, host or credential data of any kind; the names exist only so that the multi-file read produces real filesystem telemetry and so that the `Read Sensitive Host Information Untrusted` rule can fire on the `/opt/runtimelens-dummy/etc/shadow` path:
+
+    | Dummy file (name only) | Size | Mode | Purpose |
+    |:---|--:|:---:|:---|
+    | `shadow` | 0 bytes | `0640` | Triggers the identity-file read rule on the dummy path (already created above) |
+    | `passwd` | 0 bytes | `0644` | Second identity file for the multi-file read |
+    | `group` | 0 bytes | `0644` | Third file for the multi-file read |
+    | `hosts` | 0 bytes | `0644` | Fourth file for the multi-file read |
+
+    ```bash
+    docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy/etc
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/shadow
+    docker exec runtimelens-control-plane chmod 0640 /opt/runtimelens-dummy/etc/shadow
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/passwd
+    docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/passwd
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/group
+    docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/group
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/hosts
+    docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/etc/hosts
+    ```
+    **Invariants:** no file is ever created outside `/opt/runtimelens-dummy/`; no file contains any content; no file is a socket, device node or symlink; the `containerd.sock` dummy File used by the replaced `TMPL-ESC-10` is created by the same procedure and remains 0 bytes.
+  - **The Third Allowlisted Dummy Path:** `TMPL-ESC-10` (replaced) mounts `/opt/runtimelens-dummy/containerd.sock` as a `hostPath` of type `File`. It is already present in `ALLOWED_DUMMY_HOSTPATHS` in `scripts/scenario_safety_lint.py` and is provisioned with the identical 0-byte `touch` + `chmod 0644` procedure.
+
   - **Dedicated Ephemeral Lab Namespace:** Because Kubernetes Pod Security Standards enforce `baseline` in `tenant-a`, `tenant-b`, and `tenant-c` (which strictly forbids `hostPath` volumes), the simulated escape pod executes strictly inside an ephemeral lab namespace (`sandbox-workloads`) configured with `pod-security.kubernetes.io/enforce: privileged`. The namespace is created only for the run and deleted immediately after.
   - **The Extractor Rule:** `extract_pod_spec_facts()` in `src/runtimelens/normalizer/falco.py` explicitly recognizes `SIMULATED_RUNTIME_SOCKET_PATTERNS = ("/opt/runtimelens-dummy/docker.sock", "/opt/runtimelens-dummy/containerd.sock")` in addition to real socket paths.
   - The test pod mounts this path using a standard Kubernetes `hostPath` volume:

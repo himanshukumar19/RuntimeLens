@@ -15,6 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from runtimelens.collector.per_run_capture import PerRunTelemetryCapture
+from runtimelens.eval.cpu_bands import (
+    BURST_MEDIAN_MAX_MCORES,
+    BURST_PEAK_MAX_MCORES,
+    BURST_PEAK_MIN_MCORES,
+    MIN_POST_LAG_SAMPLES,
+    post_lag_cpu_samples,
+)
+from runtimelens.eval.cpu_bands import median as median_value
 
 logger = logging.getLogger("runtimelens.stage2_pilot")
 
@@ -581,45 +589,83 @@ def verify_per_run_gate(
 
     # 9. Variant-aware CPU & duration check
     sample_cpus: list[float] = []
+    sample_ts: list[float] = []
     for s in samples:
         s_cpu = 0.0
         for p in s.get("pod_stats", []):
             for c in p.get("containers", []):
                 s_cpu += float(c.get("cpu", {}).get("usageNanoCores", 0.0)) / 1e6
         sample_cpus.append(s_cpu)
+        s_ts = s.get("timestamp")
+        if s_ts:
+            sample_ts.append(datetime.fromisoformat(s_ts.replace("Z", "+00:00")).timestamp())
+
+    # Decision D-27: exclude the cAdvisor first-sample lag window from the
+    # ratio denominator and add a strict post-lag median floor.
+    post_lag_cpus = post_lag_cpu_samples(sample_cpus, sample_ts)
+    post_lag_median = median_value(post_lag_cpus)
 
     if expected_cpu_profile == "high":
         if counts["prometheus"] < 8:
             return False, f"High-CPU cAdvisor samples insufficient: {counts['prometheus']} < 8"
         if calc_dur < 115.0:
             return False, f"High-CPU duration too short: {calc_dur}s < 120s"
-        if sample_cpus:
-            pct_high = sum(1 for v in sample_cpus if v >= 100.0) / len(sample_cpus) * 100.0
-            if pct_high < 80.0:
-                return (
-                    False,
-                    f"Mining sustained CPU insufficient: {pct_high:.1f}% < 80.0% samples >= 100m",
-                )
+        if len(post_lag_cpus) < MIN_POST_LAG_SAMPLES:
+            return (
+                False,
+                f"High-CPU post-lag samples insufficient: {len(post_lag_cpus)} "
+                f"< {MIN_POST_LAG_SAMPLES}",
+            )
+        pct_high = sum(1 for v in post_lag_cpus if v >= 100.0) / len(post_lag_cpus) * 100.0
+        if pct_high < 80.0:
+            return (
+                False,
+                f"Mining sustained CPU insufficient: {pct_high:.1f}% < 80.0% "
+                f"post-lag samples >= 100m",
+            )
+        if post_lag_median < 100.0:
+            return (
+                False,
+                f"Mining post-lag median CPU insufficient: {post_lag_median:.2f}m < 100.0m",
+            )
     elif expected_cpu_profile == "throttled":
         if counts["prometheus"] < 5:
             return False, f"Throttled-CPU samples insufficient: {counts['prometheus']} < 5"
         if calc_dur < 50.0:
             return False, f"Throttled-CPU duration too short: {calc_dur}s < 50s"
-        if sample_cpus:
-            pct_th = sum(1 for v in sample_cpus if v >= 40.0) / len(sample_cpus) * 100.0
-            if pct_th < 60.0:
-                return (
-                    False,
-                    f"Throttled sustained CPU insufficient: {pct_th:.1f}% < 60.0% samples >= 40m",
-                )
+        if len(post_lag_cpus) < MIN_POST_LAG_SAMPLES:
+            return (
+                False,
+                f"Throttled-CPU post-lag samples insufficient: {len(post_lag_cpus)} "
+                f"< {MIN_POST_LAG_SAMPLES}",
+            )
+        pct_th = sum(1 for v in post_lag_cpus if v >= 40.0) / len(post_lag_cpus) * 100.0
+        if pct_th < 60.0:
+            return (
+                False,
+                f"Throttled sustained CPU insufficient: {pct_th:.1f}% < 60.0% "
+                f"post-lag samples >= 40m",
+            )
+        if post_lag_median < 40.0:
+            return (
+                False,
+                f"Throttled post-lag median CPU insufficient: {post_lag_median:.2f}m < 40.0m",
+            )
     elif expected_cpu_profile == "burst":
+        # Decision D-26: burst band widened to the cAdvisor measurement
+        # resolution floor (peak 20-150 mcores, median < 100 mcores).
         if sample_cpus:
             peak = max(sample_cpus)
-            med = sorted(sample_cpus)[len(sample_cpus) // 2]
-            if peak < 30.0 or peak > 100.0 or med >= 100.0:
+            med = median_value(sample_cpus)
+            if (
+                peak < BURST_PEAK_MIN_MCORES
+                or peak > BURST_PEAK_MAX_MCORES
+                or med >= BURST_MEDIAN_MAX_MCORES
+            ):
                 msg = (
-                    f"Burst CPU out of band: peak={peak:.2f}m not in [30,100] "
-                    f"or med={med:.2f}m >= 100"
+                    f"Burst CPU out of band: peak={peak:.2f}m not in "
+                    f"[{BURST_PEAK_MIN_MCORES:.0f},{BURST_PEAK_MAX_MCORES:.0f}] "
+                    f"or med={med:.2f}m >= {BURST_MEDIAN_MAX_MCORES:.0f}"
                 )
                 return (
                     False,

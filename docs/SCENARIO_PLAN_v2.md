@@ -24,7 +24,7 @@ Worst-case binomial 95% half-width at the proposed test counts (`p = 0.5`): beni
 ## 2. Anti-Leakage & Confounder Rules
 
 1. **Zero metadata leakage:** Scenario IDs (`SC-*`), ground-truth class names (`benign`, `cryptomining`, `container_escape`, `privilege_abuse`, `unknown`, `exfiltration`) and run identifiers (`run-*`) are forbidden from appearing in any command, argument, file path, env var, service name, pod name, label or probe payload.
-2. **Command-length overlap:** every class spans all three bins at approximately 2 / 3 / 3 templates per class, scaled to benign's larger template count.
+2. **Command-length overlap:** every class spans all three bins at approximately 2 / 3 / 3 templates per class, scaled to benign's larger template count. **Amended at Stage 4a Part 2 (see §3.6):** the `privilege_abuse` class provably cannot occupy the `30–80` or `81–150` bins when its API queries authenticate with the pod ServiceAccount token, because the shortest ServiceAccount-authenticated request that is still captured by the audit collector is 139 characters. The class therefore collapses to a single length bin, and a **declared-confound compensating control** (§3.6) replaces the bin-spread requirement for that class.
 3. **Shell invariance:** every template is delivered through `kubectl exec ... /bin/sh -c`, so shell presence is 100% in all five classes and carries zero class information.
 4. **Port invariance:** the Falco egress rule watches ports 3333, 4444, 5555, 7777, 8888, 9999. In-list ports are used by **benign**, **cryptomining** and **unknown** templates alike; two mining templates deliberately use out-of-list ports (8080, 6379) so mining is not identified by port either.
 5. **Feature variation:** features `host_runtime_socket_mounted` (00), `sensitive_host_path_mounted` (01) and `privileged_container` (02) vary inside `container_escape` and are `False` everywhere else.
@@ -60,7 +60,7 @@ The privilege templates therefore expect **only** `Shell Spawn` (the `Interactiv
 | `TMPL-BEN-03` | Container environment verification: date and hostname | 30–80 | 7s | tenant-c / database | Low | low | Shell Spawn | F/F/F | get, create | MID | Read-only | 6 |
 | `TMPL-BEN-04` | Internal health probe to service port **3333** | 30–80 | 8s | tenant-a / api | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-05` | Local cache client ping on port 6379 | 30–80 | 8s | tenant-c / web | Low | low | Shell Spawn | F/F/F | get, create | LOW | Out-of-list port | 6 |
-| `TMPL-BEN-06` | Service account token read for in-cluster client auth | 81–150 | 8s | tenant-b / payment-style | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Authorized SA read | 7 |
+| `TMPL-BEN-06` | Service account token read for in-cluster client auth | 151–250+ | 8s | tenant-b / payment-style | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Authorized SA read (175 chars) | 7 |
 | `TMPL-BEN-07` | Internal metrics scrape probe on port **9999** | 81–150 | 8s | tenant-a / database | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-08` | Disk usage audit: `df -h` and `du -sk /tmp` | 81–150 | 8s | tenant-c / web | Low | low | Shell Spawn | F/F/F | get, create | MID | Read-only | 6 |
 | `TMPL-BEN-09` | Internal metrics gateway check on port 9090 | 81–150 | 8s | tenant-b / database | Low | low | Shell Spawn | F/F/F | get, create | LOW | Out-of-list port | 6 |
@@ -83,31 +83,31 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 
 | ID | Description | Length Bin | Duration | Tenant / Workload | Intensity | CPU Profile | Expected Falco Rules | Feature Values 00/01/02 | Audit Verbs | Hubble Band | Safety Notes | Runs |
 |:---|:---|:---:|:---:|:---|:---:|:---:|:---|:---:|:---|:---:|:---|--:|
-| `TMPL-ESC-01` | Read `/etc/shadow` and `/etc/passwd` inside container | 30–80 | 7s | tenant-a / database | Low | low | Shell Spawn, Sensitive File Read | F/F/F | get, create | MID | Passive read only | 8 |
-| `TMPL-ESC-02` | Probe `/proc/kcore` and `/proc/sys/kernel` parameters | 30–80 | 7s | tenant-b / web | Low | low | Shell Spawn, Sensitive File Read | F/F/F | get, create | LOW | Read-only inspection | 8 |
-| `TMPL-ESC-03` | Runtime socket exposure: `hostPath` **File** mount of `/opt/runtimelens-dummy/docker.sock` | 81–150 | 8s | tenant-c / payment-style | Medium | low | Shell Spawn, Sensitive Mount | **T**/F/F | get, create | MID | Already allowlisted; inert 0-byte file | 8 |
-| `TMPL-ESC-04` | Sensitive host path exposure: `hostPath` **Directory** mount of `/opt/runtimelens-dummy/etc` | 81–150 | 8s | tenant-a / api | Medium | low | Shell Spawn, Sensitive Mount | F/**T**/F | get, create | LOW | **Requires linter edit (see §4)** | 8 |
-| `TMPL-ESC-05` | Cgroup `release_agent` breakout path traversal check | 81–150 | 8s | tenant-b / database | High | low | Shell Spawn, Sensitive File Read | F/F/F | get, create | LOW | Read-only path existence check | 8 |
-| `TMPL-ESC-06` | Privileged container capability probe: debugfs and namespace tool check | 81–150 | 10s | tenant-c / web | High | low | Shell Spawn, Sensitive Mount | F/F/**T** | get, create | MID | `privileged: true`, sandbox ns only | 8 |
-| `TMPL-ESC-07` | Container `/proc/1/root` symlink traversal check (readlink only) | 151–250+ | 10s | tenant-a / web | High | low | Shell Spawn, Sensitive File Read | F/F/F | get, create | LOW | No `hostPID`; readlink only | 8 |
-| `TMPL-ESC-08` | Device node creation attempt via `mknod` in privileged sandbox | 151–250+ | 10s | tenant-b / api | High | low | Shell Spawn, Sensitive Mount | F/F/**T** | get, create | LOW | Blocked by dropped capabilities | 8 |
-| `TMPL-ESC-09` | Sensitive host path multi-file read via `head`, `dd` and `find` on the dummy dir | 151–250+ | 12s | tenant-c / payment-style | High | low | Shell Spawn, Sensitive Mount, Sensitive File Read | F/**T**/F | get, create | MID | Read-only on inert dummy dir | 8 |
-| `TMPL-ESC-10` | Privileged capability enumeration via `/proc/self/status` capability walk | 151–250+ | 10s | tenant-a / database | High | low | Shell Spawn, Sensitive Mount, Policy Warning | F/F/**T** | get, create | LOW | `privileged: true`, sandbox ns only | 8 |
+| `TMPL-ESC-01` | Read `/etc/shadow` and `/etc/passwd` inside container | 30–80 | 7s | sandbox-workloads / worker | Low | low | Shell Spawn, Sensitive File Read | F/F/F | get, create | MID | Passive read only; `/etc/shadow` read is unconditionally flagged | 8 |
+| `TMPL-ESC-02` | Probe `/proc/kcore` and `/proc/sys/kernel` parameters | 30–80 | 7s | sandbox-workloads / worker | Low | low | **Shell Spawn** | F/F/F | get, create | LOW | Read-only inspection; no identity-file read, so Sensitive File Read cannot fire | 8 |
+| `TMPL-ESC-03` | Runtime socket exposure: `hostPath` **File** mount of `/opt/runtimelens-dummy/docker.sock` | 81–150 | 8s | sandbox-workloads / worker | Medium | low | Shell Spawn, Sensitive Mount | **T**/F/F | get, create | MID | Already allowlisted; inert 0-byte file; **rule firing VERIFIED in Stage 4a attempt 2** | 8 |
+| `TMPL-ESC-04` | Sensitive host path exposure: `hostPath` **Directory** mount of `/opt/runtimelens-dummy/etc` | 81–150 | 8s | sandbox-workloads / worker | Medium | low | Shell Spawn, Sensitive Mount | F/**T**/F | get, create | LOW | **rule firing VERIFIED in Stage 4a attempt 2** | 8 |
+| `TMPL-ESC-05` | **Cgroup hierarchy exposure in privileged sandbox** (replaces the cgroup v1 `release_agent` traversal) | 151–250+ | 8s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | LOW | Read-only; uses cgroup v2 paths that exist (`/proc/self/cgroup`, `/proc/self/mountinfo`, `/proc/self/mounts`) | 8 |
+| `TMPL-ESC-06` | Privileged container capability probe: debugfs and namespace tool check | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | MID | `privileged: true`, sandbox ns only; **no `hostPath` volume, so Sensitive Mount cannot fire** | 8 |
+| `TMPL-ESC-07` | Container `/proc/1/root` symlink traversal check (readlink only) | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/F | get, create | LOW | No `hostPID`; readlink only; no identity-file read, so Sensitive File Read cannot fire | 8 |
+| `TMPL-ESC-08` | **Host device namespace enumeration in privileged sandbox** (replaces the `mknod` attempt) | 30–80 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | LOW | Read-only `/dev` listing; `mknod` removed because the device cgroup blocks it even when privileged | 8 |
+| `TMPL-ESC-09` | Sensitive host path multi-file read via `head`, `dd` and `find` on the dummy dir | 151–250+ | 12s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount, Sensitive File Read | F/**T**/F | get, create | MID | Requires the four inert dummy files in `/opt/runtimelens-dummy/etc/` (see §4) | 8 |
+| `TMPL-ESC-10` | **Runtime socket (containerd) exposure in privileged sandbox** (replaces the non-existent "Policy Warning" expectation) | 81–150 | 10s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount | **T**/F/**T** | get, create | MID | `privileged: true` + `hostPath` File mount of the third allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock` | 8 |
 
 ### 3.3 Class `privilege_abuse` — 8 templates, 80 runs (proposed)
 
 | ID | Description | Length Bin | Duration | Tenant / Workload | Intensity | CPU Profile | Expected Falco Rules | Feature Values 00/01/02 | Audit Verbs | Hubble Band | Safety Notes | Runs |
 |:---|:---|:---:|:---:|:---|:---:|:---:|:---|:---:|:---|:---:|:---|--:|
-| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 151–250+ | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth | 10 |
-| `TMPL-PRV-02` | Cross-tenant Pods enumeration against adjacent namespace | 30–80 | 7s | tenant-b / web | Low | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 151–250+ | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth | 10 |
-| `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 81–150 | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-05` | ClusterRoleBinding inspection attempt using pod SA | 81–150 | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden | 10 |
-| `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 30–80 | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden; unauth probe | 10 |
-| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 81–150 | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst | 10 |
-| `TMPL-PRV-08` | Batch multi-namespace resource scraping with extracted token | 151–250+ | 12s | tenant-b / payment-style | High | low | Shell Spawn | F/F/F | get, create, list | HIGH | All attempts 403 logged | 10 |
+| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 151–250+ | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth (219 chars, VERIFIED) | 10 |
+| `TMPL-PRV-02` | Cross-tenant Pods enumeration against adjacent namespace | 151–250+ | 7s | tenant-b / web | Low | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden; SA token auth (175 chars) | 10 |
+| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 151–250+ | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth (207 chars, VERIFIED) | 10 |
+| `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 151–250+ | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden; SA token auth (181 chars) | 10 |
+| `TMPL-PRV-05` | ClusterRoleBinding inspection attempt using pod SA | 151–250+ | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden; SA token auth (197 chars) | 10 |
+| `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 151–250+ | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden; SA token auth (180 chars) | 10 |
+| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst; SA token auth (223 chars) | 10 |
+| `TMPL-PRV-08` | Batch multi-namespace resource scraping with extracted token | 151–250+ | 12s | tenant-b / payment-style | High | low | Shell Spawn | F/F/F | get, create, list | HIGH | All attempts 403 logged; SA token auth (216 chars) | 10 |
 
-**Length Bin Correction & Rebalancing Note (Stage 4a-Part 1):** In-cluster API queries authenticating with the pod's ServiceAccount token (`--header="Authorization: Bearer $(cat ...)"`) incur ~140 characters of shell interpolation overhead, preventing them from fitting inside the `30–80` or `81–150` bins. `TMPL-PRV-01` (219 chars) and `TMPL-PRV-03` (207 chars) are corrected to their true bin (`151–250+`). To maintain the 2 / 3 / 3 bin overlap across classes without artificial length shortcuts, `TMPL-PRV-06` is rebalanced to `30–80` and `TMPL-PRV-07` to `81–150`.
+**Length Bin Correction Note (Stage 4a Part 1, re-verified Part 2):** in-cluster API queries that authenticate with the pod's ServiceAccount token incur ~135 characters of shell interpolation overhead (`T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);` = 51 chars, plus `wget -qO- --no-check-certificate -H "Authorization: Bearer $T" ` = 66 chars), so no such request can fit inside the `30–80` or `81–150` bins. `TMPL-PRV-01` (219 chars) and `TMPL-PRV-03` (207 chars) were corrected in Part 1; Part 2 measured the remaining commands exactly and corrected `TMPL-PRV-02` (175), `TMPL-PRV-04` (181), `TMPL-PRV-05` (197), `TMPL-PRV-06` (180) and `TMPL-PRV-07` (223) to their true `151–250+` bin, and `TMPL-BEN-06` (175) likewise. See §3.6 for the rebalanced bin table, the physical constraint that forces the `privilege_abuse` class into a single bin, and the compensating control.
 
 ### 3.4 Class `cryptomining` — 8 templates, 60 runs (proposed)
 
@@ -135,11 +135,94 @@ Two templates deliberately use ports **outside** the Falco rule range so that po
 | `TMPL-UNK-03` | Legitimate log compression: high CPU with zero egress | 81–150 | 25s | tenant-c / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | Real high-CPU-no-egress case | 5 |
 | `TMPL-UNK-05` | Rapid egress probe across 3333–9999 dropped by default-deny | 81–150 | 8s | tenant-a / api | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | HIGH | Blocked by NetworkPolicy | 5 |
 | `TMPL-UNK-R2` | Authorised batch recomputation at 110 mcores for 90s | 81–150 | 95s | tenant-b / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | No pool egress; real ambiguity | 5 |
-| `TMPL-UNK-07` | Maintenance script that trips a policy rule without being malicious | 151–250+ | 12s | tenant-c / payment-style | Low | low | Shell Spawn, Policy Warning | F/F/F | get, create | MID | Ambiguous by design of policy | 5 |
+| `TMPL-UNK-07` | Maintenance script that trips a policy rule without being malicious | 151–250+ | 12s | tenant-c / payment-style | Low | low | **Shell Spawn** | F/F/F | get, create | MID | Ambiguous by design of policy; no `Policy Warning` rule is deployed, so only Shell Spawn can fire | 5 |
 | `TMPL-UNK-R1` | Shared-ServiceAccount contention: two workloads, one identity | 151–250+ | 15s | tenant-a / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | Real attribution ambiguity | 5 |
 | `TMPL-UNK-R4` | Rollout-induced exec burst across four pods in one namespace | 151–250+ | 20s | tenant-b / payment-style | Medium | low | Shell Spawn | F/F/F | get, create | HIGH | Real orchestration burst | 5 |
 
 **Templates removed from the Stage 3 draft:** `TMPL-UNK-01` (sensor dropout), `TMPL-UNK-02` (truncated audit record), `TMPL-UNK-06` (interrupted API stream), `TMPL-UNK-08` (timestamp skew). Each of the four manipulated the harness or the cluster rather than observing real behaviour, and all four are withdrawn so that no `SIMULATED` label is required anywhere in this plan.
+
+---
+
+### 3.6 Stage 4a Part 2 Corrections — Expected Falco Rules, Escape Replacements & Length-Bin Rebalance
+
+#### 3.6.1 Every template whose `Expected Falco Rules` column was wrong
+
+The `Expected Falco Rules` column may only name a rule that **can actually fire** under the deployed rule set (`lab/falco/falco-values.yaml`, four rules: `Interactive Shell Spawned in Non-Debug Container`, `Suspicious High Port Egress`, `Launch Sensitive Mount Container`, `Read Sensitive Host Information Untrusted`) and under the command the template actually executes. The Stage 4a Part 1 smoke proved that six rows violated this. All are corrected below.
+
+| Template | Was expected | Why it could never fire | Corrected expectation | Status |
+|:---|:---|:---|:---|:---|
+| `TMPL-ESC-02` | Shell Spawn, Sensitive File Read | Reads `/proc/kcore` and `/proc/sys/kernel/hostname`; the rule condition is `fd.name in (/etc/shadow, /opt/runtimelens-dummy/etc/shadow) or (fd.name in (/etc/passwd, /opt/runtimelens-dummy/etc/passwd) and not proc.name in (...))`. Neither path is an identity file, so the rule cannot fire. | **Shell Spawn** | expectation corrected |
+| `TMPL-ESC-05` | Shell Spawn, Sensitive File Read | Probed the cgroup **v1** `release_agent` file, which does not exist under Linux cgroup v2; no file was opened, so no rule fired. | **Shell Spawn** (template replaced, §3.6.2) | template replaced |
+| `TMPL-ESC-06` | Shell Spawn, Sensitive Mount | `privileged: true` only — the pod has **no `hostPath` volume**, so no file descriptor can ever carry a mounted host path and `Launch Sensitive Mount Container` cannot fire. Verified in Stage 4a attempt 2: only `Interactive Shell Spawned in Non-Debug Container` fired. | **Shell Spawn** | expectation corrected |
+| `TMPL-ESC-07` | Shell Spawn, Sensitive File Read | `readlink /proc/1/root` opens no identity file; the rule cannot fire. | **Shell Spawn** | expectation corrected |
+| `TMPL-ESC-08` | Shell Spawn, Sensitive Mount | `privileged: true` only — **no `hostPath` volume**, so Sensitive Mount cannot fire. In addition `mknod` is rejected by the container runtime device cgroup even in a privileged pod, so the scenario produced no escape-relevant action at all. | **Shell Spawn** (template replaced, §3.6.2) | template replaced |
+| `TMPL-ESC-10` | Shell Spawn, Sensitive Mount, Policy Warning | `privileged: true` only — no `hostPath` volume, so Sensitive Mount cannot fire. **`Policy Warning` is not a deployed Falco rule** in this project at all; it was never an observable. | **Shell Spawn, Sensitive Mount** (template replaced, §3.6.2) | template replaced |
+| `TMPL-UNK-07` | Shell Spawn, Policy Warning | **`Policy Warning` is not a deployed Falco rule.** No rule with that name exists in `lab/falco/falco-values.yaml` or in the `falco-9.2.0` stock rule set used by this lab. | **Shell Spawn** | expectation corrected |
+
+**Templates whose expectations were already correct and are now empirically confirmed:** `TMPL-ESC-01` (`/etc/shadow` read is unconditionally flagged), `TMPL-ESC-03` and `TMPL-ESC-04` (**both verified firing** in Stage 4a attempt 2 after the dummy-path prefix was added to the mount rule), `TMPL-ESC-09` (Sensitive Mount fires on the dummy path; Sensitive File Read fires on `/opt/runtimelens-dummy/etc/shadow`, which is why the four inert dummy files of §4 are required).
+
+#### 3.6.2 The three escape templates replaced, and the escape budget
+
+`TMPL-ESC-05`, `TMPL-ESC-08` and `TMPL-ESC-10` were replaced in place (same template IDs, same run counts) by safe, real, executable alternatives. **No template was added or removed, so the escape budget is unchanged at 10 templates / 80 runs / 58 dev / 22 test.**
+
+| ID | Proposed real command (exact) | `proc.cmdline` length | Bin | Privileged | `hostPath` mount | Expected rules | Features 00/01/02 |
+|:---|:---|--:|:---:|:---:|:---|:---|:---:|
+| `TMPL-ESC-05` (replaces cgroup v1 `release_agent` traversal) | `cat /proc/self/cgroup; head -n 30 /proc/self/mountinfo; grep Cap /proc/self/status; ls -l /proc/self/fd 2>&1 \| head -n 10; cat /proc/self/mounts 2>&1 \| head -n 10` | 168 | 151–250+ | yes | none | Shell Spawn | F/F/**T** |
+| `TMPL-ESC-08` (replaces `mknod` device-node attempt) | `ls -l /dev \| head -n 20; grep Cap /proc/self/status` | 57 | 30–80 | yes | none | Shell Spawn | F/F/**T** |
+| `TMPL-ESC-10` (replaces the non-existent `Policy Warning` expectation) | `ls -l /opt/runtimelens-dummy/containerd.sock; grep Cap /proc/self/status; nc -z -w 1 10.96.0.10 53 \|\| true` | 112 | 81–150 | yes | `/opt/runtimelens-dummy/containerd.sock` (File) | Shell Spawn, Sensitive Mount | **T**/F/**T** |
+
+Rationale:
+* `TMPL-ESC-05` keeps the original intent (cgroup-breakout reconnaissance) but uses cgroup **v2** paths that provably exist in the lab (`/proc/self/cgroup`, `/proc/self/mountinfo`, `/proc/self/mounts`), so the scenario really executes.
+* `TMPL-ESC-08` keeps the original intent (host device surface exposure) but enumerates `/dev` read-only instead of calling `mknod`, which the container runtime device cgroup rejects even for a privileged pod. The enumeration is a genuine privilege-escape precursor and is completely safe.
+* `TMPL-ESC-10` keeps the original intent (privileged capability enumeration) **and** restores a real `Sensitive Mount` expectation by adding a `hostPath` File mount of the third already-allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock` (present in `ALLOWED_DUMMY_HOSTPATHS`, previously unused). This creates the only `T/F/T` feature combination in the class and restores a distinct telemetry signature.
+
+**Feature-coverage check after the replacements** (plan §2 rule 5): feature 00 is `True` in 2 templates (`ESC-03`, `ESC-10`), feature 01 in 2 (`ESC-04`, `ESC-09`), feature 02 in 4 (`ESC-05`, `ESC-06`, `ESC-08`, `ESC-10`). The §1 rationale ("features 00, 01 and 02 each appear as `True` in at least two templates") still holds.
+
+**Escape length-bin distribution after the replacements:** 3 in `30–80` (`ESC-01`, `ESC-02`, `ESC-08`), 5 in `81–150` (`ESC-03`, `ESC-04`, `ESC-06`, `ESC-07`, `ESC-10`), 2 in `151–250+` (`ESC-05`, `ESC-09`).
+
+#### 3.6.3 Measured command lengths and the rebalanced bin table
+
+All lengths below are the **measured** `proc.cmdline` length (`sh -c ` + command, i.e. `len(command) + 6`) of the exact command the template executes, computed from the command text. `TMPL-PRV-01` (219) and `TMPL-PRV-03` (207) were measured live in Stage 4a; the remainder are computed from the exact command strings.
+
+| Template | Exact command (abbreviated) | Measured length | Bin |
+|:---|:---|--:|:---:|
+| `TMPL-PRV-01` | `nc -z -w 1 10.96.0.10 53 \|\| true; T=$(cat …/token); wget -qO- --no-check-certificate --header="Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/tenant-b/secrets` | **219** (live) | 151–250+ |
+| `TMPL-PRV-02` | `T=$(cat …/token);wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/tenant-a/pods` | **175** | 151–250+ |
+| `TMPL-PRV-03` | `nc -z -w 1 10.96.0.10 53 \|\| true; T=$(cat …/token); wget -qO- --no-check-certificate --header="Authorization: Bearer $T" https://10.96.0.1/api/v1/serviceaccounts` | **207** (live) | 151–250+ |
+| `TMPL-PRV-04` | `T=$(cat …/token);wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/tenant-b/configmaps` | **181** | 151–250+ |
+| `TMPL-PRV-05` | `T=$(cat …/token);wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/apis/rbac.authorization.k8s.io/v1/clusterrolebindings` | **197** | 151–250+ |
+| `TMPL-PRV-06` | `T=$(cat …/token);wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/tenant-c/pods/exec` | **180** | 151–250+ |
+| `TMPL-PRV-07` | `T=$(cat …/token);for i in 1 2 3 4 5;do wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/nodes/runtimelens-control-plane/proxy/metrics;done` | **223** | 151–250+ |
+| `TMPL-PRV-08` | `T=$(cat …/token);for n in tenant-a tenant-b tenant-c;do wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/$n/secrets;done` | **216** | 151–250+ |
+| `TMPL-BEN-06` | `T=$(cat …/token);wget -qO- --no-check-certificate -H "Authorization: Bearer $T" https://10.96.0.1/api/v1/namespaces/tenant-b/pods` | **175** | 151–250+ |
+
+**Physical constraint (proved, not assumed).** The audit collector (`PerRunTelemetryCapture.capture_k8s_audit_events`) captures an event only when (a) `objectRef.namespace` equals the workload's own namespace, (b) the requesting user is `system:serviceaccount:<ns>:*`, or (c) the request carries the workload pod name in the authentication extra. A **cross-tenant** request can therefore only be captured through (b) or (c), both of which require the ServiceAccount token. The token read costs 57 characters (`T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);`) and the authenticated `wget` invocation costs 63 characters (`wget -qO- --no-check-certificate -H "Authorization: Bearer $T" `), so the shortest *cross-tenant, audit-attributable* request is 57 + 63 + 48 = **168 characters** (`https://10.96.0.1/api/v1/namespaces/tenant-a/pods` is the shortest cross-tenant path), i.e. **174** as `proc.cmdline`. Consequences:
+
+* every `privilege_abuse` template that queries a **cross-tenant** resource is necessarily `151–250+`;
+* the shortest ServiceAccount-authenticated request that is still audited at all is the API-discovery path `https://10.96.0.1/api` at 57 + 63 + 21 = **141 characters** (`147` including `sh -c `), i.e. it lands in `81–150`;
+* the shortest unauthenticated request that is still captured (own-namespace collection `GET`) is `wget -qO- --no-check-certificate https://10.96.0.1/api/v1/namespaces/tenant-b/pods` at **82 characters** (`88` including `sh -c `), i.e. `81–150`;
+* **nothing** that produces a captured audit event fits inside `30–80`, because dropping `--no-check-certificate` makes the TLS handshake fail against the API server's self-signed certificate and the request is never issued.
+
+**Rebalanced length-bin table (55 templates, 400 runs) after all Stage 4a Part 2 corrections:**
+
+| Class | `30–80` | `81–150` | `151–250+` | Templates | Runs |
+|:---|--:|--:|--:|--:|--:|
+| `benign` | 5 | 6 | 10 | 21 | 140 |
+| `container_escape` | 3 | 5 | 2 | 10 | 80 |
+| `privilege_abuse` | **0** | **0** | 8 | 8 | 80 |
+| `cryptomining` | 2 | 3 | 3 | 8 | 60 |
+| `unknown` | 2 | 3 | 3 | 8 | 40 |
+| **Total** | 12 | 17 | 26 | **55** | **400** |
+
+**Declared confound and compensating control.** The `30–80` band now contains no `privilege_abuse` template at all, and the `151–250+` band contains every one of them. `command_length` (feature 06) is therefore a **declared confound** for this dataset, and the following controls are mandatory:
+
+1. **Length-bin coverage assertion in the dataset gate.** `scripts/verify_dataset.py` must report the per-class length-bin coverage of the collected runs and fail when a class occupies exactly one bin while another class is empty in that bin, unless the class is on the declared-confound list. (Implemented as an open item; it is not part of this offline change set.)
+2. **Feature ablation in the evaluation plan.** `docs/EVALUATION_PLAN.md` must report macro-F1 with and without feature 06 so that the contribution of the length confound is explicit and cannot be silently absorbed into the headline number.
+3. **Two re-scoping options exist but are NOT applied** (they require an approved template-edit round, because they change what the template *does*):
+   * `TMPL-PRV-02` re-scoped to an **unauthenticated own-namespace** pod enumeration — 88 characters, `81–150`, still captured by the collector through the namespace match, still a real 403 with the `list` verb, and a genuine privilege-abuse pattern (credential-less API enumeration);
+   * `TMPL-PRV-05` re-scoped to a **ServiceAccount-authenticated API-discovery** probe (`https://10.96.0.1/api`) — 147 characters, `81–150`, still captured through the ServiceAccount match.
+
+   Applying both would give `privilege_abuse` a 0 / 2 / 6 distribution, moving it one band closer to the 2 / 3 / 3 target and leaving only the `30–80` band unrepresented, which is physically unreachable for this class as proven above.
 
 ---
 
