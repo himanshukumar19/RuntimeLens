@@ -638,15 +638,34 @@ Round 3 executed the seven changed or never-run templates with no gate failure. 
 - **Impact on the dataset: none.** The per-run capture reads the **Falco pod's own log** (`kubectl logs -n falco`), not the webhook, so every run in this round captured its Falco events normally.
 - **Impact on the project: real.** The live "Falco → webhook → HMAC audit record" path, which is a core deliverable of the vertical slice, is currently refusing every event because the two receiver processes were started without their secret environment variables. The receivers are refusing *rather than accepting unauthenticated* traffic, which is the correct fail-safe behaviour, but the pipeline is non-functional and must be restarted with the secrets configured. This is a separate defect from the dataset work and is reported here for a dedicated fix.
 
-### 11.4 Round 3 summary against the plan
+### 11.4 Round 4 — the two deviations are closed
+
+After the approved edit round, `TMPL-ESC-04` and `TMPL-ESC-09` were re-run with one read of a **non-identity** dummy file added (`head -n 1 /opt/runtimelens-dummy/etc/hosts`), and `TMPL-PRV-07`'s Hubble band was corrected from `MID` to `HIGH`.
+
+```text
+run-s4a-05    TMPL-ESC-04  falco=3  hubble=1  prom=2  cpu[0.0/0.59/0.59]  dur=10.16s  gate=PASSED
+  - Interactive Shell Spawned in Non-Debug Container
+  - Read Sensitive Host Information Untrusted   fd.name=/opt/runtimelens-dummy/etc/shadow
+  - Launch Sensitive Mount Container           fd.name=/opt/runtimelens-dummy/etc/hosts
+
+run-s4a-r2-03 TMPL-ESC-09  falco=4  hubble=9  prom=2  cpu[0.0/0.0/0.0]    dur=7.13s   gate=PASSED
+  - Interactive Shell Spawned in Non-Debug Container
+  - Read Sensitive Host Information Untrusted   fd.name=/opt/runtimelens-dummy/etc/shadow
+  - Read Sensitive Host Information Untrusted   fd.name=/opt/runtimelens-dummy/etc/passwd
+  - Launch Sensitive Mount Container           fd.name=/opt/runtimelens-dummy/etc/hosts
+```
+
+Both templates now produce **all three** expected rules, and the plan's `Expected Falco Rules` column is realised exactly. The `TMPL-ESC-04` bin moves from `81–150` to `151–250+` (104 -> 161 characters) because of the added read; `TMPL-ESC-09` moves from 252 to 309 characters, still `151–250+`. The escape class length-bin distribution becomes `2 / 5 / 3` and the corpus totals `11 / 16 / 28`.
+
+### 11.5 Round 3 summary against the plan
 | Template | Falco rules | Audit verbs | Hubble band | CPU peak/median | Features 00/01/02 | Verdict |
 |:---|:---|:---|:---|:---|:---|:---|
-| `TMPL-ESC-09` | identity rule now fires; mount rule missing | get, create | 9 MID ✓ | 2.26 / 1.13 ✓ | F/T/F ✓ | **deviation** (§11.1) |
+| `TMPL-ESC-09` | identity rule now fires; mount rule missing | get, create | 9 MID ✓ | 2.26 / 1.13 ✓ | F/T/F ✓ | **deviation** (§11.1) — **closed in Round 4** |
 | `TMPL-ESC-10` | Shell Spawn + Sensitive Mount ✓ | get, create | 7 MID ✓ | 0.00 / 0.00 ✓ | **T/F/T** ✓ | as planned |
 | `TMPL-BEN-14` | Shell Spawn ✓ | get, create | 8 MID ✓ | 104.63 / 0.00 ✓ | F/F/F ✓ | as planned |
 | `TMPL-BEN-16` | Shell Spawn ✓ | get, create | 10 MID ✓ | 62.31 / 2.11 ✓ | F/F/F ✓ | as planned |
 | `TMPL-BEN-17` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 104.22 / 0.00 ✓ | F/F/F ✓ | as planned |
-| `TMPL-PRV-07` | Shell Spawn ✓ | get ✓ | **46 HIGH** | 0.00 / 0.00 ✓ | F/F/F ✓ | **deviation** (§11.2) |
+| `TMPL-PRV-07` | Shell Spawn ✓ | get ✓ | **46 HIGH** | 0.00 / 0.00 ✓ | F/F/F ✓ | **deviation** (§11.2) — **band corrected to HIGH in the plan** |
 | `TMPL-UNK-R2` | Shell Spawn ✓ | get, create | 4 LOW ✓ | 117.69 / 15.31 ✓ | F/F/F ✓ | as planned |
 
 ---

@@ -339,6 +339,27 @@ cd /home/ubuntu/RuntimeLens
 PYTHONPATH=src:. python3 scripts/stage4a_runner.py 4
 ```
 
+### 2.11 Round 4 — **PROPOSAL ONLY, NOT EXECUTED**
+
+32 of the 55 registered templates have never been executed. The proposal below batches them in groups of ten, **grouped by class inside each batch** (the templates of a class are contiguous) and arranged so that **every class is represented in every batch that contains it**, so that a mid-batch stop still leaves the collected set spanning all five classes. The last batch holds the two remaining templates because 32 is not a multiple of ten.
+
+**Prerequisite: the commands of these 32 templates do not exist yet.** Writing them is a separate, reviewable step that must respect everything the Stage 4a rounds established:
+* the twelve **local-only** templates (`BEN-02`, `BEN-03`, `BEN-08`, `BEN-10`, `BEN-15`, `ESC-01`, `ESC-02`, `ESC-07`, `UNK-04`, `UNK-07`, `UNK-R1`, `UNK-R4`) must carry exactly **one declared D-29 network observation** (type A, B or C), otherwise they produce zero Hubble flows and fail the per-run gate;
+* the BusyBox `wget` option form is **`--header=`** (never `-H`);
+* the three unthrottled mining templates (`MNR-01`, `MNR-02`, `MNR-05`, `high` profile, 130 s) must reproduce the Decision D-22 busy-loop calibration, and the four throttled ones (`MNR-04`, `MNR-06`, `MNR-07`, `MNR-08`) the Decision D-27 post-lag profile;
+* every command's length must be measured and the registry's length bin corrected to the measured value before the run.
+
+| Batch | Templates (class-grouped) | Classes | Est. wall time |
+|:--:|:---|:---|--:|
+| **1** | `MNR-01`, `MNR-02`, `MNR-04`, `MNR-05`, `MNR-06`, `MNR-07`, `MNR-08` (mining) → `PRV-06`, `PRV-08` (privilege) → `ESC-01` (escape) | mining, privilege, escape | ~25 min (the three 130 s mining templates dominate) |
+| **2** | `UNK-04`, `UNK-05`, `UNK-07`, `UNK-R1`, `UNK-R3`, `UNK-R4` (unknown) → `ESC-02`, `ESC-07` (escape) → `BEN-02`, `BEN-03` (benign) | unknown, escape, benign | ~8 min |
+| **3** | `BEN-05`, `BEN-07`, `BEN-08`, `BEN-09`, `BEN-10`, `BEN-12`, `BEN-13`, `BEN-15`, `BEN-18`, `BEN-19` (benign) | benign | ~6 min |
+| **4** | `BEN-20`, `BEN-21` (benign) | benign | ~2 min |
+
+Class coverage check: benign 2+10+2 = 14, escape 1+2 = 3, privilege 2, mining 7, unknown 6 — **32 templates, all five classes covered**.
+
+**Not executed.** Round 4 requires (a) the 32 command texts to be written and their length bins re-derived, (b) an approval of the batch plan, and (c) a runner round selection for each batch.
+
 **Round 3 attempt history.**
 
 | Attempt | Scope | Result | Status |
