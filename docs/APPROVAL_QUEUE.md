@@ -25,3 +25,22 @@
 ## Active Approval Items
 
 *(No active approval items pending.)*
+
+---
+
+## Deferred Items — explicitly postponed by user decision, not awaiting an answer
+
+### A-009 — Live webhook secrets and correlation wiring (DEFERRED, after the dataset)
+
+| Field | Value |
+|:---|:---|
+| **ID** | A-009 (deferred) |
+| **Ticket** | Ticket 10 (vertical slice) / Ticket 03 follow-up — live alert-to-audit correlation |
+| **What** | The live `Falco -> webhook -> HMAC audit record` pipeline and the `kube-apiserver -> audit webhook` pipeline are non-functional: both receivers refuse every request because their shared secrets are not in their environments. The two **environment variable names** are `FALCO_WEBHOOK_SECRET` (expected by `src/runtimelens/collector/webhook.py:46`) and `K8S_AUDIT_WEBHOOK_SECRET` (expected by `src/runtimelens/collector/audit_webhook.py:45`). The values must come from: (a) the `bearerToken` entry of `/etc/kubernetes/policies/audit-webhook.yaml` on the VM (root-only, mode 0600) for the audit receiver, and (b) the `token=` query parameter of `falco.http_output.url`, currently the placeholder `REDACTED_WEBHOOK_TOKEN` in the committed `lab/falco/falco-values.yaml`, for the Falco receiver. |
+| **Exact commands** | **NOT RUN — the verbatim command list is withheld from execution and will be written out for review when this item is approved.** The procedure has four steps: (1) read the root-only apiserver webhook config to obtain the audit `bearerToken`; (2) write the secret into a 0600 file **outside** the repository; (3) restart `lab/run_webhook.py` and `lab/run_audit_webhook.py` with the secret in their environment; (4) `helm upgrade` the Falco daemonset with a matching `falco.http_output.url` token through a **non-git-tracked** values override. Step 1 needs `sudo` and step 4 restarts the Falco pod, which is why the whole item is deferred rather than executed. |
+| **What it changes** | Creates a 0600 secret file outside the repository, restarts the two webhook receiver processes with the secret in their environment, and re-deploys the Falco daemonset with a matching token via a **non-git-tracked** Helm values override. No repository file would ever contain a real secret. |
+| **Undo** | `pkill -f 'lab/run_webhook.py'; pkill -f 'lab/run_audit_webhook.py'` (stops the receivers) and `helm upgrade falco … -f lab/falco/falco-values.yaml` (restores the placeholder token). Delete the 0600 secret file. |
+| **Risk** | The `helm upgrade` briefly restarts the Falco daemonset, which would interrupt telemetry capture; the receivers log to `/tmp/falco_webhook.log` and `/tmp/audit_webhook.log`. Reading the root-only apiserver config requires `sudo`, which is outside the currently approved operations. A token mismatch would leave the pipeline in the same refusing state (no worse than now). |
+| **Recommendation** | **[RECOMMENDATION]** Defer until after the 400-run dataset is collected. The per-run capture path is **not** affected: `capture_falco_alerts` reads the Falco **pod log** (`kubectl logs -n falco`), not the webhook, and every run of the current corpus captured its Falco events normally. The live correlation path is a separate deliverable and must not consume a dataset-collection window. |
+| **What it blocks** | The live `Falco -> webhook -> HMAC audit record` demo of the vertical slice, and the audit-webhook ingestion path used by the live correlation demo. It blocks **no** dataset run. |
+| **State** | DEFERRED BY USER DECISION (2026-10-22): "Webhook restart: NOT approved now (needs sudo and a secret copy, and a Falco redeploy would interrupt capture). Log it as a deferred ticket 'live webhook secrets and correlation wiring', for after the dataset." |

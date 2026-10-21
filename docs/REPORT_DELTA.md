@@ -700,3 +700,156 @@ The permuted-label baseline falling from 0.9365 to 0.1042 is the clearest eviden
 
 ### 12.4 The caveat that is now recorded in the code
 With very few template groups a fold can train on a single class, which makes the estimate degenerate. The diagnostic sections therefore state their status explicitly and remain labelled **DIAGNOSTIC ONLY** until the corpus reaches **100 runs and 10 template groups**. No number from sections 4/5 may be quoted as a generalisation figure before that.
+
+---
+
+## 13. Stage 4a Round 4 — The Command-Writing Round (offline; nothing executed)
+
+### 13.1 What this round did and what it did not do
+
+This round wrote the **exact commands** of the 32 templates that had never been executed and corrected the master registry against them. **Nothing was run on the cluster.** No pod was created, no telemetry was captured, no gate was evaluated. The deliverables are the command definitions, the corrected registry rows, the two class-level tables and a machine-checked plan-vs-runner consistency check.
+
+The definitions live in `scripts/stage4a_round4.py`; the runner exposes them as `ROUND5_TEMPLATES` with the four batch selectors `5a`–`5d`:
+
+```bash
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5a   # 10 templates
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5b   # 10 templates
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5c   # 10 templates
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d   # 2 templates
+```
+
+### 13.2 The rules every command obeys
+
+| Rule | Source | How it is enforced |
+|:---|:---|:---|
+| Exactly one declared D-29 observation (A/B/C/D) for every scenario with no network activity of its own | D-29 | `scripts/stage4a_round4.py::_append_observations()`; unit test `test_every_local_only_template_carries_exactly_one_observation` |
+| The BusyBox `wget` option form is `--header=`, never `-H` | D-29 correction (Round 2 attempt 2) | unit test `test_no_command_uses_the_unsupported_busybox_wget_option` |
+| The mining templates use the measured `TMPL-MNR-03` 3000-iteration inner loop; the `high` ones saturate the 200 mcores cgroup cap for ~125 s, the `throttled` ones hold a measured duty cycle | D-22 / D-27 | unit test `test_mining_templates_use_the_verified_inner_loop_shape` |
+| A `burst` template holds its load for >= 30 s inside a 90 s window | D-30 | the D-30 burst templates are unchanged in this round |
+| No class name, scenario id, template id or run id appears in any command | Rule 10(c) of `AGENTS.md` | unit tests `test_no_command_leaks_a_class_name_or_an_identifier` and `test_no_command_contains_a_scenario_or_template_identifier` |
+| Every sandbox manifest passes the safety linter | D-06 / §3.3 of `docs/REPORT_DELTA.md` | unit test `test_sandbox_manifests_pass_the_safety_linter` |
+
+### 13.3 The 32 commands, with their measured properties
+
+`cmd chars` is the measured `proc.cmdline` length (`len(command) + 6` for the `sh -c ` prefix). **Bin** is the registry band that follows from it.
+
+| Template | Class | Batch | cmd chars | Bin | CPU profile | Hubble band | Expected Falco rules | Features | Verbs | Observation |
+|:---|:---|:--:|--:|:---|:---|:---|:---|:---|:---|:---|
+| `TMPL-MNR-01` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
+| `TMPL-MNR-02` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D + A |
+| `TMPL-MNR-04` | cryptomining | A | 135 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-MNR-05` | cryptomining | A | 184 | 151-250+ | high | LOW | Shell Spawn | F/F/F | create, get | own D + A |
+| `TMPL-MNR-06` | cryptomining | A | 134 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-MNR-07` | cryptomining | A | 230 | 151-250+ | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own A |
+| `TMPL-MNR-08` | cryptomining | A | 135 | 81-150 | throttled | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-PRV-06` | privilege_abuse | A | 260 | 151-250+ | low | MID | Shell Spawn | F/F/F | create, get | obs A |
+| `TMPL-PRV-08` | privilege_abuse | A | 270 | 151-250+ | low | HIGH | Shell Spawn | F/F/F | create, get, list | obs D |
+| `TMPL-ESC-01` | container_escape | A | 93 | 81-150 | low | LOW | Shell Spawn, Sensitive File Read | F/F/F | create, get | obs A |
+| `TMPL-UNK-04` | unknown | B | 81 | 81-150 | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-UNK-05` | unknown | B | 99 | 81-150 | low | HIGH | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-UNK-07` | unknown | B | 75 | 30-80 | low | MID | Shell Spawn | F/F/F | create, get | own B |
+| `TMPL-UNK-R1` | unknown | B | 181 | 151-250+ | low | MID | Shell Spawn | F/F/F | create, get, list | own C |
+| `TMPL-UNK-R3` | unknown | B | 52 | 30-80 | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-UNK-R4` | unknown | B | 74 | 30-80 | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-ESC-02` | container_escape | B | 133 | 81-150 | low | MID | Shell Spawn | F/F/F | create, get | obs C |
+| `TMPL-ESC-07` | container_escape | B | 74 | 30-80 | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-BEN-02` | benign | B | 68 | 30-80 | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-BEN-03` | benign | B | 57 | 30-80 | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-BEN-05` | benign | C | 52 | 30-80 | low | LOW | Shell Spawn | F/F/F | create, get | own D |
+| `TMPL-BEN-07` | benign | C | 84 | 81-150 | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-BEN-08` | benign | C | 84 | 81-150 | low | LOW | Shell Spawn | F/F/F | create, get | obs A |
+| `TMPL-BEN-09` | benign | C | 52 | 30-80 | low | LOW | Shell Spawn | F/F/F | create, get | own D |
+| `TMPL-BEN-10` | benign | C | 74 | 30-80 | low | LOW | Shell Spawn | F/F/F | create, get | obs D |
+| `TMPL-BEN-12` | benign | C | 126 | 81-150 | low | LOW | Shell Spawn | F/F/F | create, get | own A |
+| `TMPL-BEN-13` | benign | C | 157 | 151-250+ | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-BEN-15` | benign | C | 264 | 151-250+ | low | MID | Shell Spawn | F/F/F | create, get | obs B |
+| `TMPL-BEN-18` | benign | C | 187 | 151-250+ | low | MID | Shell Spawn | F/F/F | create, get, list | own C |
+| `TMPL-BEN-19` | benign | C | 129 | 81-150 | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-BEN-20` | benign | D | 52 | 30-80 | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+| `TMPL-BEN-21` | benign | D | 194 | 151-250+ | low | LOW | Shell Spawn, High Port Egress | F/F/F | create, get | own D |
+
+### 13.4 The two class-level tables
+
+**Table 1 — observation type per class** (effective type: the declared D-29 observation, or the template's own network activity).
+
+| Class | A (DNS) | B (TCP to cluster DNS) | C (API discovery) | D (UDP to inert IP) | Templates |
+|:---|--:|--:|--:|--:|--:|
+| `benign` | 3 | 5 | 4 | 9 | 21 |
+| `container_escape` | 2 | 5 | 2 | 1 | 10 |
+| `privilege_abuse` | 1 | 2 | 4 | 1 | 8 |
+| `cryptomining` | 4 | 0 | 0 | 4 | 8 |
+| `unknown` | 1 | 3 | 1 | 3 | 8 |
+
+All four observation types appear in the `benign`, `container_escape` and `privilege_abuse` classes. The `cryptomining` class carries only A and D because a mining client resolves a pool name (A) and opens a pool connection (D) and does nothing else; the `unknown` class carries no C beyond the single `TMPL-UNK-R1` API read because no other unknown scenario performs an API-discovery read.
+
+**Table 2 — expected Falco rule sets per class** (only rules that can really fire under the deployed rule set).
+
+| Class | Expected rule set | Templates | Share | Flag |
+|:---|:---|--:|--:|:---|
+| `benign` | `Shell Spawn` | 15 | 71.4 % | **FLAGGED** |
+| `benign` | `Shell Spawn` + `High Port Egress` | 6 | 28.6 % | |
+| `container_escape` | `Shell Spawn` | 5 | 50.0 % | |
+| `container_escape` | `Shell Spawn` + `Sensitive Mount` | 2 | 20.0 % | |
+| `container_escape` | `Shell Spawn` + `Sensitive Mount` + `Sensitive File Read` | 2 | 20.0 % | |
+| `container_escape` | `Shell Spawn` + `Sensitive File Read` | 1 | 10.0 % | |
+| `privilege_abuse` | `Shell Spawn` | 8 | 100 % | **FLAGGED** |
+| `cryptomining` | `Shell Spawn` + `High Port Egress` | 6 | 75.0 % | **FLAGGED** |
+| `cryptomining` | `Shell Spawn` | 2 | 25.0 % | |
+| `unknown` | `Shell Spawn` | 6 | 75.0 % | **FLAGGED** |
+| `unknown` | `Shell Spawn` + `High Port Egress` | 2 | 25.0 % | |
+
+### 13.5 The four flagged classes, and why the flags are not defects
+
+| Flagged class | Share on one rule set | Why it is the intended property |
+|:---|--:|:---|
+| `benign` | 71.4 % | Most benign scenarios are local work (file touch, `date`, `df`) or a single low-rate probe. A single shared rule set across the class means the rule set carries **no** class information for the benign majority — exactly the anti-shortcut property D-28 was created for. |
+| `privilege_abuse` | 100 % | A privilege attempt in this lab is a **ServiceAccount-authenticated API request**: it is low-CPU, opens no host path and reads no identity file, so no Falco rule describes it. The class is discriminated by the **audit record** (own vs adjacent namespace, credential present or absent) and the **Hubble flow count**, not by Falco. |
+| `cryptomining` | 75 % | Six of the eight mining templates connect to an **in-list** high port and therefore trip `Suspicious High Port Egress`; the two `out-of-list` templates (`MNR-03` on 8080, `MNR-05` on 6379) deliberately do not, so that the class cannot be identified by the port. Mining is discriminated by the **CPU band** (the `high` / `throttled` profiles) plus the port. |
+| `unknown` | 75 % | The unknown class is *ambiguous by design*; three of its six new templates are local or single-probe and therefore fire one rule. Its ambiguity is the scientific point, not an accident. |
+
+`container_escape` is the one class that is **not** flagged (50 % on one rule set): it is the only class whose templates span three distinct rule sets, because the escape scenarios differ in whether they mount a host path, whether they read an identity file, or neither.
+
+### 13.6 The length bins had to be re-derived — and the two anti-confounder controls collide
+
+The `Length Bin` column of the registry was a **design intent** recorded before these 32 commands existed. With the commands written, the bins are re-derived from the measured `proc.cmdline` length, and the corpus totals move from `11 / 16 / 28` to:
+
+| Class | `30–80` | `81–150` | `151–250+` | Templates | (was) |
+|:---|--:|--:|--:|--:|:---|
+| `benign` | 8 | 5 | 8 | 21 | `5 / 6 / 10` |
+| `container_escape` | 1 | 6 | 3 | 10 | `2 / 5 / 3` |
+| `privilege_abuse` | **0** | **1** | 7 | 8 | `0 / 1 / 7` |
+| `cryptomining` | **0** | 4 | 4 | 8 | `2 / 3 / 3` |
+| `unknown` | 3 | 2 | 3 | 8 | `2 / 1 / 5` |
+| **Total** | **12** | **18** | **25** | **55** | `11 / 16 / 28` |
+
+The "was" column is the registry state at commit `30449e2`, recomputed from the same registry rows so that the comparison is like-for-like.
+
+**The tension is real and is disclosed rather than engineered away.** Decision D-29 requires a purely local scenario to carry a network observation of at least 32 characters (type B), which leaves only ~40 characters of a `30–80` band for the scenario itself. Consequently `privilege_abuse` and `cryptomining` **cannot** reach the `30–80` band at all:
+
+* a ServiceAccount-authenticated request costs 126 characters before its URL (57 for the token read, 69 for the authenticated `wget`);
+* a *bounded* busy loop costs at least 50 characters — an unbounded `while :; do :; done` would never terminate the scenario.
+
+Two consequences follow, and both are stated rather than hidden:
+
+1. The residual length↔class association is real but is **not** a live shortcut, because Decision D-28 already removes the raw command length from the classifier feature set (19 → 18 features). The association is reported in the diagnostic output, not exploited.
+2. The `81–150` band is the largest (18 of 55) and the `30–80` band the smallest (12 of 55); the plan's original `11 / 16 / 28` is not recoverable, because the D-29 observation requirement did not exist when the bins were first assigned. **No template was padded to hit a bin**: every command is the shortest honest form of its scenario.
+
+### 13.7 The plan-vs-runner consistency check
+
+`scripts/check_plan_consistency.py` parses all 55 registry rows of `docs/SCENARIO_PLAN_v2.md` and compares each of them against the runner's template definition on **seven** fields — class, length bin, CPU profile, expected Falco rules, the feature triple, the audit verbs and the Hubble band:
+
+```text
+$ PYTHONPATH=src:. python3 scripts/check_plan_consistency.py
+templates checked: 55
+mismatches: 0  (class, length bin, cpu profile, falco rules, features, verbs, band)
+```
+
+**Zero mismatches across 55 templates and 385 field comparisons.**
+
+### 13.8 What this round did **not** establish
+
+* **No command was executed.** Every "expected" value in §13.3 is a *prediction* from the plan and from the measured facts of the earlier rounds. The Hubble bands in particular are predictions: a type-D UDP datagram produced 1–2 flows in the Part 1 corpus, a type-B TCP probe produced 7–8, a type-C API read produced 10 and a cross-tenant read 16–17, and the two templates that add a *second* network activity to a scenario that already has one (`TMPL-PRV-08`, `TMPL-UNK-05`) are predicted to land in the `HIGH` band. These predictions are **not** measurements and are labelled as such.
+* **The mining intensities are predictions**, computed from the measured `TMPL-MNR-03` anchor (89.69 / 100.51 / 100.58 mcores for the 3000-iteration inner loop with a 50 ms pause) by scaling only the pause and the outer iteration count: `MNR-04` ~70 m, `MNR-06` ~58 m, `MNR-07` ~70 m, `MNR-08` ~85 m. The `high` templates are expected to saturate the 200 mcores cgroup cap — the plan's earlier "cgroup-capped at 500m" note was **wrong** and is corrected to 200 m, the measured tenant limit.
+* **The `30–80` band is under-populated relative to the plan's intent** (§13.6). This is a design tension, not a data defect, and it is disclosed in `docs/SCENARIO_PLAN_v2.md` §3.6.6 and in Decision D-33.
+* **The four flagged classes have not been "fixed"**, because the degeneracy is the intended anti-shortcut property (§13.5). Fixing it would mean adding Falco rules that describe privilege attempts or mining CPU, which would make the rule set class-discriminative and destroy the comparison the whole project is built on.

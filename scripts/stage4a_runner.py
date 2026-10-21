@@ -56,6 +56,7 @@ from scripts.stage2_pilot import (
     verify_receiver_ports_listening,
     wait_for_pod_cooldown,
 )
+from scripts.stage4a_round4 import ROUND4_TEMPLATE_DEFS
 
 logger = logging.getLogger("runtimelens.stage4a")
 
@@ -345,6 +346,19 @@ TEMPLATES: list[dict[str, Any]] = [
     },
 ]
 
+
+_BATCH_A_IDS: frozenset[str] = frozenset(
+    t["run_id"] for t in ROUND4_TEMPLATE_DEFS if t["batch"] == "A"
+)
+_BATCH_B_IDS: frozenset[str] = frozenset(
+    t["run_id"] for t in ROUND4_TEMPLATE_DEFS if t["batch"] == "B"
+)
+_BATCH_C_IDS: frozenset[str] = frozenset(
+    t["run_id"] for t in ROUND4_TEMPLATE_DEFS if t["batch"] == "C"
+)
+_BATCH_D_IDS: frozenset[str] = frozenset(
+    t["run_id"] for t in ROUND4_TEMPLATE_DEFS if t["batch"] == "D"
+)
 
 # ---------------------------------------------------------------------------
 # Decision D-29: the benign network-observation vocabulary.
@@ -836,6 +850,43 @@ ROUND4_TEMPLATES: list[dict[str, Any]] = [
     _ROUND2_BY_ID["TMPL-ESC-09"],
 ]
 
+
+# ---------------------------------------------------------------------------
+# Stage 4a ROUND 4 template set: the 32 never-run templates of the master
+# registry, in the four proposed batches (A: 10, B: 10, C: 10, D: 2).
+#
+# The definitions live in `scripts/stage4a_round4.py`.  They are *proposed*:
+# this is the command-writing round, nothing has been executed.
+#
+# Naming: the runner's round `4` above is the two D-31 re-runs (`ESC-04`,
+# `ESC-09`).  The 32-template corpus-completion set is the *project's* Round 4
+# and is therefore exposed by the runner as rounds `5a`-`5d`, with run ids
+# `run-s4a-r4-01` .. `run-s4a-r4-32`.
+# ---------------------------------------------------------------------------
+def _build_round4_templates() -> list[dict[str, Any]]:
+    """Materialise the Round 4 template registry, adding the sandbox manifests."""
+    built: list[dict[str, Any]] = []
+    for definition in ROUND4_TEMPLATE_DEFS:
+        template: dict[str, Any] = {
+            key: value
+            for key, value in definition.items()
+            if key not in {"batch", "own", "intensity"}
+        }
+        if template["mode"] == "sandbox":
+            template["pod_spec"] = _pod_spec(template["pod_name"])
+        built.append(template)
+    return built
+
+
+ROUND5_TEMPLATES: list[dict[str, Any]] = _build_round4_templates()
+ROUND5_BATCHES: dict[str, list[dict[str, Any]]] = {
+    "a": [t for t in ROUND5_TEMPLATES if t["run_id"] in _BATCH_A_IDS],
+    "b": [t for t in ROUND5_TEMPLATES if t["run_id"] in _BATCH_B_IDS],
+    "c": [t for t in ROUND5_TEMPLATES if t["run_id"] in _BATCH_C_IDS],
+    "d": [t for t in ROUND5_TEMPLATES if t["run_id"] in _BATCH_D_IDS],
+}
+ROUND5_TEMPLATE_IDS: tuple[str, ...] = tuple(t["template_id"] for t in ROUND5_TEMPLATES)
+
 # Round identifiers accepted by the CLI.
 ROUND1_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in TEMPLATES)
 ROUND2_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in ROUND2_TEMPLATES)
@@ -843,7 +894,18 @@ ROUND3_TEMPLATE_IDS_SET: frozenset[str] = frozenset(ROUND3_TEMPLATE_IDS)
 
 
 def select_templates(round_id: str) -> list[dict[str, Any]]:
-    """Return the template set for the requested Stage 4a round."""
+    """Return the template set for the requested Stage 4a round.
+
+    Accepted selectors:
+
+    * ``1`` — the ten Part 1 templates;
+    * ``2`` — the thirteen Round 2 templates;
+    * ``3`` — the seven Round 3 templates;
+    * ``4`` — the two D-31 re-runs (``ESC-04``, ``ESC-09``);
+    * ``5a``/``5b``/``5c``/``5d`` — the four batches of the Round 4
+      corpus-completion set (the 32 templates that had never been executed),
+      defined in ``scripts/stage4a_round4.py``.
+    """
     if round_id == "1":
         return list(TEMPLATES)
     if round_id == "2":
@@ -852,7 +914,11 @@ def select_templates(round_id: str) -> list[dict[str, Any]]:
         return list(ROUND3_TEMPLATES)
     if round_id == "4":
         return list(ROUND4_TEMPLATES)
-    raise ValueError(f"unknown round: {round_id!r} (expected '1', '2', '3' or '4')")
+    if round_id.startswith("5") and round_id[1:] in ROUND5_BATCHES:
+        return list(ROUND5_BATCHES[round_id[1:]])
+    raise ValueError(
+        f"unknown round: {round_id!r} (expected '1', '2', '3', '4', '5a', '5b', '5c' or '5d')"
+    )
 
 
 class Stage4aStop(RuntimeError):

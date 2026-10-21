@@ -339,26 +339,46 @@ cd /home/ubuntu/RuntimeLens
 PYTHONPATH=src:. python3 scripts/stage4a_runner.py 4
 ```
 
-### 2.11 Round 4 — **PROPOSAL ONLY, NOT EXECUTED**
+### 2.11 Round 4 — the 32 never-executed templates: commands written, batches awaiting approval
 
-32 of the 55 registered templates have never been executed. The proposal below batches them in groups of ten, **grouped by class inside each batch** (the templates of a class are contiguous) and arranged so that **every class is represented in every batch that contains it**, so that a mid-batch stop still leaves the collected set spanning all five classes. The last batch holds the two remaining templates because 32 is not a multiple of ten.
+> **Naming note.** §2.10 above is the *executed* Round 4 of the project numbering: the two `D-31` re-runs (`ESC-04`, `ESC-09`). This section is the **Round 4 corpus-completion set** — the 32 templates that had never been executed — and it is the round the scenario plan calls "Round 4" and the runner exposes as rounds `5a`–`5d`. The two uses of the number are kept apart deliberately: §2.10 is closed, this section is open.
 
-**Prerequisite: the commands of these 32 templates do not exist yet.** Writing them is a separate, reviewable step that must respect everything the Stage 4a rounds established:
-* the twelve **local-only** templates (`BEN-02`, `BEN-03`, `BEN-08`, `BEN-10`, `BEN-15`, `ESC-01`, `ESC-02`, `ESC-07`, `UNK-04`, `UNK-07`, `UNK-R1`, `UNK-R4`) must carry exactly **one declared D-29 network observation** (type A, B or C), otherwise they produce zero Hubble flows and fail the per-run gate;
+32 of the 55 registered templates have never been executed. **Their commands now exist** (`scripts/stage4a_round4.py`, exposed by the runner as `ROUND5_TEMPLATES`), their length bins are re-derived from the measured `proc.cmdline` length, and the plan-vs-runner consistency check reports **zero mismatches across 55 templates**. The batches below are **proposed and not executed**: they need an approval of the batch plan before the first pod is created.
+
+The batches are grouped by class inside each batch (the templates of a class are contiguous) and arranged so that **every class is represented in every batch that contains it**, so that a mid-batch stop still leaves the collected set spanning all five classes. The last batch holds the two remaining templates because 32 is not a multiple of ten.
+
+**Command-writing constraints — all satisfied, and each one is pinned by a unit test in `tests/unit/test_stage4a_round4_templates.py`:**
+* every scenario with **no network activity of its own** carries exactly **one declared D-29 network observation** (type A, B, C or D), otherwise it would produce zero Hubble flows and fail the per-run gate. After the round, ten of the 32 carry an added observation and twenty-two get their network activity from their own scenario;
 * the BusyBox `wget` option form is **`--header=`** (never `-H`);
-* the three unthrottled mining templates (`MNR-01`, `MNR-02`, `MNR-05`, `high` profile, 130 s) must reproduce the Decision D-22 busy-loop calibration, and the four throttled ones (`MNR-04`, `MNR-06`, `MNR-07`, `MNR-08`) the Decision D-27 post-lag profile;
-* every command's length must be measured and the registry's length bin corrected to the measured value before the run.
+* the three unthrottled mining templates (`MNR-01`, `MNR-02`, `MNR-05`, `high` profile, 130 s) reproduce the Decision D-22 busy-loop calibration against the measured 200 mcores cgroup cap, and the four throttled ones (`MNR-04`, `MNR-06`, `MNR-07`, `MNR-08`) the Decision D-27 post-lag profile;
+* every command's length is **measured** (`len(command) + 6` for the `sh -c ` prefix) and the registry's length bin corrected to the measured value before the run;
+* **no command contains a class name, a scenario id, a template id or a run id**;
+* the three escape templates of this round (`ESC-01`, `ESC-02`, `ESC-07`) run in the `sandbox-workloads` namespace with **no `hostPath` and no privilege**, and their manifests pass the scenario safety linter.
 
-| Batch | Templates (class-grouped) | Classes | Est. wall time |
-|:--:|:---|:---|--:|
-| **1** | `MNR-01`, `MNR-02`, `MNR-04`, `MNR-05`, `MNR-06`, `MNR-07`, `MNR-08` (mining) → `PRV-06`, `PRV-08` (privilege) → `ESC-01` (escape) | mining, privilege, escape | ~25 min (the three 130 s mining templates dominate) |
-| **2** | `UNK-04`, `UNK-05`, `UNK-07`, `UNK-R1`, `UNK-R3`, `UNK-R4` (unknown) → `ESC-02`, `ESC-07` (escape) → `BEN-02`, `BEN-03` (benign) | unknown, escape, benign | ~8 min |
-| **3** | `BEN-05`, `BEN-07`, `BEN-08`, `BEN-09`, `BEN-10`, `BEN-12`, `BEN-13`, `BEN-15`, `BEN-18`, `BEN-19` (benign) | benign | ~6 min |
-| **4** | `BEN-20`, `BEN-21` (benign) | benign | ~2 min |
+| Batch | Runner round | Templates (class-grouped) | Classes | Est. wall time |
+|:--:|:--:|:---|:---|--:|
+| **A** | `5a` | `MNR-01`, `MNR-02`, `MNR-04`, `MNR-05`, `MNR-06`, `MNR-07`, `MNR-08` (mining) → `PRV-06`, `PRV-08` (privilege) → `ESC-01` (escape) | mining, privilege, escape | ~25 min (the three 130 s mining templates dominate) |
+| **B** | `5b` | `UNK-04`, `UNK-05`, `UNK-07`, `UNK-R1`, `UNK-R3`, `UNK-R4` (unknown) → `ESC-02`, `ESC-07` (escape) → `BEN-02`, `BEN-03` (benign) | unknown, escape, benign | ~8 min |
+| **C** | `5c` | `BEN-05`, `BEN-07`, `BEN-08`, `BEN-09`, `BEN-10`, `BEN-12`, `BEN-13`, `BEN-15`, `BEN-18`, `BEN-19` (benign) | benign | ~6 min |
+| **D** | `5d` | `BEN-20`, `BEN-21` (benign) | benign | ~2 min |
 
 Class coverage check: benign 2+10+2 = 14, escape 1+2 = 3, privilege 2, mining 7, unknown 6 — **32 templates, all five classes covered**.
 
-**Not executed.** Round 4 requires (a) the 32 command texts to be written and their length bins re-derived, (b) an approval of the batch plan, and (c) a runner round selection for each batch.
+The run ids are `run-s4a-r4-01` … `run-s4a-r4-32` in batch order (A = 01–10, B = 11–20, C = 21–30, D = 31–32). They do not collide with any existing run id (`run-s4a-01`…`run-s4a-10`, `run-s4a-r2-01`…`run-s4a-r2-13`).
+
+Execution (one batch at a time, the same stop rules, the same evidence set and the same per-run protocol as every other round):
+
+```bash
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5a
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5b
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5c
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d
+```
+
+**Predictions, not measurements.** Every "expected" value in the Round 4 tables of `docs/SCENARIO_PLAN_v2.md` §3.6.5 and `docs/REPORT_DELTA.md` §13.3 is a prediction from the plan and from the measured facts of the earlier rounds. The Hubble bands in particular are predictions (a type-D UDP datagram produced 1–2 flows in the Part 1 corpus, a type-B TCP probe 7–8, a type-C API read 10, a cross-tenant read 16–17), and the mining intensities are scaled from the measured `TMPL-MNR-03` anchor. The first run of each batch is therefore also a *prediction test*: any deviation is reported as a deviation, not silently corrected.
+
+**Not executed.** The four batches still require (a) an approval of the batch plan and (b) the four runner round selections, which are now in place (`5a`–`5d`).
 
 **Round 3 attempt history.**
 
