@@ -98,14 +98,16 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 
 | ID | Description | Length Bin | Duration | Tenant / Workload | Intensity | CPU Profile | Expected Falco Rules | Feature Values 00/01/02 | Audit Verbs | Hubble Band | Safety Notes | Runs |
 |:---|:---|:---:|:---:|:---|:---:|:---:|:---|:---:|:---|:---:|:---|--:|
-| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 30–80 | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
+| `TMPL-PRV-01` | Cross-tenant Secrets list against adjacent namespace | 151–250+ | 7s | tenant-a / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth | 10 |
 | `TMPL-PRV-02` | Cross-tenant Pods enumeration against adjacent namespace | 30–80 | 7s | tenant-b / web | Low | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 81–150 | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden | 10 |
+| `TMPL-PRV-03` | Cluster-wide ServiceAccount token enumeration | 151–250+ | 8s | tenant-c / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | 403 Forbidden; SA token auth | 10 |
 | `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 81–150 | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | LOW | 403 Forbidden | 10 |
 | `TMPL-PRV-05` | ClusterRoleBinding inspection attempt using pod SA | 81–150 | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden | 10 |
-| `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 151–250+ | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden | 10 |
-| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst | 10 |
+| `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 30–80 | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden; unauth probe | 10 |
+| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 81–150 | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst | 10 |
 | `TMPL-PRV-08` | Batch multi-namespace resource scraping with extracted token | 151–250+ | 12s | tenant-b / payment-style | High | low | Shell Spawn | F/F/F | get, create, list | HIGH | All attempts 403 logged | 10 |
+
+**Length Bin Correction & Rebalancing Note (Stage 4a-Part 1):** In-cluster API queries authenticating with the pod's ServiceAccount token (`--header="Authorization: Bearer $(cat ...)"`) incur ~140 characters of shell interpolation overhead, preventing them from fitting inside the `30–80` or `81–150` bins. `TMPL-PRV-01` (219 chars) and `TMPL-PRV-03` (207 chars) are corrected to their true bin (`151–250+`). To maintain the 2 / 3 / 3 bin overlap across classes without artificial length shortcuts, `TMPL-PRV-06` is rebalanced to `30–80` and `TMPL-PRV-07` to `81–150`.
 
 ### 3.4 Class `cryptomining` — 8 templates, 60 runs (proposed)
 

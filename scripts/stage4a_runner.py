@@ -308,9 +308,11 @@ TEMPLATES: list[dict[str, Any]] = [
         "app": "database",
         "mode": "exec",
         "command": (
+            "for i in 1 2 3; do "
             "dd if=/dev/urandom of=/tmp/u.log bs=1M count=16 2>/dev/null; "
             "gzip -f /tmp/u.log; rm -f /tmp/u.log; "
-            "echo p | nc -u -w 1 198.51.100.22 8080 || true; sleep 18"
+            "done; "
+            "echo p | nc -u -w 1 198.51.100.22 8080 || true; sleep 8"
         ),
         "sleep_after": 2,
         "expected_cpu_profile": "burst",
@@ -594,6 +596,8 @@ def run_one(
         "hubble": collector.capture_hubble_flows(ns, t0_iso, t1_iso, run_dir),
     }
     collector.attach_trivy_report(run_dir)
+    p_spec = template.get("pod_spec") or _pod_spec(pod_name)
+    collector.attach_pod_spec(run_dir, p_spec)
     counts["trivy"] = 1 if (run_dir / "trivy" / "report.json").exists() else 0
     counts["prometheus"] = len(capture_cpu_samples(run_dir))
 

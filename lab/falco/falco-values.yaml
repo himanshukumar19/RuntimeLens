@@ -18,7 +18,7 @@ customRules:
   runtimelens_rules.yaml: |-
     - rule: Launch Sensitive Mount Container
       desc: Detect sensitive host socket or directory mounts into a container
-      condition: container and (open_write or open_read) and (fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes)
+      condition: container and (open_write or open_read) and (fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes or fd.name startswith /opt/runtimelens-dummy)
       output: Sensitive host path mounted or accessed in container (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name path=%fd.name command=%proc.cmdline)
       priority: CRITICAL
       tags: [runtimelens, host_path_mount, sensitive_mount, custom_lab_rule]
@@ -39,7 +39,7 @@ customRules:
 
     - rule: Read Sensitive Host Information Untrusted
       desc: Detect read of /etc/shadow or /etc/passwd by unauthorized process
-      condition: container and (open_read) and (fd.name in (/etc/shadow, /etc/passwd)) and not proc.name in (login, passwd, useradd, groupadd)
+      condition: container and (open_read) and (fd.name in (/etc/shadow, /opt/runtimelens-dummy/etc/shadow) or (fd.name in (/etc/passwd, /opt/runtimelens-dummy/etc/passwd) and not proc.name in (login, passwd, useradd, groupadd, ls, id, whoami, ps, top, w, uptime)))
       output: Sensitive identity file opened for read (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name cmd=%proc.cmdline)
       priority: WARNING
       tags: [runtimelens, identity_file_read, file_access, custom_lab_rule]

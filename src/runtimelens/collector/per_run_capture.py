@@ -32,7 +32,7 @@ class PerRunTelemetryCapture:
     def prepare_run_dir(self, run_id: str) -> Path:
         """Create clean per-run directory structure."""
         run_dir = self.base_dir / run_id
-        for src in ["falco", "audit", "hubble", "prometheus", "trivy"]:
+        for src in ["falco", "audit", "hubble", "prometheus", "trivy", "pod"]:
             (run_dir / src).mkdir(parents=True, exist_ok=True)
         return run_dir
 
@@ -268,6 +268,33 @@ class PerRunTelemetryCapture:
         }
         with open(dest, "w", encoding="utf-8") as f:
             json.dump(fallback_data, f, indent=2)
+        return True
+
+    def attach_pod_spec(self, run_dir: Path, pod_spec: dict[str, Any]) -> bool:
+        """Attach sanitized structural pod specification (volumes and securityContext).
+
+        Guarantees zero metadata leakage (zero scenario_id, class, or run_id).
+        """
+        dest_dir = run_dir / "pod"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / "spec.json"
+
+        spec_dict = pod_spec.get("spec", pod_spec)
+        sanitized_spec = {
+            "volumes": spec_dict.get("volumes", []),
+            "containers": [
+                {
+                    "name": c.get("name", "worker"),
+                    "image": c.get("image", "alpine:3.19"),
+                    "resources": c.get("resources", {}),
+                    "securityContext": c.get("securityContext", {}),
+                    "volumeMounts": c.get("volumeMounts", []),
+                }
+                for c in spec_dict.get("containers", [])
+            ],
+        }
+        with open(dest, "w", encoding="utf-8") as f:
+            json.dump(sanitized_spec, f, indent=2)
         return True
 
     def write_run_index(

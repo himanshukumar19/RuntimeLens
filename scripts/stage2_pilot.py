@@ -612,6 +612,19 @@ def verify_per_run_gate(
                     False,
                     f"Throttled sustained CPU insufficient: {pct_th:.1f}% < 60.0% samples >= 40m",
                 )
+    elif expected_cpu_profile == "burst":
+        if sample_cpus:
+            peak = max(sample_cpus)
+            med = sorted(sample_cpus)[len(sample_cpus) // 2]
+            if peak < 30.0 or peak > 100.0 or med >= 100.0:
+                msg = (
+                    f"Burst CPU out of band: peak={peak:.2f}m not in [30,100] "
+                    f"or med={med:.2f}m >= 100"
+                )
+                return (
+                    False,
+                    msg,
+                )
 
     # 10. cAdvisor sample gap check
     if len(samples) >= 2:

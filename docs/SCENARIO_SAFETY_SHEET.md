@@ -19,11 +19,14 @@
 - **The Extractor Requirement:** `extract_pod_spec_facts()` in `src/runtimelens/normalizer/falco.py` inspects `volumes[].hostPath.path` against `HOST_RUNTIME_SOCKET_PATTERNS` (`/var/run/docker.sock`, `/run/containerd/containerd.sock`) to compute `host_runtime_socket_mounted: true`. If a test pod mounts an empty file via `ConfigMap`, `extract_pod_spec_facts()` evaluates `has_sock = False` because the volume type is `configMap`, not `hostPath`.
 - **The Dedicated Dummy Node Directory & Extractor Rule (Option A Refined):**
   - **Symlink Discovery on Node:** Inspection of the kind node container (`runtimelens-control-plane`) reveals that `/var/run` is an active symlink pointing directly to `/run` (`/var/run -> /run`). Creating any dummy file under `/var/run` or `/run` would place files in the live operating system run directory where containerd and system services operate. Therefore, **no files are ever created in `/var/run` or `/run` on the node**.
-  - **Dedicated Dummy Directory on Node:** An inert dummy directory is created at `/opt/runtimelens-dummy/` containing an empty 0-byte regular file:
+  - **Dedicated Dummy Directory on Node:** An inert dummy directory is created at `/opt/runtimelens-dummy/` containing an empty 0-byte regular file and dummy etc directory:
     ```bash
     docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy
     docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/docker.sock
     docker exec runtimelens-control-plane chmod 0644 /opt/runtimelens-dummy/docker.sock
+    docker exec runtimelens-control-plane mkdir -p /opt/runtimelens-dummy/etc
+    docker exec runtimelens-control-plane touch /opt/runtimelens-dummy/etc/shadow
+    docker exec runtimelens-control-plane chmod 0640 /opt/runtimelens-dummy/etc/shadow
     ```
   - **Dedicated Ephemeral Lab Namespace:** Because Kubernetes Pod Security Standards enforce `baseline` in `tenant-a`, `tenant-b`, and `tenant-c` (which strictly forbids `hostPath` volumes), the simulated escape pod executes strictly inside an ephemeral lab namespace (`sandbox-workloads`) configured with `pod-security.kubernetes.io/enforce: privileged`. The namespace is created only for the run and deleted immediately after.
   - **The Extractor Rule:** `extract_pod_spec_facts()` in `src/runtimelens/normalizer/falco.py` explicitly recognizes `SIMULATED_RUNTIME_SOCKET_PATTERNS = ("/opt/runtimelens-dummy/docker.sock", "/opt/runtimelens-dummy/containerd.sock")` in addition to real socket paths.

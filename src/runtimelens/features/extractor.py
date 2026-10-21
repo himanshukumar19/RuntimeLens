@@ -72,6 +72,41 @@ def extract_features_from_run_dir(
     if baseline_store is None:
         baseline_store = BaselineStore(Path("baselines"))
 
+    # 0. Parse Pod Specification Facts (Report Section 5.3, Decision D-07)
+    pod_spec_file = run_dir / "pod" / "spec.json"
+    if not pod_spec_file.exists():
+        pod_spec_file = run_dir / "pod_spec.json"
+
+    host_socket = 0.0
+    sensitive_path = 0.0
+    privileged = 0.0
+    has_pod_spec = False
+
+    if pod_spec_file.exists():
+        try:
+            pod_spec_data = json.loads(pod_spec_file.read_text(encoding="utf-8"))
+            spec = pod_spec_data.get("spec", pod_spec_data)
+            volumes = spec.get("volumes", [])
+            for vol in volumes:
+                hp = vol.get("hostPath", {})
+                hp_path = str(hp.get("path", "")).lower()
+                if "docker.sock" in hp_path or "containerd.sock" in hp_path:
+                    host_socket = 1.0
+                if (
+                    "/etc/kubernetes" in hp_path
+                    or "/opt/runtimelens-dummy/etc" in hp_path
+                    or "/etc/shadow" in hp_path
+                ):
+                    sensitive_path = 1.0
+            containers = spec.get("containers", [])
+            for c in containers:
+                sc = c.get("securityContext", {})
+                if sc.get("privileged") is True:
+                    privileged = 1.0
+            has_pod_spec = True
+        except Exception:
+            pass
+
     # 1. Parse Falco Telemetry
     falco_file = run_dir / "falco" / "events.jsonl"
     falco_events: list[dict[str, Any]] = []
@@ -84,9 +119,6 @@ def extract_features_from_run_dir(
                     except Exception:
                         continue
 
-    host_socket = 0.0
-    sensitive_path = 0.0
-    privileged = 0.0
     root_user = 0.0
     is_shell = 0.0
     has_meta = 0.0
@@ -104,14 +136,19 @@ def extract_features_from_run_dir(
         if len(cmd) > max_cmd_len:
             max_cmd_len = float(len(cmd))
 
-        if "docker.sock" in fd_name or "docker.sock" in cmd or "socket" in rule:
-            host_socket = 1.0
+        if not has_pod_spec:
+            if "docker.sock" in fd_name or "docker.sock" in cmd or "socket" in rule:
+                host_socket = 1.0
 
-        if "/etc/shadow" in fd_name or "/etc/passwd" in fd_name or "read sensitive host" in rule:
-            sensitive_path = 1.0
+            if (
+                "/etc/shadow" in fd_name
+                or "/etc/passwd" in fd_name
+                or "read sensitive host" in rule
+            ):
+                sensitive_path = 1.0
 
-        if "privileged" in rule or fields.get("container.privileged") is True:
-            privileged = 1.0
+            if "privileged" in rule or fields.get("container.privileged") is True:
+                privileged = 1.0
 
         if u_name == "root" or fields.get("user.uid") == 0:
             root_user = 1.0
