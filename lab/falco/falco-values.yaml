@@ -4,6 +4,13 @@ driver:
 
 tty: true
 
+falcoctl:
+  artifact:
+    install:
+      enabled: false
+    follow:
+      enabled: false
+
 falco:
   json_output: true
   json_include_output_property: true
