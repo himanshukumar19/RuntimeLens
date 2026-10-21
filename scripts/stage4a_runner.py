@@ -501,13 +501,22 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
             "worker-task-8b56",
             host_path="/opt/runtimelens-dummy/containerd.sock",
             host_path_type="File",
+            privileged=True,
         ),
-        # Runtime socket (containerd) exposure in a privileged sandbox: the
+        # Runtime socket (containerd) exposure in a PRIVILEGED sandbox: the
         # third allowlisted dummy hostPath, which restores a real
-        # `Launch Sensitive Mount Container` expectation.
-        # proc.cmdline length: 112 -> bin 81-150
+        # `Launch Sensitive Mount Container` expectation, combined with
+        # `privileged: true` so the feature triple is T/F/T as the plan states.
+        # Decision D-31: `ls -l` only stat()s the file and therefore produces no
+        # open event, so the mount rule could not fire.  The command now
+        # performs a real read (`head -c 1`) of the mounted dummy socket, which
+        # is the behaviour the scenario is about: the runtime socket is
+        # reachable from inside the container.
+        # Decision D-29: one declared benign network observation (type B, TCP
+        # probe against the cluster DNS service).
+        # proc.cmdline length: 129 -> bin 81-150
         "command": (
-            "ls -l /opt/runtimelens-dummy/containerd.sock; "
+            "head -c 1 /opt/runtimelens-dummy/containerd.sock 2>&1 || true; "
             "grep Cap /proc/self/status; nc -z -w 1 10.96.0.10 53 || true"
         ),
         "sleep_after": 7,
@@ -634,16 +643,25 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "database",
         "mode": "exec",
         # Developer debug session: process, memory and load inspection plus a
-        # short bounded arithmetic loop.
+        # bounded arithmetic loop.
+        # Decision D-30: the burn is calibrated against the measured kubelet
+        # cAdvisor collection cadence of ~18-20 s, so the loop must hold its
+        # load for ~30 s (480 iterations of the measured MNR-03 shape, whose
+        # reported rate was 89.7-100.6 mcores) inside a ~90 s run window, so
+        # that at least one collection window closes inside the burn and the
+        # burst is observable at all.  The duty cycle keeps the reported rate
+        # below the 150 mcores ceiling of the Decision D-26 band and the
+        # post-burn samples keep the median below 100 mcores.
         # Decision D-29: one declared benign network observation (type B).
-        # proc.cmdline length: 206 -> bin 151-250+
+        # proc.cmdline length: 218 -> bin 151-250+
         "command": with_observation(
             "ps aux 2>&1 | head -n 20; cat /proc/meminfo 2>&1 | head -n 10; "
             "free -m 2>&1 | head -n 3; "
-            "for i in $(seq 400); do j=0; while [ $j -lt 2000 ]; do j=$((j+1)); done; done",
+            "for i in $(seq 480); do j=0; while [ $j -lt 3000 ]; do j=$((j+1)); done; "
+            "sleep 0.05; done",
             "B",
         ),
-        "sleep_after": 8,
+        "sleep_after": 60,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
@@ -657,20 +675,29 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "namespace": "tenant-c",
         "app": "web",
         "mode": "exec",
-        # Log compression routine over two ephemeral files in /tmp.
-        # Decision D-29: one declared benign network observation (type A).
-        # proc.cmdline length: 252 -> bin 151-250+
+        # Log compression routine over an ephemeral file in /tmp.
+        # Decision D-30: a single gzip of a 12 MiB file lasts ~3 s, which is far
+        # shorter than the ~18-20 s cAdvisor collection interval and is
+        # therefore invisible to the summary API.  The compression is spread
+        # over 8 throttled cycles (~4.5 s each, ~1.5 s of gzip per cycle at
+        # the measured ~5 MB/s of gzip on incompressible data) so that the burn
+        # lasts ~36 s, long enough for a collection window to close inside it,
+        # while the ~33% duty cycle keeps the reported rate around 65-70
+        # mcores - inside the Decision D-26 band and below its 100 mcores
+        # median floor.  Peak disk usage is 8 MiB (each file is deleted in its
+        # own cycle).
+        # Decision D-29: one declared benign network observation (type C).
+        # proc.cmdline length: 211 -> bin 151-250+
         "command": with_observation(
-            "dd if=/dev/urandom of=/tmp/a.log bs=1M count=12 2>/dev/null; "
-            "dd if=/dev/urandom of=/tmp/b.log bs=1M count=12 2>/dev/null; "
-            "gzip -f /tmp/a.log /tmp/b.log; rm -f /tmp/a.log.gz /tmp/b.log.gz",
-            "A",
+            "for i in $(seq 8); do dd if=/dev/urandom of=/tmp/a.log bs=1M count=8 2>/dev/null; "
+            "gzip -f /tmp/a.log; rm -f /tmp/a.log.gz; sleep 3; done",
+            "C",
         ),
-        "sleep_after": 8,
+        "sleep_after": 50,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "LOW",
+        "expect_hubble_band": "MID",
         "expect_features": ["F", "F", "F"],
     },
     {
@@ -681,19 +708,26 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "api",
         "mode": "exec",
         # Batch calculation script: iterative numeric search loop.
-        # Decision D-29: one declared benign network observation (type C).
-        # proc.cmdline length: 233 -> bin 151-250+
+        # Decision D-30: the previous nested loop (1500 x 4000 iterations per
+        # outer iteration) was a 20-hour workload and was never executable.
+        # It is replaced by a single-level loop of the measured MNR-03 shape
+        # (3000 inner iterations + 50 ms pause), scaled to 400 outer
+        # iterations: ~25 s of wall time at the measured ~90 mcores, i.e. a
+        # ~60% duty cycle of the 200 mcores container limit, which keeps the
+        # reported peak inside the Decision D-26 band and the burst longer
+        # than one cAdvisor collection window.
+        # Decision D-29: one declared benign network observation (type A).
+        # proc.cmdline length: 174 -> bin 151-250+
         "command": with_observation(
-            "cat /proc/loadavg; for i in $(seq 1200); do j=0; "
-            "while [ $j -lt 1500 ]; do k=0; while [ $k -lt 4000 ]; do k=$((k+1)); done; "
-            "j=$((j+1)); done; sleep 0.05; done",
-            "C",
+            "cat /proc/loadavg; for i in $(seq 400); do j=0; "
+            "while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05; done",
+            "A",
         ),
-        "sleep_after": 8,
+        "sleep_after": 60,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
-        "expect_hubble_band": "MID",
+        "expect_hubble_band": "LOW",
         "expect_features": ["F", "F", "F"],
     },
     {
@@ -705,6 +739,10 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "mode": "exec",
         # Node proxy endpoint reconnaissance loop via the API server.
         # BusyBox wget supports only `--header`, never `-H`.
+        # Decision D-30: the scenario is I/O bound (a sequence of HTTPS
+        # requests) and produces no measurable CPU load at all, so its CPU
+        # profile is re-declared `low`.  It was never a burst: the 8 seconds of
+        # wall time are spent waiting for HTTP responses, not burning CPU.
         # proc.cmdline length: 229 -> bin 151-250+
         "command": (
             "T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);"
@@ -713,7 +751,7 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
             "https://10.96.0.1/api/v1/nodes/runtimelens-control-plane/proxy/metrics;done"
         ),
         "sleep_after": 8,
-        "expected_cpu_profile": "burst",
+        "expected_cpu_profile": "low",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "MID",
@@ -727,19 +765,22 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
         "app": "database",
         "mode": "exec",
         # Authorised batch recomputation: a throttled arithmetic loop.  The
-        # plan originally specified 110 mcores, which is above the Decision D-26
-        # burst ceiling; the loop is calibrated below the 100 mcores median
-        # floor so the run is a genuine transient burst.  The scenario is
-        # "no pool egress" -- the only egress is the declared benign
-        # observation below.
+        # scenario is "no pool egress" -- the only egress is the declared
+        # benign observation below.
+        # Decision D-30: the previous 900-iteration loop produced ~14 s of
+        # CPU, right at the cAdvisor collection interval, and was therefore
+        # not reliably observable.  It is replaced by 480 iterations of the
+        # measured MNR-03 shape (~30 s of wall time at the measured ~90
+        # mcores) inside a ~90 s run window, so that at least one collection
+        # window closes inside the burn.
         # Decision D-29: one declared benign network observation (type A).
         # proc.cmdline length: 155 -> bin 151-250+
         "command": with_observation(
-            "for i in $(seq 900); do j=0; "
-            "while [ $j -lt 2000 ]; do j=$((j+1)); done; sleep 0.05; done",
+            "for i in $(seq 480); do j=0; "
+            "while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05; done",
             "A",
         ),
-        "sleep_after": 8,
+        "sleep_after": 60,
         "expected_cpu_profile": "burst",
         "expect_falco": ["Interactive Shell Spawned in Non-Debug Container"],
         "expect_verbs": ["create", "get"],
@@ -748,9 +789,31 @@ ROUND2_TEMPLATES: list[dict[str, Any]] = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# Stage 4a ROUND 3 template set: 7 templates, 1 run each.
+#
+# Round 3 covers exactly the templates that the approved D-30 / D-31 edit round
+# changed, plus the four Round 2 templates that were never reached because the
+# round stopped on the `TMPL-BEN-14` burst-band failure.  The six Round 2 runs
+# that are unchanged and already collected are NOT repeated.
+# ---------------------------------------------------------------------------
+_ROUND2_BY_ID: dict[str, dict[str, Any]] = {t["template_id"]: t for t in ROUND2_TEMPLATES}
+ROUND3_TEMPLATE_IDS: tuple[str, ...] = (
+    "TMPL-ESC-09",
+    "TMPL-ESC-10",
+    "TMPL-BEN-14",
+    "TMPL-BEN-16",
+    "TMPL-BEN-17",
+    "TMPL-PRV-07",
+    "TMPL-UNK-R2",
+)
+ROUND3_TEMPLATES: list[dict[str, Any]] = [_ROUND2_BY_ID[tid] for tid in ROUND3_TEMPLATE_IDS]
+
+
 # Round identifiers accepted by the CLI.
 ROUND1_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in TEMPLATES)
 ROUND2_TEMPLATE_IDS: frozenset[str] = frozenset(t["template_id"] for t in ROUND2_TEMPLATES)
+ROUND3_TEMPLATE_IDS_SET: frozenset[str] = frozenset(ROUND3_TEMPLATE_IDS)
 
 
 def select_templates(round_id: str) -> list[dict[str, Any]]:
@@ -759,7 +822,9 @@ def select_templates(round_id: str) -> list[dict[str, Any]]:
         return list(TEMPLATES)
     if round_id == "2":
         return list(ROUND2_TEMPLATES)
-    raise ValueError(f"unknown round: {round_id!r} (expected '1' or '2')")
+    if round_id == "3":
+        return list(ROUND3_TEMPLATES)
+    raise ValueError(f"unknown round: {round_id!r} (expected '1', '2' or '3')")
 
 
 class Stage4aStop(RuntimeError):

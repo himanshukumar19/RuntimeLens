@@ -71,8 +71,9 @@ def test_rounds_do_not_overlap() -> None:
 def test_select_templates_returns_the_requested_round() -> None:
     assert len(select_templates("1")) == 10
     assert len(select_templates("2")) == 13
+    assert len(select_templates("3")) == 7
     with pytest.raises(ValueError):
-        select_templates("3")
+        select_templates("4")
 
 
 def test_expected_command_lengths_match_the_plan_bins() -> None:
@@ -142,7 +143,6 @@ def test_burst_profile_templates_exist_for_round2() -> None:
         "TMPL-BEN-14",
         "TMPL-BEN-16",
         "TMPL-BEN-17",
-        "TMPL-PRV-07",
         "TMPL-UNK-R2",
     }
 
@@ -191,8 +191,8 @@ def test_observation_mix_is_present_in_every_named_class() -> None:
         "TMPL-BEN-10": "A",
         "TMPL-BEN-14": "B",
         "TMPL-BEN-15": "C",
-        "TMPL-BEN-16": "A",
-        "TMPL-BEN-17": "C",
+        "TMPL-BEN-16": "C",
+        "TMPL-BEN-17": "A",
         # container_escape
         "TMPL-ESC-01": "B",
         "TMPL-ESC-02": "A",

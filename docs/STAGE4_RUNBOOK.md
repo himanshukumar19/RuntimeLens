@@ -301,6 +301,28 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 2
 
 Not executed: `TMPL-BEN-16`, `TMPL-BEN-17`, `TMPL-PRV-07`, `TMPL-UNK-R2`.
 
+### 2.9 Stage 4a **Round 3** — the seven changed or never-run templates, one run each, then STOP
+
+Round 3 follows the approved D-30 / D-31 edit round. It re-runs **only** the templates whose command, pod specification or expected signals changed, plus the four Round 2 templates that were never reached. The six unchanged Round 2 runs (`r2-01`, `r2-02`, `r2-05`, `r2-06`, `r2-07`, `r2-08`) are kept exactly as they are.
+
+| # | Run ID | Template | Why it is in Round 3 | `proc.cmdline` | Bin | Profile | Net obs. |
+|--:|:---|:---|:---|--:|:---:|:---:|:--:|
+| 1 | `run-s4a-r2-03` | `TMPL-ESC-09` | the Falco rule order changed (D-31) | 252 | 151–250+ | `low` | C |
+| 2 | `run-s4a-r2-04` | `TMPL-ESC-10` | the pod is now privileged and the socket is really read (D-31) | 129 | 81–150 | `low` | B |
+| 3 | `run-s4a-r2-09` | `TMPL-BEN-14` | burst re-calibrated (D-30) | 218 | 151–250+ | `burst` | B |
+| 4 | `run-s4a-r2-10` | `TMPL-BEN-16` | burst re-calibrated (D-30) | 211 | 151–250+ | `burst` | C |
+| 5 | `run-s4a-r2-11` | `TMPL-BEN-17` | burst re-calibrated (D-30) | 174 | 151–250+ | `burst` | A |
+| 6 | `run-s4a-r2-12` | `TMPL-PRV-07` | CPU profile re-declared `low` (D-30) | 229 | 151–250+ | `low` | = own API request |
+| 7 | `run-s4a-r2-13` | `TMPL-UNK-R2` | burst re-calibrated (D-30) | 155 | 151–250+ | `burst` | A |
+
+```bash
+# inside the VM, from the synced repository root
+cd /home/ubuntu/RuntimeLens
+PYTHONPATH=src:. python3 scripts/stage4a_runner.py 3
+```
+
+**Round 3 stop rules** — identical to Round 2, including the burst-band rule, and the round ends with a **STOP for human review** after the seventh run. The D-26 band and the D-27 post-lag rule are unchanged.
+
 **Round 2 evidence to paste (identical format to Round 1):** per-run table; `scripts/verify_dataset.py --runs-dir <round2 dir>` output; `scripts/signature_table.py --runs-dir <round2 dir>` output; the fired-vs-expected Falco rule comparison for all thirteen runs; features 00/01/02 for the four escape runs with their `pod/spec.json` files; `kubectl get pods -A`; `kubectl get ns`; `free -h`; `df -h /`; and the `ls -la` output of the dummy directories (P1b verification).
 
 **Round 2 attempt history.**

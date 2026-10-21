@@ -555,3 +555,54 @@ Round 2 attempt 3 executed 9 of the 13 templates before the per-run gate stopped
   * `TMPL-PRV-07` — the scenario is an I/O-bound `wget` loop and produces **no** meaningful CPU load at all; its `burst` CPU profile is simply wrong and should be re-declared `low`.
   * `TMPL-UNK-R2` — the current loop is ≈ 14 s of CPU, right at the collection interval; it should be extended to ≈ 30 s in a ≈ 90 s window.
 - **No gate was changed.** The D-26 band and the D-27 post-lag rule remain exactly as approved; what has to change is the *scenario duration* so that the scenario is long enough for the instrument to see it.
+
+---
+
+## 10. Decision D-30 / D-31 — The Approved Edit Round
+
+### 10.1 D-31 — the identity-file rule is now evaluated before the mount rule
+The two lab rule files were reordered so that `Read Sensitive Host Information Untrusted` precedes `Launch Sensitive Mount Container`. Falco stops at the first matching rule for an event, so the mount rule — which the D-29-era change had extended to the whole `/opt/runtimelens-dummy` prefix — had been shadowing the identity rule on the inert dummy paths. The deployed rule order is now:
+
+```text
+1. Read Sensitive Host Information Untrusted
+2. Launch Sensitive Mount Container
+3. Interactive Shell Spawned in Non-Debug Container
+4. Suspicious High Port Egress
+```
+
+### 10.2 `TMPL-ESC-10` — the pod is now privileged and the socket is really read
+The Round 2 attempt 3 review found that the plan's `T/F/T` triple for `TMPL-ESC-10` was **not** what the run produced: the runner's pod specification had no `privileged: true`, so the measured triple was `T/F/F`. The earlier report's "MATCH" line was wrong — it compared the *expectation* with itself rather than with the measurement. The pod is now privileged, and the command performs a **real read** of the mounted dummy socket (`head -c 1` instead of `ls -l`, which only `stat()`s the file and therefore produces no open event for the mount rule to match).
+
+```yaml
+# TMPL-ESC-10 pod specification
+spec:
+  containers:
+    - name: worker
+      image: docker.io/library/alpine:3.19
+      command: ["sleep", "600"]
+      resources: {limits: {cpu: 500m, memory: 256Mi}}
+      securityContext: {privileged: true}
+      volumeMounts:
+        - {name: sensitive-mount, mountPath: /opt/runtimelens-dummy/containerd.sock}
+  volumes:
+    - name: sensitive-mount
+      hostPath: {path: /opt/runtimelens-dummy/containerd.sock, type: File}
+```
+
+The safety linter accepts it: `privileged: true` is permitted **only** in `sandbox-workloads`, and the host path is one of the three allowlisted dummy paths. The resulting feature triple is `T / F / T` (feature 00 from the `containerd.sock` host path, feature 01 absent, feature 02 from `privileged: true`), which is what the plan states.
+
+### 10.3 D-30 — the burst scenarios are calibrated against the measured collection cadence
+The `TMPL-BEN-14` failure was a **measurement** failure, not a gate failure: the kubelet's cAdvisor summary API returns the last completed collection and the collection cadence in this cluster is ~18–20 s, so a 6-second CPU burst never appears in either the reported rate or the cumulative counter. The five `burst`-profile templates were therefore re-calibrated so that their load outlasts the instrument, and `TMPL-PRV-07` — an I/O-bound sequence of HTTPS requests that never burns CPU — was re-declared `low`. **No gate threshold was changed**: the Decision D-26 band (`peak` in `[20, 150]` mcores, `median < 100` mcores) and the Decision D-27 post-lag rule are untouched.
+
+| Template | Change | Expected measured rate |
+|:---|:---|:---|
+| `TMPL-BEN-14` | 480 iterations of the measured `TMPL-MNR-03` loop shape (~30 s burn) in a ~90 s window | ~90–100 m |
+| `TMPL-BEN-16` | a single 12 MiB gzip (~3 s, invisible) replaced by 8 throttled 8 MiB gzip cycles (~36 s, 8 MiB peak disk) | ~65–70 m |
+| `TMPL-BEN-17` | the **20-hour** nested loop (1500 × 4000 iterations per outer iteration) replaced by a single-level 400-iteration loop (~25 s, ~60 % duty of the 200 m limit) | ~90 m |
+| `TMPL-PRV-07` | CPU profile re-declared `low` — the scenario waits for HTTP responses | ~0 m |
+| `TMPL-UNK-R2` | ~14 s of CPU replaced by a ~30 s burn in a ~90 s window | ~90–100 m |
+
+The full derivation, including the direct measurement of the collection cadence, is in `docs/SCENARIO_PLAN_v2.md` §3.6.4.
+
+### 10.4 Round 3 scope
+Round 3 re-runs **seven** templates — the four whose command or pod specification changed (`ESC-09` is re-run because the Falco rule order changed, `ESC-10` because its pod and command changed, `BEN-14`/`BEN-16`/`BEN-17`/`UNK-R2` because of the D-30 calibration) plus the templates that Round 2 never reached. The six unchanged Round 2 runs are kept exactly as they are.

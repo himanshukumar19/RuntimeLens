@@ -23,6 +23,18 @@ falco:
 
 customRules:
   runtimelens_rules.yaml: |-
+    # Decision D-31: the identity-file rule is evaluated BEFORE the mount rule.
+    # Falco stops at the first matching rule for an event, so when the mount rule
+    # was listed first it shadowed the identity rule on the inert dummy paths
+    # (/opt/runtimelens-dummy/etc/shadow and .../passwd) and the identity rule
+    # could never fire there.  The more specific rule must therefore come first.
+    - rule: Read Sensitive Host Information Untrusted
+      desc: Detect read of /etc/shadow or /etc/passwd by unauthorized process
+      condition: container and (open_read) and (fd.name in (/etc/shadow, /opt/runtimelens-dummy/etc/shadow) or (fd.name in (/etc/passwd, /opt/runtimelens-dummy/etc/passwd) and not proc.name in (login, passwd, useradd, groupadd, ls, id, whoami, ps, top, w, uptime)))
+      output: Sensitive identity file opened for read (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name cmd=%proc.cmdline)
+      priority: WARNING
+      tags: [runtimelens, identity_file_read, file_access, custom_lab_rule]
+
     - rule: Launch Sensitive Mount Container
       desc: Detect sensitive host socket or directory mounts into a container
       condition: container and (open_write or open_read) and (fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes or fd.name startswith /opt/runtimelens-dummy)
@@ -43,10 +55,3 @@ customRules:
       output: Outbound connection to potential high port egress (pod=%k8s.pod.name ns=%k8s.ns.name rport=%fd.rport rip=%fd.rip cmd=%proc.cmdline)
       priority: CRITICAL
       tags: [runtimelens, egress_anomaly, network, custom_lab_rule]
-
-    - rule: Read Sensitive Host Information Untrusted
-      desc: Detect read of /etc/shadow or /etc/passwd by unauthorized process
-      condition: container and (open_read) and (fd.name in (/etc/shadow, /opt/runtimelens-dummy/etc/shadow) or (fd.name in (/etc/passwd, /opt/runtimelens-dummy/etc/passwd) and not proc.name in (login, passwd, useradd, groupadd, ls, id, whoami, ps, top, w, uptime)))
-      output: Sensitive identity file opened for read (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name cmd=%proc.cmdline)
-      priority: WARNING
-      tags: [runtimelens, identity_file_read, file_access, custom_lab_rule]

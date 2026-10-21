@@ -69,10 +69,10 @@ The privilege templates therefore expect **only** `Shell Spawn` (the `Interactiv
 | `TMPL-BEN-11` | Security compliance self-audit: UID and capability check | 81–150 | 8s | tenant-c / api | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Read-only self-inspection | 7 |
 | `TMPL-BEN-12` | In-cluster DNS benchmark: multi-lookup latency check | 81–150 | 10s | tenant-b / api | Low | low | Shell Spawn | F/F/F | get, create | MID | Normal UDP 53 | 6 |
 | `TMPL-BEN-13` | Legacy cache cluster client on port **7777** | 151–250+ | 10s | tenant-c / payment-style | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
-| `TMPL-BEN-14` | Developer debug session: process and memory inspection | 151–250+ | 12s | tenant-a / database | Medium | burst | Shell Spawn | F/F/F | get, create | MID | Standard debug; **network observation B** (D-29), 206 chars | 7 |
+| `TMPL-BEN-14` | Developer debug session: process and memory inspection | 151–250+ | 90s | tenant-a / database | Medium | burst | Shell Spawn | F/F/F | get, create | MID | Standard debug; **network observation B** (D-29); **~30 s burn in a 90 s window** (D-30), 218 chars | 7 |
 | `TMPL-BEN-15` | Database backup maintenance: dump file and md5 checksum | 151–250+ | 15s | tenant-b / payment-style | Medium | low | Shell Spawn | F/F/F | get, create | LOW | Uses `/tmp`, cleaned | 7 |
-| `TMPL-BEN-16` | Log compression routine: multi-file gzip in ephemeral storage | 151–250+ | 25s | tenant-c / web | High | burst | Shell Spawn | F/F/F | get, create | LOW | CPU burst < 80m, cleaned; **network observation A** (D-29), 252 chars | 7 |
-| `TMPL-BEN-17` | Batch calculation script: iterative numeric search loop | 151–250+ | 30s | tenant-a / api | High | burst | Shell Spawn | F/F/F | get, create | MID | CPU burst ~75m; **network observation C** (D-29), 233 chars | 7 |
+| `TMPL-BEN-16` | Log compression routine: throttled multi-cycle gzip in ephemeral storage | 151–250+ | 90s | tenant-c / web | High | burst | Shell Spawn | F/F/F | get, create | MID | ~36 s burn of 8 throttled gzip cycles at ~65–70m (D-30), cleaned; **network observation C** (D-29), 211 chars | 7 |
+| `TMPL-BEN-17` | Batch calculation script: iterative numeric search loop | 151–250+ | 90s | tenant-a / api | High | burst | Shell Spawn | F/F/F | get, create | LOW | ~25 s burn at ~90m, ~60% duty of the 200m limit (D-30); **network observation A** (D-29), 174 chars | 7 |
 | `TMPL-BEN-18` | Configuration sync via in-cluster ConfigMap query | 151–250+ | 10s | tenant-b / database | Low | low | Shell Spawn | F/F/F | get, create, list | HIGH | Authorized API read | 7 |
 | `TMPL-BEN-19` | Internal edge proxy health check on port **4444** | 151–250+ | 10s | tenant-c / payment-style | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
 | `TMPL-BEN-20` | Internal queue consumer connection on port **5555** | 151–250+ | 10s | tenant-a / web | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | In-list port, benign intent | 7 |
@@ -93,7 +93,7 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 | `TMPL-ESC-07` | Container `/proc/1/root` symlink traversal check (readlink only) | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/F | get, create | LOW | No `hostPID`; readlink only; no identity-file read, so Sensitive File Read cannot fire | 8 |
 | `TMPL-ESC-08` | **Host device namespace enumeration in privileged sandbox** (replaces the `mknod` attempt) | 81–150 | 10s | sandbox-workloads / worker | High | low | **Shell Spawn** | F/F/**T** | get, create | MID | Read-only `/dev` listing; `mknod` removed because the device cgroup blocks it even when privileged; **network observation B** (D-29), 91 chars | 8 |
 | `TMPL-ESC-09` | Sensitive host path multi-file read via `head`, `dd` and `find` on the dummy dir | 151–250+ | 12s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount, Sensitive File Read | F/**T**/F | get, create | MID | Requires the four inert dummy files in `/opt/runtimelens-dummy/etc/` (see §4); **network observation C** (D-29), 252 chars | 8 |
-| `TMPL-ESC-10` | **Runtime socket (containerd) exposure in privileged sandbox** (replaces the non-existent "Policy Warning" expectation) | 81–150 | 10s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount | **T**/F/**T** | get, create | MID | `privileged: true` + `hostPath` File mount of the third allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock` | 8 |
+| `TMPL-ESC-10` | **Runtime socket (containerd) exposure in privileged sandbox** (replaces the non-existent "Policy Warning" expectation) | 81–150 | 10s | sandbox-workloads / worker | High | low | Shell Spawn, Sensitive Mount | **T**/F/**T** | get, create | MID | `privileged: true` + `hostPath` File mount of the third allowlisted dummy path `/opt/runtimelens-dummy/containerd.sock`; **real read** `head -c 1` so the mount rule fires (D-31), 129 chars | 8 |
 
 ### 3.3 Class `privilege_abuse` — 8 templates, 80 runs (proposed)
 
@@ -105,7 +105,7 @@ All escape templates execute in the ephemeral `sandbox-workloads` namespace only
 | `TMPL-PRV-04` | Unauthorized ConfigMaps extraction from adjacent tenant | 151–250+ | 8s | tenant-a / payment-style | Medium | low | Shell Spawn | F/F/F | get, create, list | MID | 403 Forbidden; SA token auth, BusyBox `--header=` form (187 chars); band predicted from the measured `TMPL-PRV-03` shape (16 flows, no extra DNS probe) | 10 |
 | `TMPL-PRV-05` | **API surface reconnaissance using the pod ServiceAccount** (authenticated discovery of the served API paths) | 151–250+ | 10s | tenant-b / api | Medium | low | Shell Spawn | F/F/F | get, create | MID | SA-attributed audit record; BusyBox `--header=` form (153 chars) | 10 |
 | `TMPL-PRV-06` | Inter-pod exec subresource probe in adjacent namespace | 151–250+ | 10s | tenant-c / payment-style | High | low | Shell Spawn | F/F/F | get, create | LOW | 403 Forbidden; SA token auth (180 chars) | 10 |
-| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | burst | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden, short burst; SA token auth, BusyBox `--header=` form (229 chars) | 10 |
+| `TMPL-PRV-07` | Node proxy endpoint reconnaissance loop via kube-apiserver | 151–250+ | 20s | tenant-a / database | High | **low** | Shell Spawn | F/F/F | get, create | MID | 403 Forbidden; **I/O-bound, no measurable CPU load — CPU profile re-declared `low` (D-30)**; SA token auth, BusyBox `--header=` form (229 chars) | 10 |
 | `TMPL-PRV-08` | Batch multi-namespace resource scraping with extracted token | 151–250+ | 12s | tenant-b / payment-style | High | low | Shell Spawn | F/F/F | get, create, list | HIGH | All attempts 403 logged; SA token auth (216 chars) | 10 |
 
 **Length Bin Correction Note (Stage 4a Part 1, re-verified Part 2, corrected Round 2):** in-cluster API queries that authenticate with the pod's ServiceAccount token incur 126 characters of shell overhead (`T=$(cat /run/secrets/kubernetes.io/serviceaccount/token);` = 57 chars, plus `wget -qO- --no-check-certificate --header="Authorization: Bearer $T" ` = 69 chars), so no such request can fit inside the `30–80` or `81–150` bins. `TMPL-PRV-01` (219 chars) and `TMPL-PRV-03` (207 chars) were corrected in Part 1; Part 2 measured the remaining commands; **Round 2 corrected the measurement itself**: the re-scoped commands had been written with the short `-H` header option, which **BusyBox `wget` does not support** (it accepts only `--header`), so those commands aborted before any network request and never reached the API server. All four affected templates (`TMPL-PRV-04`, `TMPL-PRV-05`, `TMPL-BEN-06`, `TMPL-PRV-07`) were restored to the verified `--header=` form, which is 5 characters longer; the corrected lengths are `TMPL-PRV-04` (187), `TMPL-PRV-05` (153), `TMPL-BEN-06` (181) and `TMPL-PRV-07` (229). See §3.6 for the rebalanced bin table, the physical constraint that forces the `privilege_abuse` class into a single bin, and the compensating control.
@@ -135,7 +135,7 @@ Two templates deliberately use ports **outside** the Falco rule range so that po
 | `TMPL-UNK-R3` | Health-check liveness probe to an internal service on port **3333** | 30–80 | 8s | tenant-b / web | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | LOW | Fully authorised; real ambiguity | 5 |
 | `TMPL-UNK-03` | Legitimate log compression: high CPU with zero egress | 151–250+ | 25s | tenant-c / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | Real high-CPU-no-egress case; **185 chars after the Stage 4a Part 1 burst command was lengthened** | 5 |
 | `TMPL-UNK-05` | Rapid egress probe across 3333–9999 dropped by default-deny | 81–150 | 8s | tenant-a / api | Low | low | Shell Spawn, High Port Egress | F/F/F | get, create | HIGH | Blocked by NetworkPolicy | 5 |
-| `TMPL-UNK-R2` | Authorised batch recomputation (recalibrated below the 100 mcores median floor of the D-26 burst band) | 151–250+ | 95s | tenant-b / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | No pool egress; the only egress is the **network observation A** (D-29), 155 chars; real ambiguity | 5 |
+| `TMPL-UNK-R2` | Authorised batch recomputation: ~30 s throttled recomputation burst inside a 90 s window | 151–250+ | 90s | tenant-b / database | Medium | burst | Shell Spawn | F/F/F | get, create | LOW | No pool egress; the only egress is the **network observation A** (D-29); **~30 s burn in a 90 s window** (D-30), 155 chars; real ambiguity | 5 |
 | `TMPL-UNK-07` | Maintenance script that trips a policy rule without being malicious | 151–250+ | 12s | tenant-c / payment-style | Low | low | **Shell Spawn** | F/F/F | get, create | MID | Ambiguous by design of policy; no `Policy Warning` rule is deployed, so only Shell Spawn can fire | 5 |
 | `TMPL-UNK-R1` | Shared-ServiceAccount contention: two workloads, one identity | 151–250+ | 15s | tenant-a / database | Medium | low | Shell Spawn | F/F/F | get, create, list | HIGH | Real attribution ambiguity | 5 |
 | `TMPL-UNK-R4` | Rollout-induced exec burst across four pods in one namespace | 151–250+ | 20s | tenant-b / payment-style | Medium | low | Shell Spawn | F/F/F | get, create | HIGH | Real orchestration burst | 5 |
@@ -170,7 +170,7 @@ The `Expected Falco Rules` column may only name a rule that **can actually fire*
 |:---|:---|--:|:---:|:---:|:---|:---|:---:|
 | `TMPL-ESC-05` (replaces cgroup v1 `release_agent` traversal) | `cat /proc/self/cgroup; head -n 30 /proc/self/mountinfo; grep Cap /proc/self/status; ls -l /proc/self/fd 2>&1 \| head -n 10; cat /proc/self/mounts 2>&1 \| head -n 10` | 168 | 151–250+ | yes | none | Shell Spawn | F/F/**T** |
 | `TMPL-ESC-08` (replaces `mknod` device-node attempt) | `ls -l /dev \| head -n 20; grep Cap /proc/self/status` | 57 | 30–80 | yes | none | Shell Spawn | F/F/**T** |
-| `TMPL-ESC-10` (replaces the non-existent `Policy Warning` expectation) | `ls -l /opt/runtimelens-dummy/containerd.sock; grep Cap /proc/self/status; nc -z -w 1 10.96.0.10 53 \|\| true` | 112 | 81–150 | yes | `/opt/runtimelens-dummy/containerd.sock` (File) | Shell Spawn, Sensitive Mount | **T**/F/**T** |
+| `TMPL-ESC-10` (replaces the non-existent `Policy Warning` expectation) | `head -c 1 /opt/runtimelens-dummy/containerd.sock 2>&1 \|\| true; grep Cap /proc/self/status; nc -z -w 1 10.96.0.10 53 \|\| true` | 129 | 81–150 | yes | `/opt/runtimelens-dummy/containerd.sock` (File) | Shell Spawn, Sensitive Mount | **T**/F/**T** |
 
 Rationale:
 * `TMPL-ESC-05` keeps the original intent (cgroup-breakout reconnaissance) but uses cgroup **v2** paths that provably exist in the lab (`/proc/self/cgroup`, `/proc/self/mountinfo`, `/proc/self/mounts`), so the scenario really executes.
@@ -213,8 +213,8 @@ All four are in-cluster, read-only and carry no credential. Type C is **audit-ne
 | `benign` | `TMPL-BEN-13` | B | = own probe |
 | `benign` | `TMPL-BEN-14` | B | **+ D-29** |
 | `benign` | `TMPL-BEN-15` | C | **+ D-29** |
-| `benign` | `TMPL-BEN-16` | A | **+ D-29** |
-| `benign` | `TMPL-BEN-17` | C | **+ D-29** |
+| `benign` | `TMPL-BEN-16` | C | **+ D-29** |
+| `benign` | `TMPL-BEN-17` | A | **+ D-29** |
 | `benign` | `TMPL-BEN-18` | C | = own API request |
 | `benign` | `TMPL-BEN-19` | B | = own probe |
 | `benign` | `TMPL-BEN-20` | B | = own probe |
@@ -270,7 +270,38 @@ All four are in-cluster, read-only and carry no credential. Type C is **audit-ne
 | `unknown` | 2 | 1 | 5 | 8 | 40 |
 | **Total** | 11 | 18 | 26 | **55** | **400** |
 
-#### 3.6.4 Measured command lengths and the rebalanced bin table
+#### 3.6.4 Decision D-30 — Burst calibration against the cAdvisor collection cadence
+
+**The measurement problem.** The kubelet's cAdvisor summary API returns the **last completed collection**, and the collection cadence in this cluster was measured directly at **~18–20 s**:
+
+```text
+t=  0.0s  rate=0.00m cum=34.400s     (controlled 6 s CPU burn started at t=0)
+t=  8.3s  rate=0.00m cum=34.400s
+t= 12.4s  rate=78.56m cum=35.749s   delta=1.3495  <-- first collection closing inside the burn
+t= 20.6s  rate=78.56m cum=35.749s
+t= 30.9s  rate=0.00m cum=35.749s    <-- next collection, after the burn
+```
+
+Consequences that are now part of the design, not of the gate:
+
+1. A CPU burst **shorter than one collection interval can be entirely absent** from both the reported rate and the cumulative counter. `TMPL-BEN-14`'s 6-second loop was measured at **0.00 mcores** for exactly this reason.
+2. The reported rate is the **average over the collection window that just closed**, not an instantaneous value.
+3. The Decision D-26 band `[20, 150]` is therefore partly a measurement of the **collection phase**. This is the deeper explanation of the `25.77 m` versus `117.34 m` spread of the *identical* `TMPL-UNK-03` command across the two Part 1 attempts.
+4. Every tenant workload has a **200 mcores** CPU limit, so an unthrottled burst that is long enough to be observed would report ~200 mcores — **above** the D-26 ceiling of 150. A `burst` template must therefore be **throttled** to land inside the band.
+
+**The calibration anchor.** `TMPL-MNR-03` is the only `burst`-adjacent template with a *measured* rate: 875 iterations of `while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05` produced **89.69 / 100.58 mcores** (median / max) over a 54.58 s run — a throttled duty cycle well inside the D-26 band. The D-30 templates reuse that exact shape and scale only the **outer iteration count** to set the burn duration.
+
+| Template | New command (loop part) | Burn | Reported rate (expected) | Window | Profile | Reason |
+|:---|:---|--:|:---|--:|:---:|:---|
+| `TMPL-BEN-14` | `for i in $(seq 480); do j=0; while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05; done` | ~30 s | ~90–100 m (MNR-03 anchor) | ~90 s | `burst` | A ~30 s burn outlasts the ~18–20 s collection interval, so a collection window closes inside it; the 90 s window keeps the burn a minority of the samples, so the median stays below 100 m. |
+| `TMPL-BEN-16` | `for i in $(seq 8); do dd if=/dev/urandom of=/tmp/a.log bs=1M count=8 2>/dev/null; gzip -f /tmp/a.log; rm -f /tmp/a.log.gz; sleep 3; done` | ~36 s | ~65–70 m | ~90 s | `burst` | A single 12 MiB gzip lasts ~3 s and is invisible. Eight throttled cycles spread ~12 CPU-seconds over ~36 s, giving a duty cycle of ~33 % and a peak disk usage of 8 MiB. |
+| `TMPL-BEN-17` | `cat /proc/loadavg; for i in $(seq 400); do j=0; while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05; done` | ~25 s | ~90 m (≈60 % of the 200 m limit) | ~90 s | `burst` | The previous nested loop (1500 × 4000 iterations) was a **20-hour** workload and was never executable. The single-level loop has a ~60 % duty cycle, keeping the reported peak below the 150 m ceiling. |
+| `TMPL-PRV-07` | unchanged (five authenticated `wget` requests to the node proxy) | — | ~0 m | 20 s | **`low`** | The scenario is I/O bound: it waits for HTTPS responses and never burns CPU. Declaring it `burst` was simply wrong; the CPU profile is re-declared `low`. |
+| `TMPL-UNK-R2` | `for i in $(seq 480); do j=0; while [ $j -lt 3000 ]; do j=$((j+1)); done; sleep 0.05; done` | ~30 s | ~90–100 m (MNR-03 anchor) | ~90 s | `burst` | The previous 900-iteration loop produced ~14 s of CPU, right at the collection interval, and was not reliably observable. |
+
+**No gate threshold was changed.** The Decision D-26 band (`peak` in `[20, 150]` mcores, `median < 100` mcores) and the Decision D-27 post-lag rule are untouched; what changed is the *scenario duration* so that the instrument can see the scenario, and the *duty cycle* so that the measurement lands inside the band that was already approved.
+
+#### 3.6.5 Measured command lengths and the rebalanced bin table
 
 All lengths below are the **measured** `proc.cmdline` length (`sh -c ` + command, i.e. `len(command) + 6`) of the exact command the template executes, computed from the command text. `TMPL-PRV-01` (219) and `TMPL-PRV-03` (207) were measured live in Stage 4a; the remainder are computed from the exact command strings.
 
