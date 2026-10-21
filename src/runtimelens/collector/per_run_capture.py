@@ -32,6 +32,8 @@ class PerRunTelemetryCapture:
     def prepare_run_dir(self, run_id: str) -> Path:
         """Create clean per-run directory structure."""
         run_dir = self.base_dir / run_id
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
         for src in ["falco", "audit", "hubble", "prometheus", "trivy", "pod"]:
             (run_dir / src).mkdir(parents=True, exist_ok=True)
         return run_dir

@@ -349,3 +349,23 @@ if namespace not in ALLOWED_LAB_NAMESPACES:
 | Never reference an external host, domain, or public IP in command/args/env | Linter lines 166–186, with an explicit allowlist for `*.svc`, `*.cluster.local`, `127.`, `10.`, `172.18.`, `localhost` |
 
 **Conclusion:** a real `hostPath` file mount and a real `privileged: true` pod are both runnable inside the kind node under these constraints, and the repository already runs the file-mount form in production lab runs. What remains simulated is the *exploit payload*, not the Kubernetes mechanism. The report must state this distinction rather than implying a real host breakout was achieved.
+
+---
+
+## 4. Stage 4a Part 1 Refinements: Telemetry Grounding & Feature Provenance
+
+### 4.1 Dummy-Path Proxy for the Sensitive Mount Rule
+- **Discrepancy:** The custom Falco rule `Launch Sensitive Mount Container` (`lab/falco/rules/lab-rules.yaml`) originally watched only production paths: `(fd.name startswith /var/run/docker.sock or fd.name startswith /run/containerd/containerd.sock or fd.name startswith /etc/kubernetes)`. In the lab cluster, mounting live node container sockets is strictly blocked by the safety linter (`scripts/scenario_safety_lint.py`) to prevent host daemon compromise. Consequently, `TMPL-ESC-03`, `TMPL-ESC-04`, and `TMPL-ESC-06` mounting inert dummy files under `/opt/runtimelens-dummy` failed to trigger the rule.
+- **Resolution & Realism Boundary:** The rule condition was updated in `lab/falco/rules/lab-rules.yaml` and `lab/falco/falco-values.yaml` to detect `fd.name startswith /opt/runtimelens-dummy`. In production Kubernetes environments, this rule monitors real container engine sockets; in this safety-gated research lab, it monitors the allowlisted inert dummy path proxy.
+
+### 4.2 NSS Exemption List for Sensitive Identity File Reads
+- **Discrepancy:** `Read Sensitive Host Information Untrusted` initially flagged any read of `/etc/passwd` by processes outside `(login, passwd, useradd, groupadd)`. In Linux, standard diagnostic commands (`ls -l`, `id`, `whoami`, `ps aux`) invoke libc Name Service Switch (NSS) functions (`getpwuid`, `getgrgid`) that open `/etc/passwd` to translate numeric UIDs/GIDs into human-readable names. This caused benign self-audits (`TMPL-BEN-11`) and innocuous directory listings (`ls -l` in `TMPL-ESC-03`) to emit high-priority identity-access alerts.
+- **Resolution:** The Falco rule was refined to decouple `/etc/shadow` from `/etc/passwd`: reads of `/etc/shadow` (and `/opt/runtimelens-dummy/etc/shadow`) remain unconditionally flagged, while reads of `/etc/passwd` explicitly exempt standard read-only utilities: `ls`, `id`, `whoami`, `ps`, `top`, `w`, `uptime`.
+
+### 4.3 Deterministic Pod-Spec Fact Derivation for Features 00, 01, and 02
+- **Discrepancy:** In early pipeline drafts, features `host_runtime_socket_mounted` (Feature 00), `sensitive_host_path_mounted` (Feature 01), and `privileged_container` (Feature 02) were extracted by text matching against Falco event descriptions and rule names. When Falco rules failed to fire (e.g. `Debugfs Launched in Privileged Container` missing from minimal Alpine images), Feature 02 evaluated to `0.0` despite the pod specification explicitly setting `securityContext.privileged: true`.
+- **Resolution (Aligning with Report Section 5.3):** Project Report Section 5.3 (Table 3: *"Mounts and privileges — Pod specification"*) states: *"Deterministic facts, such as whether a host runtime socket is mounted, are computed by the normalizer and written into the state as facts rather than left for the model to infer."* The collector (`PerRunTelemetryCapture.attach_pod_spec`) now records the pod's structural configuration into `pod/spec.json` during execution. The feature extractor (`src/runtimelens/features/extractor.py`) derives Features 00–02 directly from `pod/spec.json`:
+  - Feature 00 (`host_runtime_socket_mounted`): `1.0` if `spec.volumes[].hostPath.path` contains `docker.sock` or `containerd.sock`.
+  - Feature 01 (`sensitive_host_path_mounted`): `1.0` if `spec.volumes[].hostPath.path` references `/etc/kubernetes` or `/opt/runtimelens-dummy/etc`.
+  - Feature 02 (`privileged_container`): `1.0` if any container sets `securityContext.privileged: true`.
+- **Anti-Leakage Verification:** The stored `pod/spec.json` strips all pod and namespace labels, annotations, scenario IDs, and class names. Feature extraction operates strictly on structural volume types and container security flags, guaranteeing zero metadata leakage.
