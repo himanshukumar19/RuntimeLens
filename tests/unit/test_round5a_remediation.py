@@ -52,22 +52,49 @@ def test_the_measured_cpu_cost_per_inner_loop_is_5_9_ms() -> None:
     assert high / low < 1.05, "the two measurements must agree within 5 %"
 
 
+#: The measured wall time per 3000-iteration inner loop at the 200 mcores cap,
+#: in milliseconds, from the three real Round 5a measurements of the mining
+#: loop (Decision D-36). The spread is ~14 %, so the iteration count is set
+#: for the FASTEST observed case, exactly as Decision D-26 sets a band from
+#: the measured noise floor.
+MEASURED_MS_PER_ITERATION = (28.84, 28.07, 25.33)
+
+#: The gate's duration requirement, in seconds, measured as the cAdvisor sample
+#: window (scripts/stage2_pilot.py: `calc_dur < 115.0`).
+GATE_MIN_WINDOW_SECONDS = 115.0
+
+#: The settle window (5 s) plus the nslookup, minus the sample offset.
+WINDOW_OVERHEAD_SECONDS = 5.1
+
+
 def test_high_profile_iteration_count_yields_the_d22_duration() -> None:
-    """4200 iterations at the 200 mcores cap = the D-22 125 s busy loop."""
+    """4950 iterations = the D-22 125 s busy loop in the FASTEST observed case."""
     for template_id in HIGH_TEMPLATES:
         command = str(_mining_def(template_id)["command"])
-        assert "seq 4200" in command, template_id
+        assert "seq 4950" in command, template_id
 
-    ms_mean = sum(MEASURED_MS_PER_INNER_LOOP) / 2
-    busy_low = 4200 * (min(MEASURED_MS_PER_INNER_LOOP) / 1000) / (TENANT_CPU_LIMIT_MCORES / 1000)
-    busy_high = 4200 * (max(MEASURED_MS_PER_INNER_LOOP) / 1000) / (TENANT_CPU_LIMIT_MCORES / 1000)
-    busy_mean = 4200 * (ms_mean / 1000) / (TENANT_CPU_LIMIT_MCORES / 1000)
-    assert 123.0 <= busy_low <= busy_high <= 127.0
-    assert busy_mean == pytest.approx(124.6, abs=0.5)
+    fastest = min(MEASURED_MS_PER_ITERATION)
+    slowest = max(MEASURED_MS_PER_ITERATION)
+    busy_fast = 4950 * fastest / 1000
+    busy_slow = 4950 * slowest / 1000
+    assert busy_fast == pytest.approx(125.4, abs=1.0)
+    assert 123.0 <= busy_fast <= 127.0
 
-    # + the pool probe (~1 s) and the runner's 5 s settle window
-    total = busy_mean + 1.1 + 5.0
-    assert TARGET_TOTAL_WALL_SECONDS - 2.0 <= total <= TARGET_TOTAL_WALL_SECONDS + 2.0
+    # The gate measures the cAdvisor window: it must clear the requirement in
+    # the FASTEST observed case, not only in the slow one.
+    window_fast = busy_fast + WINDOW_OVERHEAD_SECONDS
+    window_slow = busy_slow + WINDOW_OVERHEAD_SECONDS
+    assert window_fast >= GATE_MIN_WINDOW_SECONDS + 10.0, window_fast
+    assert window_slow >= GATE_MIN_WINDOW_SECONDS
+    assert TARGET_TOTAL_WALL_SECONDS - 2.0 <= window_fast <= TARGET_TOTAL_WALL_SECONDS + 2.0
+
+
+def test_the_old_iteration_count_would_fail_the_gate_in_the_fast_case() -> None:
+    """The regression: 4200 iterations gave a 111.5 s window in the fast case."""
+    fastest = min(MEASURED_MS_PER_ITERATION)
+    window = 4200 * fastest / 1000 + WINDOW_OVERHEAD_SECONDS
+    assert window < GATE_MIN_WINDOW_SECONDS, window
+    assert window == pytest.approx(111.5, abs=0.5)
 
 
 def test_the_old_iteration_count_is_what_produced_the_300_second_run() -> None:
@@ -75,6 +102,15 @@ def test_the_old_iteration_count_is_what_produced_the_300_second_run() -> None:
     ms_mean = sum(MEASURED_MS_PER_INNER_LOOP) / 2
     wall = 10000 * (ms_mean / 1000) / (TENANT_CPU_LIMIT_MCORES / 1000)
     assert 290.0 <= wall <= 300.0, "the 10 000-iteration count reproduces the measured runs"
+
+
+def test_the_measured_iteration_cost_spread_is_recorded() -> None:
+    """The three measurements of the same loop shape, and their spread."""
+    values = MEASURED_MS_PER_ITERATION
+    assert len(values) == 3
+    assert 25.0 <= min(values) <= 26.0
+    assert 28.0 <= max(values) <= 29.5
+    assert max(values) / min(values) - 1.0 == pytest.approx(0.139, abs=0.01)
 
 
 def test_mnr06_iteration_count_matches_its_declared_duration() -> None:

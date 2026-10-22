@@ -937,3 +937,19 @@ Effects that follow from that one-line change and would have to be applied with 
 **(a) A unit test wrote into the real dataset directory.** `tests/unit/test_capture_windows.py` (added with Decision D-34) called `PerRunTelemetryCapture().prepare_run_dir("t")` with the *default* base directory, so it created `data/raw/runs/t/` — an empty run directory inside the dataset. The new dataset gate immediately flagged it (`GATE VERDICT: FAILED ... empty_source=1`), which is exactly the behaviour D-34 was meant to produce, but the offending directory was a test artefact. The test now uses a `tmp_path` base directory, and the stray directory was removed from the host and the VM (it was never a dataset row; the VM and host copies of the dataset were reconciled by sha256 afterwards).
 
 **(b) A pre-existing flaky test.** `tests/unit/test_audit_webhook_security.py::test_audit_webhook_logging_never_records_tokens` failed **once in ~15** full-suite runs during this round and passed in 14 others. The cause is a race in the *product's* response/log ordering, not in the assertion: `AuditWebhookHandler.do_POST` writes the HTTP response (`wfile.write(response)`) **before** it emits the request log (`log_request_event(200, request_id)`), so the client can be answered before the log record exists and can assert on an empty `caplog`. The fix is test-only and preserves the assertion exactly: a bounded poll (5 s) waits for the expected record before the assertions run. The product code was **not** changed. Ten consecutive full-suite runs were clean after the fix (193 passed each time).
+
+### 14.6 Round 5a attempt 3 (after Decision D-35): 1 of 10, hard stop at run 1
+
+`run-s4a-r4-01` (`TMPL-MNR-01`) was executed with the Decision D-35 command and **the probe fix worked exactly as predicted**: the captured Hubble source holds **6 flows — 2 `DROPPED UDP dport=3333 10.244.0.93 -> 198.51.100.22` (the pool egress) + 4 DNS flows**, and both expected Falco rules fired (`Interactive Shell Spawned in Non-Debug Container`, `Suspicious High Port Egress`).
+
+The per-run gate nevertheless reported **`FAIL: High-CPU duration too short: 111.52s < 120s`**. The cause is the **duration calibration**, not the telemetry:
+
+| measurement | iterations | ms per 3000-iteration inner loop | cAdvisor window (the gate's measure) | verdict |
+|:---|--:|--:|--:|:---|
+| Round 5a attempt 1 (`run-s4a-r4-01`, 10 000 iterations) | 10 000 | 28.84 ms | 293.57 s | pass |
+| Round 5a attempt 2 (`run-s4a-r4-01`, 4200 iterations) | 4 200 | 28.07 ms | 123.04 s | pass |
+| Round 5a attempt 3 (`run-s4a-r4-01`, 4200 iterations) | 4 200 | **25.33 ms** | **111.52 s** | **fail** |
+
+The wall time of the identical inner loop varies by **13.9 %** between runs (environmental, the VM's vCPU performance), and the Decision D-34 count of 4200 was derived from the mean of the first two measurements. It therefore landed exactly on the gate boundary: 123.04 s in the slow case (passing) and 111.52 s in the fast case (failing by 3.5 s). Decision D-36 sets the count for the **fastest** observed case (4950 iterations, the same principle as D-26: a band must exceed the measured noise floor), which gives a 130.5 s window in the fast case and 147.9 s in the slow one.
+
+**A note on the gate's own message, which is not changed here.** `scripts/stage2_pilot.py` rejects the run with `if calc_dur < 115.0` but prints `"< 120s"`, so the message states a stricter threshold than the code enforces. The Decision D-20 text says "120 s for cryptomining" and the code enforces 115 s. The gap between the two is a pre-existing cosmetic inconsistency; the Decision D-36 count clears **both** (130.5 s > 120 s), so the run is valid under either reading. **The gate was not modified.**

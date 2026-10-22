@@ -392,7 +392,13 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d
 |:--:|:---|:---|:---|
 | 5a-2 | the 10 templates of batch A, re-run with the D-34 commands | **3 of 10 executed.** `run-s4a-r4-01` (`MNR-01`): the runner's per-run gate reported `PASS: CLEAN` (126.03 s, Falco 2, Audit 8, Hubble 4, Prometheus 13). `run-s4a-r4-02` (`MNR-02`): `PASS: CLEAN` (124.55 s, Falco 2, Audit 7, Hubble 4, Prometheus 13). `run-s4a-r4-03` (`MNR-04`): the per-run gate **failed** with `Missing telemetry from source 'hubble': count=0`; the runner quarantined it into `data/raw/failed_runs/` automatically. | **Closed by Decision D-35.** The D-34 duration target is confirmed by measurement (126.03 s and 124.55 s against the predicted ~130 s, cAdvisor at the 200 mcores cap) and the absolute Falco capture window works (both passing runs captured their 2 Falco events). The 0-flow failure was a **command** defect: the mining pool probe was payload-less, and `nc` in UDP mode copies stdin, which is at EOF under `kubectl exec` without `-i`, so no datagram was sent and Cilium recorded no flow. The corpus anchor `TMPL-MNR-03` pipes a payload and its telemetry contains the two expected dropped flows. |
 
-#### 2.11.3 Round 5a — attempt 3 (the re-run after D-35)
+#### 2.11.3 Round 5a — attempt 3 (the re-run after D-35): 1 of 10, hard stop at run 1
+
+| Attempt | Scope | Result | Status |
+|:--:|:---|:---|:---|
+| 5a-3 | the 10 templates of batch A, re-run with the D-35 commands | **1 of 10 executed.** `run-s4a-r4-01` (`MNR-01`): the **Decision D-35 probe fix worked exactly as predicted** — 6 Hubble flows (2 `DROPPED UDP dport=3333` pool egress + 4 DNS) and both expected Falco rules. The per-run gate reported `FAIL: High-CPU duration too short: 111.52s < 120s`; the runner quarantined the run into `data/raw/failed_runs/`. | **Closed by Decision D-36.** The failure is the **duration calibration**: the wall time of the identical inner loop was measured at 28.84 / 28.07 / **25.33** ms per 3000 iterations across three runs (a 13.9 % spread), and the D-34 count of 4200 — derived from the mean of the first two — landed on the gate boundary (123.04 s in the slow case, 111.52 s in the fast one). The count is now set for the **fastest** observed case (4950), the same principle as D-26. No gate threshold was changed. |
+
+#### 2.11.4 Round 5a — attempt 4 (the re-run after D-36)
 
 The D-34 remediation changed the commands of `TMPL-MNR-01`, `TMPL-MNR-02`, `TMPL-MNR-05` and `TMPL-MNR-06`, so their previous telemetry is stale and is moved to `data/raw/superseded_runs/`. Batch A is then re-run from `TMPL-MNR-01`:
 
