@@ -398,7 +398,13 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d
 |:--:|:---|:---|:---|
 | 5a-3 | the 10 templates of batch A, re-run with the D-35 commands | **1 of 10 executed.** `run-s4a-r4-01` (`MNR-01`): the **Decision D-35 probe fix worked exactly as predicted** — 6 Hubble flows (2 `DROPPED UDP dport=3333` pool egress + 4 DNS) and both expected Falco rules. The per-run gate reported `FAIL: High-CPU duration too short: 111.52s < 120s`; the runner quarantined the run into `data/raw/failed_runs/`. | **Closed by Decision D-36.** The failure is the **duration calibration**: the wall time of the identical inner loop was measured at 28.84 / 28.07 / **25.33** ms per 3000 iterations across three runs (a 13.9 % spread), and the D-34 count of 4200 — derived from the mean of the first two — landed on the gate boundary (123.04 s in the slow case, 111.52 s in the fast one). The count is now set for the **fastest** observed case (4950), the same principle as D-26. No gate threshold was changed. |
 
-#### 2.11.4 Round 5a — attempt 4 (the re-run after D-36)
+#### 2.11.4 Round 5a — attempt 4 (the re-run after D-35 and D-36): 10 of 10, batch complete
+
+| Attempt | Scope | Result | Status |
+|:--:|:---|:---|:---|
+| 5a-4 | the 10 templates of batch A, re-run with the D-35 commands (payload restored) and the D-36 count (4950 iterations) | **10 of 10 executed, no gate failure.** The runner's per-run gate reported `PASS: CLEAN` for all ten runs. Every mining run carries exactly **2 `DROPPED` pool-egress flows** to its own port, and the three `high` runs last 133.05 / 133.26 / 132.96 s against the D-22 target of ~130 s. | The batch is complete. **Seven plan expectations still differ from the telemetry** (the Hubble band of `MNR-01/02/05/07` and `PRV-06`, the expected rule set of `ESC-01`, and the four throttled mining intensities/durations); the proposed corrections are listed in `docs/REPORT_DELTA.md` §15.2 and are **not applied**. |
+
+#### 2.11.5 Round 5a — attempt 4 (the re-run after D-36)
 
 The D-34 remediation changed the commands of `TMPL-MNR-01`, `TMPL-MNR-02`, `TMPL-MNR-05` and `TMPL-MNR-06`, so their previous telemetry is stale and is moved to `data/raw/superseded_runs/`. Batch A is then re-run from `TMPL-MNR-01`:
 

@@ -953,3 +953,47 @@ The per-run gate nevertheless reported **`FAIL: High-CPU duration too short: 111
 The wall time of the identical inner loop varies by **13.9 %** between runs (environmental, the VM's vCPU performance), and the Decision D-34 count of 4200 was derived from the mean of the first two measurements. It therefore landed exactly on the gate boundary: 123.04 s in the slow case (passing) and 111.52 s in the fast case (failing by 3.5 s). Decision D-36 sets the count for the **fastest** observed case (4950 iterations, the same principle as D-26: a band must exceed the measured noise floor), which gives a 130.5 s window in the fast case and 147.9 s in the slow one.
 
 **A note on the gate's own message, which is not changed here.** `scripts/stage2_pilot.py` rejects the run with `if calc_dur < 115.0` but prints `"< 120s"`, so the message states a stricter threshold than the code enforces. The Decision D-20 text says "120 s for cryptomining" and the code enforces 115 s. The gap between the two is a pre-existing cosmetic inconsistency; the Decision D-36 count clears **both** (130.5 s > 120 s), so the run is valid under either reading. **The gate was not modified.**
+
+---
+
+## 15. Stage 4a Round 5a — Attempt 4 (after Decisions D-35 and D-36): 10 of 10, batch complete
+
+### 15.1 The result
+
+The runner's own summary line:
+
+```text
+================ STAGE 4a ROUND 5a SUMMARY ================
+run-s4a-r4-01 TMPL-MNR-01  cryptomining     dur= 133.05s falco=2 audit=5 hubble=6  prom=14 trivy=1 cpu[0.0/199.41/200.55] profile=high      gate=PASSED
+run-s4a-r4-02 TMPL-MNR-02  cryptomining     dur= 133.26s falco=2 audit=5 hubble=6  prom=14 trivy=1 cpu[0.0/198.03/199.97] profile=high      gate=PASSED
+run-s4a-r4-03 TMPL-MNR-04  cryptomining     dur=  76.18s falco=2 audit=5 hubble=2  prom=9  trivy=1 cpu[0.0/71.38/74.12]  profile=throttled gate=PASSED
+run-s4a-r4-04 TMPL-MNR-05  cryptomining     dur= 132.96s falco=1 audit=5 hubble=6  prom=14 trivy=1 cpu[0.0/198.05/200.33] profile=high      gate=PASSED
+run-s4a-r4-05 TMPL-MNR-06  cryptomining     dur=  76.28s falco=2 audit=5 hubble=2  prom=9  trivy=1 cpu[0.0/59.32/60.30]  profile=throttled gate=PASSED
+run-s4a-r4-06 TMPL-MNR-07  cryptomining     dur=  84.34s falco=2 audit=6 hubble=71 prom=9  trivy=1 cpu[0.0/73.96/81.63]  profile=throttled gate=PASSED
+run-s4a-r4-07 TMPL-MNR-08  cryptomining     dur=  94.55s falco=2 audit=6 hubble=2  prom=10 trivy=1 cpu[0.0/86.63/94.03]  profile=throttled gate=PASSED
+run-s4a-r4-08 TMPL-PRV-06  privilege_abuse  dur=   7.14s falco=1 audit=8 hubble=13 prom=2  trivy=1 cpu[0.0/0.0/0.0]     profile=low       gate=PASSED
+run-s4a-r4-09 TMPL-PRV-08  privilege_abuse  dur=   9.22s falco=1 audit=8 hubble=30 prom=2  trivy=1 cpu[0.0/4.69/4.69]   profile=low       gate=PASSED
+run-s4a-r4-10 TMPL-ESC-01  container_escape dur=   7.16s falco=3 audit=5 hubble=3  prom=2  trivy=1 cpu[0.0/0.44/0.44]   profile=low       gate=PASSED
+completed=10/10 stop_reason=None
+EXIT=0
+```
+
+Both fixes are confirmed by the telemetry: **every** mining run carries exactly **2 `DROPPED` pool-egress flows** to its own port (3333, 4444, 5555, 6379, 7777, 9999, 8888) — the Decision D-35 payload — and the three `high` runs last **133.05 / 133.26 / 132.96 s** against the Decision D-22 target of ~130 s, i.e. the Decision D-36 count holds the duration in the fast case as designed.
+
+The Decision D-27 post-lag statistics (the gate's own quantities): `MNR-01` 199.81 m / 91.7 % / 12 post-lag samples, `MNR-02` 198.10 m / 83.3 %, `MNR-05` 198.05 m / 91.7 % (floor 100 m, 80 % required); `MNR-04` 71.38 m / 100 %, `MNR-06` 59.64 m / 85.7 %, `MNR-07` 76.25 m / 100 %, `MNR-08` 86.69 m / 100 % (floor 40 m, 60 % required). Every mining run is `OK`.
+
+### 15.2 Deviations from the plan (proposed corrections, NOT applied)
+
+| # | Template | Plan says | Measured | Proposed correction |
+|:--|:---|:---|:---|:---|
+| 1 | `TMPL-MNR-01`, `MNR-02`, `MNR-05` | Hubble band `LOW` | **6 flows = `MID`** (2 dropped pool egress + 4 DNS) | the `Hubble Band` column becomes `MID`; the Decision D-35 flow count of 6 was already correct |
+| 2 | `TMPL-MNR-07` | Hubble band `LOW`, 6 flows | **71 flows = `HIGH`** | the `Hubble Band` column becomes `HIGH`; the expected count becomes ~71 (the scenario resolves the pool name every 50 iterations, i.e. 18 lookups x 4 flows, plus the 2 pool-egress flows) — the Decision D-35 declaration of 6 for this template was wrong |
+| 3 | `TMPL-PRV-06` | Hubble band `MID` | **13 flows = `HIGH`** | the `Hubble Band` column becomes `HIGH` |
+| 4 | `TMPL-ESC-01` | expected rules `Shell Spawn, Sensitive File Read` | **3 rules**: `Interactive Shell Spawned in Non-Debug Container` (the spawn), **`Read sensitive file untrusted`** (the Falco *default* rule, for `/etc/shadow`) and `Read Sensitive Host Information Untrusted` (the lab rule, for `/etc/passwd`) | the `Expected Falco Rules` column adds the default rule; the two identity reads are read by two different rules because the lab rule and the Falco default rule both cover identity files |
+| 5 | `TMPL-MNR-04`, `MNR-06`, `MNR-07`, `MNR-08` | intensity `~80m`, `~69m`, `~80m`, `~96m` | **71.38**, **59.32**, **73.96**, **86.63** m (post-lag medians 71.38 / 59.64 / 76.25 / 86.69) | the `Intensity` column takes the measured values; the Decision D-35 derivation from the attempt-2 measurement of `MNR-04` (80.17 m) is 9-11 % high because of the same 14 % run-to-run spread that Decision D-36 had to accommodate |
+| 6 | `TMPL-MNR-04`, `MNR-06`, `MNR-07`, `MNR-08` | duration `70s`, `70s`, `80s`, `90s` | **76.18**, **76.28**, **84.34**, **94.55** s | the `Duration` column becomes the measured values (+6-9 %), or the column stays a target and the safety notes carry the measured duration |
+| 7 | `TMPL-MNR-01`, `MNR-02`, `MNR-05` | duration `130s` | 133.05 / 133.26 / 132.96 s | no correction needed (+2.4 %, inside the variance) |
+
+### 15.3 The gate's own message is inconsistent with its code (not changed)
+
+`scripts/stage2_pilot.py` rejects a `high` run with `if calc_dur < 115.0` but prints `"High-CPU duration too short: {calc_dur}s < 120s"`, and Decision D-20's text says "120 s for cryptomining". The code therefore enforces 115 s while the message and the decision text say 120 s. The Decision D-36 count clears **both** (130.5 s in the fast case), so every run of this batch is valid under either reading. The gate was **not** modified; the discrepancy is recorded here for the reviewer.
