@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Final
 
 from runtimelens.classifiers.rules import classify_rules
-from runtimelens.classifiers.scaledown import serialize_canonical_state
 from runtimelens.normalizer.falco import normalize_falco_event
 from runtimelens.policy.engine import evaluate_policy
 from runtimelens.sanitizer import escape_state_delimiters, sanitize_untrusted_input
