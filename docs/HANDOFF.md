@@ -1,7 +1,7 @@
 # RuntimeLens Engineering Handoff
 
-> **Last Updated:** 2026-10-18
-> **Operational Status:** Segment S4 Complete; Halted at Checkpoint D1 Boundary
+> **Last Updated:** 2026-10-23
+> **Operational Status:** Segment S4 Complete; Ready for Stage 2 Pilot (Ticket 06a)
 > **Governance Document:** `AGENTS.md` Rule 8 (Per-Ticket Review Loop) & Rule 9 (Autopilot with Approval Queue)
 
 ---
@@ -35,45 +35,36 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 2. Active & Blocked Tickets
 
-- **Active State:** `HALTED FOR HOST ROUTING APPROVAL (A-007)`
-- **Status:** `BLOCKED-ON A-007` (Host macOS Routing & Multipassd Kickstart)
+- **Active State:** `READY FOR TICKET 06a (Stage 2 Pilot Scenario Run)`
+- **Status:** `UNBLOCKED` (Remediation Plan A-006 approved, host connectivity diagnosed in A-007, terminal execution confirmed in A-008)
 - **Remediation Status:**
   - Stage 0 (doc/node sanitation) COMPLETED.
   - Stage 1 (proof runs + verify_dataset.py gate) COMPLETED.
-  - Stage 2 (real 25-run pilot runner implemented with periodic cAdvisor sampling and per-run cleanup) PAUSED for host route fix.
+  - Stage 2 (real 25-run pilot runner with genuine 5-source captures) READY.
 - **Snapshot Baseline:** Clean snapshot `snap-s4` remains verified on `runtimelens-vm` post-S4.
 
 ---
 
 ## 3. Active Branches
 
-- `main`: Clean, fully tested, all CI gates passing.
-- `ahead/12b` (`4063954`): Adversarial test harness (code structure preserved; mock inference marked for remediation).
-- `ahead/14` (`472a250`): Prometheus operational metrics exporter & Grafana secops dashboard.
-- `ahead/16c` (`439f6db`): 5-minute live interactive demonstration script & viva defense runbook.
+- **`main`:** Clean, fully tested, all CI gates passing.
+- **`ahead/12b` (`4063954`):** Adversarial test harness (code structure preserved; mock inference marked for remediation).
+- **`ahead/14` (`472a250`):** Prometheus operational metrics exporter & Grafana secops dashboard.
+- **`ahead/16c` (`439f6db`):** 5-minute live interactive demonstration script & viva defense runbook.
 
 ---
 
 ## 4. Open Queue Entries (`docs/APPROVAL_QUEUE.md`)
 
-- **`A-006`:** Comprehensive Dataset & Pipeline Remediation Plan (Real 5-source capture, per-run directories, 120s mining duration, capture-sufficiency gate, anti-leakage feature audit, GroupKFold CV, new pilot).
-  - *Recommendation:* `AWAITING USER DECISION`
+- *(No active approval items pending.)*
 
 ---
 
 ## 5. Next Three Steps
 
-1. **Step 1 (User Review & Direction):** User reviews `docs/DATASET_INVESTIGATION.md` and provides guidance on Remediation Plan `A-006`.
-2. **Step 2 (Genuine Telemetry Pipeline Architecture):** Re-architect runner to stream authentic cluster daemons (Falco logs, audit webhook, Hubble flow queries, Prometheus cAdvisor metrics) into per-run directories (`data/raw/runs/<run_id>/`).
-3. **Step 3 (Genuine Pilot & Re-Baselining):** Execute genuine pilot with 120s cryptomining runs, verify per-run capture-sufficiency gate, and measure real empirical budgets.
-
----
-
-## 5. Next Three Steps
-
-1. **Step 1 (Human Action - Track R2 Round 2):** Teammates Altaf and Kamal conduct blind review on 60–80 stratified Dev incidents and report Cohen's kappa $\kappa$ (requirement: $\kappa \ge 0.80$). User replies `"APPROVE A-005"` when complete.
-2. **Step 2 (Ticket 12a Dev Tuning):** In a user-initiated terminal session with `SCALEDOWN_API_KEY` set, run `python -m runtimelens.eval.run_ablations --split dev` to tune models, execute 6 ablations (Primary: Baseline on/off), and generate reliability curves.
-3. **Step 3 (Checkpoint I & Ticket 12c):** Authorize and execute the single-pass held-out test evaluation on the frozen 112 test runs.
+1. **Step 1 (Sync to VM):** Export clean git archive of current HEAD and unpack into `/home/ubuntu/RuntimeLens/` inside `runtimelens-vm`.
+2. **Step 2 (Receiver & Health Verification):** Run `make lab-verify` and ensure Hubble Relay (4245), Falco webhook (8765), and Audit webhook (8766) are listening.
+3. **Step 3 (Execute Stage 2 Pilot):** Run `scripts/stage2_pilot.py` (dry-run, ramp-5, full-25) inside the VM environment and execute `scripts/verify_dataset.py` on the resulting run directory.
 
 ---
 
