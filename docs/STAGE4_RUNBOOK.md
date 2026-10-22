@@ -386,7 +386,13 @@ PYTHONPATH=src:. python3 scripts/stage4a_runner.py 5d
 
 `run-s4a-r4-02` was moved to `data/raw/failed_runs/run-s4a-r4-02` (authoritative copy in `data/raw_backup/run-s4a-r4-02`, with the recovered pod-log evidence in `falco/pod_log_recovered.jsonl`). From D-34 onward the runner performs that move **automatically** on any gate failure.
 
-#### 2.11.2 Round 5a — attempt 2 (the re-run after D-34)
+#### 2.11.2 Round 5a — attempt 2 (the re-run after D-34): 3 of 10, hard stop at run 3
+
+| Attempt | Scope | Result | Status |
+|:--:|:---|:---|:---|
+| 5a-2 | the 10 templates of batch A, re-run with the D-34 commands | **3 of 10 executed.** `run-s4a-r4-01` (`MNR-01`): the runner's per-run gate reported `PASS: CLEAN` (126.03 s, Falco 2, Audit 8, Hubble 4, Prometheus 13). `run-s4a-r4-02` (`MNR-02`): `PASS: CLEAN` (124.55 s, Falco 2, Audit 7, Hubble 4, Prometheus 13). `run-s4a-r4-03` (`MNR-04`): the per-run gate **failed** with `Missing telemetry from source 'hubble': count=0`; the runner quarantined it into `data/raw/failed_runs/` automatically. | **Closed by Decision D-35.** The D-34 duration target is confirmed by measurement (126.03 s and 124.55 s against the predicted ~130 s, cAdvisor at the 200 mcores cap) and the absolute Falco capture window works (both passing runs captured their 2 Falco events). The 0-flow failure was a **command** defect: the mining pool probe was payload-less, and `nc` in UDP mode copies stdin, which is at EOF under `kubectl exec` without `-i`, so no datagram was sent and Cilium recorded no flow. The corpus anchor `TMPL-MNR-03` pipes a payload and its telemetry contains the two expected dropped flows. |
+
+#### 2.11.3 Round 5a — attempt 3 (the re-run after D-35)
 
 The D-34 remediation changed the commands of `TMPL-MNR-01`, `TMPL-MNR-02`, `TMPL-MNR-05` and `TMPL-MNR-06`, so their previous telemetry is stale and is moved to `data/raw/superseded_runs/`. Batch A is then re-run from `TMPL-MNR-01`:
 

@@ -101,6 +101,31 @@ def cpu_series(run_dir: Path) -> tuple[list[float], list[float]]:
     return cpus, stamps
 
 
+POOL_EGRESS_PORT_MIN = 3333
+POOL_EGRESS_PORT_MAX = 9999
+
+
+def pool_egress_flows(run_dir: Path) -> list[dict[str, Any]]:
+    """Return the Hubble flows whose destination port is in 3333-9999.
+
+    Those are the *dropped pool-egress* flows: the UDP datagram that the
+    mining / port-probe scenario sends to the inert external test IP, which
+    the default-deny egress NetworkPolicy drops. They are the only Hubble
+    trace of the pool connect.
+    """
+    flows: list[dict[str, Any]] = []
+    for event in read_jsonl(run_dir / "hubble" / "flows.jsonl"):
+        flow = event.get("flow", {})
+        l4 = flow.get("l4", {})
+        for proto in ("UDP", "TCP"):
+            port = l4.get(proto, {}).get("destination_port")
+            if port is None:
+                continue
+            if POOL_EGRESS_PORT_MIN <= int(port) <= POOL_EGRESS_PORT_MAX:
+                flows.append(flow)
+    return flows
+
+
 def falco_rules(run_dir: Path) -> list[str]:
     rules: list[str] = []
     for event in read_jsonl(run_dir / "falco" / "events.jsonl"):
@@ -134,7 +159,7 @@ def main() -> int:
     print(
         f"{'run_id':<16} {'template':<14} {'class':<16} {'dur_s':>7} "
         f"{'falco':>5} {'audit':>5} {'hubble':>6} {'prom':>4} {'trivy':>5} {'pod':>4} "
-        f"{'cpu_min':>7} {'cpu_med':>7} {'cpu_max':>7} {'profile':<9} gate"
+        f"{'pool_egress':>11} {'cpu_min':>7} {'cpu_med':>7} {'cpu_max':>7} {'profile':<9} gate"
     )
     for template in templates:
         run_dir = runs_dir / template["run_id"]
@@ -158,6 +183,7 @@ def main() -> int:
             f"{template['threat_class']:<16} {index.get('elapsed_seconds', 0):>7} "
             f"{counts['falco']:>5} {counts['audit']:>5} {counts['hubble']:>6} "
             f"{counts['prometheus']:>4} {counts['trivy']:>5} {counts['pod']:>4} "
+            f"{len(pool_egress_flows(run_dir)):>11} "
             f"{min(cpus) if cpus else 0.0:>7.2f} {med:>7.2f} {max(cpus) if cpus else 0.0:>7.2f} "
             f"{template['expected_cpu_profile']:<9} {gate}"
         )
@@ -248,6 +274,56 @@ def main() -> int:
 
     print()
     print("=" * 118)
+    print("=" * 118)
+    print("HUBBLE POOL-EGRESS FLOWS (destination port 3333-9999, the dropped pool connect)")
+    print("=" * 118)
+    for template in templates:
+        run_dir = runs_dir / template["run_id"]
+        if not run_dir.exists():
+            continue
+        pool = pool_egress_flows(run_dir)
+        print(
+            f"{template['run_id']:<16} {template['template_id']:<14} "
+            f"pool_egress_flows={len(pool):<3} expected={template.get('expect_hubble_flows', '?')}"
+        )
+        for flow in pool:
+            l4 = flow.get("l4", {})
+            proto = next(iter(l4), "?")
+            port = l4.get(proto, {}).get("destination_port")
+            ip = flow.get("IP", {})
+            print(
+                f"    verdict={flow.get('verdict'):<10} {proto} dport={port} "
+                f"{ip.get('source')} -> {ip.get('destination')}"
+            )
+    print()
+    print("raw Hubble flow line of one mining run (the first pool-egress flow found):")
+    shown = False
+    for template in templates:
+        if shown:
+            break
+        run_dir = runs_dir / template["run_id"]
+        if not run_dir.exists():
+            continue
+        if not pool_egress_flows(run_dir):
+            continue
+        for event in read_jsonl(run_dir / "hubble" / "flows.jsonl"):
+            flow = event.get("flow", {})
+            l4 = flow.get("l4", {})
+            hit = False
+            for proto in ("UDP", "TCP"):
+                port = l4.get(proto, {}).get("destination_port")
+                if port is not None and POOL_EGRESS_PORT_MIN <= int(port) <= POOL_EGRESS_PORT_MAX:
+                    hit = True
+                    break
+            if hit:
+                print(f"  {template['run_id']} ({template['template_id']}):")
+                print(json.dumps(event, indent=1))
+                shown = True
+                break
+    if not shown:
+        print("  (no pool-egress flow found in any run)")
+
+    print()
     print(
         "FALCO FIRED vs EXPECTED  |  HUBBLE BAND MEASURED vs EXPECTED"
         "  |  AUDIT VERBS MEASURED vs EXPECTED"

@@ -61,14 +61,14 @@ def mining_high(port: int, iterations: int, prefix: str = "") -> str:
     time divided by the 200 mcores cgroup cap, which is why the iteration
     count (not the command length) sets the duration.
     """
-    connect = f"{prefix}nc -u -w 1 198.51.100.22 {port} || true; "
+    connect = f"{prefix}echo p | nc -u -w 1 198.51.100.22 {port} || true; "
     loop = f"for i in $(seq {iterations}); do j=0; while [ $j -lt 3000 ]; do j=$((j+1)); done; done"
     return connect + loop
 
 
 def mining_throttled(port: int, iterations: int, pause: str, prefix: str = "") -> str:
     """Throttled mining loop (D-27): a measured duty cycle inside the band."""
-    connect = f"{prefix}nc -u -w 1 198.51.100.22 {port} || true; "
+    connect = f"{prefix}echo p | nc -u -w 1 198.51.100.22 {port} || true; "
     loop = (
         f"for i in $(seq {iterations}); do j=0; "
         f"while [ $j -lt 3000 ]; do j=$((j+1)); done; {pause} done"
@@ -101,6 +101,7 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 6,  # 4 DNS flows + 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
         "intensity": "200m",
     },
@@ -120,6 +121,7 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 6,  # 4 DNS flows + 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
         "intensity": "200m",
     },
@@ -139,8 +141,9 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 2,  # 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
-        "intensity": "~64m",
+        "intensity": "~80m",
     },
     {
         "batch": "A",
@@ -158,6 +161,7 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_ONLY,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 6,  # 4 DNS flows + 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
         "intensity": "200m",
     },
@@ -177,8 +181,9 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 2,  # 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
-        "intensity": "~55m",
+        "intensity": "~69m",
     },
     {
         "batch": "A",
@@ -203,8 +208,9 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 6,  # 4 DNS flows + 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
-        "intensity": "~64m",
+        "intensity": "~80m",
     },
     {
         "batch": "A",
@@ -222,8 +228,9 @@ _RAW_DEFS: Final[list[dict[str, Any]]] = [
         "expect_falco": SHELL_EGRESS,
         "expect_verbs": ["create", "get"],
         "expect_hubble_band": "LOW",
+        "expect_hubble_flows": 2,  # 2 dropped pool-egress flows
         "expect_features": ["F", "F", "F"],
-        "intensity": "~77m",
+        "intensity": "~96m",
     },
     {
         "batch": "A",

@@ -93,17 +93,50 @@ def test_mining_templates_still_use_the_verified_inner_loop_shape() -> None:
 
 
 def test_the_mining_intensities_are_the_recomputed_ones() -> None:
+    """D-35: MNR-04 is measured, MNR-06/07/08 are derived from that measurement."""
     expected = {
         "TMPL-MNR-01": "200m",
         "TMPL-MNR-02": "200m",
-        "TMPL-MNR-04": "~64m",
+        "TMPL-MNR-04": "~80m",
         "TMPL-MNR-05": "200m",
-        "TMPL-MNR-06": "~55m",
-        "TMPL-MNR-07": "~64m",
-        "TMPL-MNR-08": "~77m",
+        "TMPL-MNR-06": "~69m",
+        "TMPL-MNR-07": "~80m",
+        "TMPL-MNR-08": "~96m",
     }
     for template_id, intensity in expected.items():
         assert _mining_def(template_id)["intensity"] == intensity, template_id
+
+
+def test_every_mining_pool_probe_carries_a_payload() -> None:
+    """`nc` in UDP mode copies stdin: without a payload it sends no datagram.
+
+    That was the Round 5a attempt-2 defect: the probe was
+    `nc -u -w 1 <ip> <port>`, stdin was at EOF under `kubectl exec` without
+    `-i`, so no packet left the pod, Cilium recorded no flow, and the
+    per-run gate failed on an empty Hubble source. The verified corpus anchor
+    `TMPL-MNR-03` pipes a payload and its telemetry contains the two dropped
+    pool-egress flows.
+    """
+    for definition in ROUND4_TEMPLATE_DEFS:
+        if definition["threat_class"] != "cryptomining":
+            continue
+        command = str(definition["command"])
+        assert "echo p | nc -u -w 1 198.51.100.22" in command, definition["template_id"]
+
+
+def test_the_expected_hubble_flow_counts_are_declared() -> None:
+    """6 flows with the type-A DNS observation, 2 without it."""
+    expected = {
+        "TMPL-MNR-01": 6,
+        "TMPL-MNR-02": 6,
+        "TMPL-MNR-04": 2,
+        "TMPL-MNR-05": 6,
+        "TMPL-MNR-06": 2,
+        "TMPL-MNR-07": 6,
+        "TMPL-MNR-08": 2,
+    }
+    for template_id, flows in expected.items():
+        assert _mining_def(template_id)["expect_hubble_flows"] == flows, template_id
 
 
 def test_no_gate_threshold_was_touched() -> None:
