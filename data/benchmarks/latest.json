@@ -1,0 +1,235 @@
+{
+  "trials_count": 5,
+  "events_per_trial": 1000,
+  "total_events_measured": 5000,
+  "total_errors": 0,
+  "throughput_events_per_sec": {
+    "median": 12847.1,
+    "min": 12491.3,
+    "max": 13004.1
+  },
+  "end_to_end_latency_us": {
+    "p50_median": 77.2,
+    "p50_min": 75.9,
+    "p50_max": 78.9
+  },
+  "stage_breakdown_median_p50_us": {
+    "normalization": 22.4,
+    "rule_classification": 1.3,
+    "policy_engine": 1.0,
+    "audit_write_hashchain": 52.5
+  },
+  "limiter": "Audit log disk append and SHA-256 cryptographic hashing (dominates >80% of total pipeline latency)",
+  "trials": [
+    {
+      "total_processed": 1000,
+      "wall_time_seconds": 0.0797,
+      "throughput_events_per_sec": 12546.3,
+      "error_count": 0,
+      "audit_valid": true,
+      "audit_error": null,
+      "actions_distribution": {
+        "log": 500,
+        "alert": 500,
+        "human_review": 0,
+        "quarantine": 0
+      },
+      "latency_us": {
+        "normalization": {
+          "p50_us": 22.0,
+          "p95_us": 24.6,
+          "mean_us": 23.1
+        },
+        "classification": {
+          "p50_us": 1.3,
+          "p95_us": 1.5,
+          "mean_us": 1.6
+        },
+        "policy": {
+          "p50_us": 1.1,
+          "p95_us": 1.2,
+          "mean_us": 1.1
+        },
+        "audit_write": {
+          "p50_us": 53.5,
+          "p95_us": 63.0,
+          "mean_us": 53.6
+        },
+        "end_to_end": {
+          "p50_us": 77.3,
+          "p95_us": 89.6,
+          "mean_us": 79.6
+        }
+      },
+      "trial_index": 1
+    },
+    {
+      "total_processed": 1000,
+      "wall_time_seconds": 0.0778,
+      "throughput_events_per_sec": 12860.5,
+      "error_count": 0,
+      "audit_valid": true,
+      "audit_error": null,
+      "actions_distribution": {
+        "log": 500,
+        "alert": 500,
+        "human_review": 0,
+        "quarantine": 0
+      },
+      "latency_us": {
+        "normalization": {
+          "p50_us": 22.3,
+          "p95_us": 25.1,
+          "mean_us": 22.6
+        },
+        "classification": {
+          "p50_us": 1.4,
+          "p95_us": 1.5,
+          "mean_us": 1.4
+        },
+        "policy": {
+          "p50_us": 1.1,
+          "p95_us": 1.2,
+          "mean_us": 1.1
+        },
+        "audit_write": {
+          "p50_us": 52.3,
+          "p95_us": 61.6,
+          "mean_us": 52.3
+        },
+        "end_to_end": {
+          "p50_us": 76.5,
+          "p95_us": 88.3,
+          "mean_us": 77.7
+        }
+      },
+      "trial_index": 2
+    },
+    {
+      "total_processed": 1000,
+      "wall_time_seconds": 0.0801,
+      "throughput_events_per_sec": 12491.3,
+      "error_count": 0,
+      "audit_valid": true,
+      "audit_error": null,
+      "actions_distribution": {
+        "log": 500,
+        "alert": 500,
+        "human_review": 0,
+        "quarantine": 0
+      },
+      "latency_us": {
+        "normalization": {
+          "p50_us": 22.4,
+          "p95_us": 26.3,
+          "mean_us": 22.8
+        },
+        "classification": {
+          "p50_us": 1.3,
+          "p95_us": 1.5,
+          "mean_us": 1.3
+        },
+        "policy": {
+          "p50_us": 1.0,
+          "p95_us": 1.2,
+          "mean_us": 1.1
+        },
+        "audit_write": {
+          "p50_us": 54.7,
+          "p95_us": 64.2,
+          "mean_us": 54.5
+        },
+        "end_to_end": {
+          "p50_us": 78.9,
+          "p95_us": 91.7,
+          "mean_us": 80.0
+        }
+      },
+      "trial_index": 3
+    },
+    {
+      "total_processed": 1000,
+      "wall_time_seconds": 0.0778,
+      "throughput_events_per_sec": 12847.1,
+      "error_count": 0,
+      "audit_valid": true,
+      "audit_error": null,
+      "actions_distribution": {
+        "log": 500,
+        "alert": 500,
+        "human_review": 0,
+        "quarantine": 0
+      },
+      "latency_us": {
+        "normalization": {
+          "p50_us": 23.3,
+          "p95_us": 26.7,
+          "mean_us": 23.3
+        },
+        "classification": {
+          "p50_us": 1.3,
+          "p95_us": 1.5,
+          "mean_us": 1.3
+        },
+        "policy": {
+          "p50_us": 1.0,
+          "p95_us": 1.1,
+          "mean_us": 1.0
+        },
+        "audit_write": {
+          "p50_us": 52.5,
+          "p95_us": 62.2,
+          "mean_us": 51.9
+        },
+        "end_to_end": {
+          "p50_us": 77.2,
+          "p95_us": 90.6,
+          "mean_us": 77.8
+        }
+      },
+      "trial_index": 4
+    },
+    {
+      "total_processed": 1000,
+      "wall_time_seconds": 0.0769,
+      "throughput_events_per_sec": 13004.1,
+      "error_count": 0,
+      "audit_valid": true,
+      "audit_error": null,
+      "actions_distribution": {
+        "log": 500,
+        "alert": 500,
+        "human_review": 0,
+        "quarantine": 0
+      },
+      "latency_us": {
+        "normalization": {
+          "p50_us": 23.3,
+          "p95_us": 26.5,
+          "mean_us": 23.2
+        },
+        "classification": {
+          "p50_us": 1.3,
+          "p95_us": 1.5,
+          "mean_us": 1.3
+        },
+        "policy": {
+          "p50_us": 1.0,
+          "p95_us": 1.1,
+          "mean_us": 1.0
+        },
+        "audit_write": {
+          "p50_us": 51.4,
+          "p95_us": 60.9,
+          "mean_us": 51.0
+        },
+        "end_to_end": {
+          "p50_us": 75.9,
+          "p95_us": 89.2,
+          "mean_us": 76.8
+        }
+      },
+      "trial_index": 5
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # TICKET TREE: RuntimeLens Implementation Workflow
 
-**ACTIVE TICKET:** HALTED (Remediation Plan A-006 pending approval; tickets 06a-08 invalidated)
+**ACTIVE TICKET:** 06a (Stage 2 Pilot Scenario Run — 25 runs, 5 genuine sources; A-006 approved, A-007 resolved)
 
 ---
 

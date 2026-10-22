@@ -174,6 +174,10 @@ class AuditWebhookHandler(BaseHTTPRequestHandler):
             self._send_json_error(400, f"Malformed audit batch JSON: {e}", request_id)
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+
 def run_audit_webhook_server(
     host: str = "172.18.0.1",
     port: int = 8766,
@@ -188,7 +192,7 @@ def run_audit_webhook_server(
         )
 
     AuditWebhookHandler.raw_log_path = raw_path
-    server = ThreadingHTTPServer((host, port), AuditWebhookHandler)
+    server = ReusableThreadingHTTPServer((host, port), AuditWebhookHandler)
     if cert_file and key_file and cert_file.exists() and key_file.exists():
         import ssl
 
