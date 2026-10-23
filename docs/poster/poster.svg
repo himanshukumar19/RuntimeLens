@@ -1,0 +1,332 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1350" width="100%" height="100%" style="background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="probGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#881337" />
+      <stop offset="100%" stop-color="#4c0519" />
+    </linearGradient>
+    <linearGradient id="solGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
+    <linearGradient id="scaledownGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#171026" />
+      <stop offset="100%" stop-color="#24163d" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Outer Canvas Border -->
+  <rect x="15" y="15" width="2370" height="1320" rx="16" fill="#090d16" stroke="#334155" stroke-width="2"/>
+
+  <!-- Header Banner -->
+  <g transform="translate(15, 15)">
+    <path d="M 0 16 Q 0 0 16 0 L 2354 0 Q 2370 0 2370 16 L 2370 160 L 0 160 Z" fill="url(#headerGrad)"/>
+    <line x1="0" y1="160" x2="2370" y2="160" stroke="#38bdf8" stroke-width="4"/>
+    
+    <!-- Header Tag -->
+    <rect x="40" y="22" width="460" height="26" rx="13" fill="#38bdf8" fill-opacity="0.2" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="55" y="40" fill="#38bdf8" font-size="14" font-weight="bold" letter-spacing="1">RUNTIME SECURITY &amp; MULTI-TENANT ORCHESTRATION</text>
+
+    <!-- Title -->
+    <text x="40" y="85" fill="#ffffff" font-size="34" font-weight="800">RuntimeLens: Context-Aware Threat Classification for Multi-Tenant Kubernetes</text>
+    <text x="40" y="118" fill="#bae6fd" font-size="18" font-weight="500">End-to-End 5-Source Telemetry Correlation, Git-Versioned Workload Baselines, ScaleDown Classify-1 &amp; SRE Reversible Quarantine</text>
+
+    <!-- Authors -->
+    <text x="40" y="146" fill="#cbd5e1" font-size="15">
+      <tspan font-weight="bold" fill="#fff">Altaf Raja</tspan> (23BCS011) · Architecture &amp; SRE   |   
+      <tspan font-weight="bold" fill="#fff">Kamal Nayan Kumar</tspan> (23BDS026) · Model &amp; Baselines   |   
+      <tspan font-weight="bold" fill="#fff">Himanshu Kumar</tspan> (23BCS055) · Cluster &amp; eBPF   |   
+      <tspan fill="#94a3b8">Final Year Capstone Project (2026)</tspan>
+    </text>
+  </g>
+
+  <!-- Left Column: Problem & Context (x: 45, width: 980) -->
+  <g transform="translate(45, 200)">
+    <!-- Section Header -->
+    <rect x="0" y="0" width="980" height="48" rx="8" fill="url(#probGrad)"/>
+    <rect x="0" y="0" width="8" height="48" rx="4" fill="#f43f5e"/>
+    <text x="24" y="32" fill="#ffe4e6" font-size="20" font-weight="800">1. PROBLEM STATEMENT &amp; MULTI-TENANT THREAT ENVIRONMENT</text>
+
+    <!-- Box 1: Multi-Tenant Architecture -->
+    <rect x="0" y="65" width="980" height="340" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="20" y="98" fill="#f8fafc" font-size="18" font-weight="700">Multi-Tenant Container Environment</text>
+    <text x="750" y="98" fill="#94a3b8" font-size="14">Shared Linux 6.8 Host Kernel</text>
+    <line x1="20" y1="112" x2="960" y2="112" stroke="#475569" stroke-width="1"/>
+
+    <!-- Tenant Grid -->
+    <!-- Tenant A -->
+    <g transform="translate(25, 128)">
+      <rect x="0" y="0" width="290" height="85" rx="8" fill="#334155" stroke="#475569" stroke-width="1"/>
+      <text x="145" y="24" fill="#38bdf8" font-size="16" font-weight="700" text-anchor="middle">tenant-a</text>
+      <rect x="15" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="42" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">web</text>
+      <rect x="80" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="107" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">api</text>
+      <rect x="145" y="38" width="65" height="24" rx="4" fill="#0f172a"/><text x="177" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">database</text>
+      <rect x="220" y="38" width="60" height="24" rx="4" fill="#0f172a"/><text x="250" y="55" fill="#e2e8f0" font-size="11" text-anchor="middle">payment</text>
+    </g>
+
+    <!-- Tenant B -->
+    <g transform="translate(345, 128)">
+      <rect x="0" y="0" width="290" height="85" rx="8" fill="#334155" stroke="#475569" stroke-width="1"/>
+      <text x="145" y="24" fill="#38bdf8" font-size="16" font-weight="700" text-anchor="middle">tenant-b</text>
+      <rect x="15" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="42" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">web</text>
+      <rect x="80" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="107" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">api</text>
+      <rect x="145" y="38" width="65" height="24" rx="4" fill="#0f172a"/><text x="177" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">database</text>
+      <rect x="220" y="38" width="60" height="24" rx="4" fill="#0f172a"/><text x="250" y="55" fill="#e2e8f0" font-size="11" text-anchor="middle">payment</text>
+    </g>
+
+    <!-- Tenant C -->
+    <g transform="translate(665, 128)">
+      <rect x="0" y="0" width="290" height="85" rx="8" fill="#334155" stroke="#475569" stroke-width="1"/>
+      <text x="145" y="24" fill="#38bdf8" font-size="16" font-weight="700" text-anchor="middle">tenant-c</text>
+      <rect x="15" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="42" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">web</text>
+      <rect x="80" y="38" width="55" height="24" rx="4" fill="#0f172a"/><text x="107" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">api</text>
+      <rect x="145" y="38" width="65" height="24" rx="4" fill="#0f172a"/><text x="177" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">database</text>
+      <rect x="220" y="38" width="60" height="24" rx="4" fill="#0f172a"/><text x="250" y="55" fill="#e2e8f0" font-size="11" text-anchor="middle">payment</text>
+    </g>
+
+    <!-- Kernel & Infra -->
+    <rect x="25" y="228" width="930" height="36" rx="6" fill="#450a0a" stroke="#ef4444" stroke-dasharray="6,4"/>
+    <text x="490" y="252" fill="#fecaca" font-size="14" font-weight="700" text-anchor="middle">Shared Host Kernel (eBPF BTF-enabled Linux 6.8 inside Kind Node)</text>
+
+    <rect x="25" y="274" width="930" height="32" rx="6" fill="#0f172a" stroke="#475569"/>
+    <text x="490" y="295" fill="#cbd5e1" font-size="13" text-anchor="middle">Cloud Infrastructure (Standard Ubuntu 24.04 Multipass VM)</text>
+
+    <!-- 3 Simulated Threat Scenarios -->
+    <g transform="translate(25, 318)">
+      <rect x="0" y="0" width="295" height="74" rx="6" fill="#18181b" stroke="#ef4444" stroke-width="1"/>
+      <text x="12" y="22" fill="#fca5a5" font-size="14" font-weight="bold">Container Escape</text>
+      <text x="12" y="42" fill="#cbd5e1" font-size="12">Interacts with container runtime socket.</text>
+      <text x="12" y="60" fill="#94a3b8" font-size="11" font-family="monospace">Lab: /opt/runtimelens-dummy/*.sock</text>
+    </g>
+    <g transform="translate(342, 318)">
+      <rect x="0" y="0" width="295" height="74" rx="6" fill="#18181b" stroke="#f59e0b" stroke-width="1"/>
+      <text x="12" y="22" fill="#fcd34d" font-size="14" font-weight="bold">Privilege Abuse</text>
+      <text x="12" y="42" fill="#cbd5e1" font-size="12">Misuse of K8s SA tokens, secret reads.</text>
+      <text x="12" y="60" fill="#94a3b8" font-size="11" font-family="monospace">Lab: cross-ns secret list / exec</text>
+    </g>
+    <g transform="translate(660, 318)">
+      <rect x="0" y="0" width="295" height="74" rx="6" fill="#18181b" stroke="#38bdf8" stroke-width="1"/>
+      <text x="12" y="22" fill="#7dd3fc" font-size="14" font-weight="bold">Cryptomining</text>
+      <text x="12" y="42" fill="#cbd5e1" font-size="12">Sustained CPU spike &amp; egress anomaly.</text>
+      <text x="12" y="60" fill="#94a3b8" font-size="11" font-family="monospace">Lab: loopback + mock-mining-sink</text>
+    </g>
+
+    <!-- Box 2: Why Existing Approaches Fail -->
+    <rect x="0" y="420" width="980" height="280" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="20" y="450" fill="#f8fafc" font-size="18" font-weight="700">Why Existing Approaches Are Insufficient</text>
+    <line x1="20" y1="464" x2="960" y2="464" stroke="#475569" stroke-width="1"/>
+
+    <g transform="translate(20, 480)">
+      <rect x="0" y="0" width="455" height="95" rx="8" fill="#111827" stroke="#374151"/>
+      <text x="15" y="25" fill="#fbbf24" font-size="15" font-weight="bold">Static Image Scans Miss Runtime</text>
+      <text x="15" y="48" fill="#9ca3af" font-size="13">Image vulnerability scanners (Trivy) inspect build-time</text>
+      <text x="15" y="68" fill="#9ca3af" font-size="13">artifacts only. Clean images can spawn malicious shells.</text>
+    </g>
+    <g transform="translate(495, 480)">
+      <rect x="0" y="0" width="455" height="95" rx="8" fill="#111827" stroke="#374151"/>
+      <text x="15" y="25" fill="#fbbf24" font-size="15" font-weight="bold">Blind to K8s Orchestration</text>
+      <text x="15" y="48" fill="#9ca3af" font-size="13">Host eBPF misses Kubernetes control-plane semantics:</text>
+      <text x="15" y="68" fill="#9ca3af" font-size="13">RBAC bindings, cross-tenant secrets, pod lifecycle.</text>
+    </g>
+    <g transform="translate(20, 590)">
+      <rect x="0" y="0" width="455" height="95" rx="8" fill="#111827" stroke="#374151"/>
+      <text x="15" y="25" fill="#fbbf24" font-size="15" font-weight="bold">Lack of Workload Baselines</text>
+      <text x="15" y="48" fill="#9ca3af" font-size="13">Interactive shell is expected in debugging pods, but</text>
+      <text x="15" y="68" fill="#9ca3af" font-size="13">severe anomaly in automated payment services.</text>
+    </g>
+    <g transform="translate(495, 590)">
+      <rect x="0" y="0" width="455" height="95" rx="8" fill="#111827" stroke="#374151"/>
+      <text x="15" y="25" fill="#fbbf24" font-size="15" font-weight="bold">Uncalibrated Generic LLMs</text>
+      <text x="15" y="48" fill="#9ca3af" font-size="13">Standard LLMs produce hallucinated, non-deterministic</text>
+      <text x="15" y="68" fill="#9ca3af" font-size="13">scores vulnerable to process prompt-injection.</text>
+    </g>
+
+    <!-- Box 3: Research Claim -->
+    <rect x="0" y="720" width="980" height="150" rx="12" fill="#172554" stroke="#3b82f6" stroke-width="2"/>
+    <text x="25" y="755" fill="#93c5fd" font-size="18" font-weight="800">Primary Research Claim</text>
+    <text x="25" y="788" fill="#f8fafc" font-size="15" font-weight="500">
+      Adding declarative, Git-versioned workload baselines to runtime and orchestration telemetry
+    </text>
+    <text x="25" y="812" fill="#f8fafc" font-size="15" font-weight="500">
+      changes macro-F1 and reduces benign false-positive rates compared to the un-contextualized
+    </text>
+    <text x="25" y="836" fill="#f8fafc" font-size="15" font-weight="500">
+      classifier on paired counterfactuals, measured without synthetic telemetry shortcuts.
+    </text>
+  </g>
+
+  <!-- Right Column: Proposed Solution & Architecture (x: 1065, width: 1290) -->
+  <g transform="translate(1065, 200)">
+    <!-- Section Header -->
+    <rect x="0" y="0" width="1290" height="48" rx="8" fill="url(#solGrad)"/>
+    <rect x="0" y="0" width="8" height="48" rx="4" fill="#10b981"/>
+    <text x="24" y="32" fill="#d1fae5" font-size="20" font-weight="800">2. PROPOSED SOLUTION: RUNTIMELENS ARCHITECTURE &amp; PIPELINE</text>
+
+    <!-- Step 1: 5 Telemetry Sources -->
+    <g transform="translate(0, 65)">
+      <rect x="0" y="0" width="1290" height="105" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+      <rect x="15" y="-12" width="70" height="24" rx="12" fill="#0284c7"/><text x="50" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Step 1</text>
+      <text x="100" y="22" fill="#f8fafc" font-size="16" font-weight="700">5-Source Telemetry Ingestion (Raw Capture Sink)</text>
+      <text x="1070" y="22" fill="#34d399" font-size="13" font-weight="bold">Zero Class-Label Leakage</text>
+
+      <g transform="translate(15, 34)">
+        <rect x="0" y="0" width="235" height="58" rx="6" fill="#0f172a" stroke="#334155"/><text x="15" y="24" fill="#38bdf8" font-size="14" font-weight="bold">Falco eBPF</text><text x="15" y="44" fill="#94a3b8" font-size="11">Syscalls, shell spawns, paths</text>
+        <rect x="250" y="0" width="235" height="58" rx="6" fill="#0f172a" stroke="#334155"/><text x="265" y="24" fill="#38bdf8" font-size="14" font-weight="bold">K8s Audit Logs</text><text x="265" y="44" fill="#94a3b8" font-size="11">API webhook authz &amp; secrets</text>
+        <rect x="500" y="0" width="235" height="58" rx="6" fill="#0f172a" stroke="#334155"/><text x="515" y="24" fill="#38bdf8" font-size="14" font-weight="bold">Hubble / Cilium</text><text x="515" y="44" fill="#94a3b8" font-size="11">eBPF network flows &amp; DNS</text>
+        <rect x="750" y="0" width="235" height="58" rx="6" fill="#0f172a" stroke="#334155"/><text x="765" y="24" fill="#38bdf8" font-size="14" font-weight="bold">cAdvisor / Prom</text><text x="765" y="44" fill="#94a3b8" font-size="11">Node CPU mcores &amp; RAM</text>
+        <rect x="1000" y="0" width="245" height="58" rx="6" fill="#0f172a" stroke="#334155"/><text x="1015" y="24" fill="#38bdf8" font-size="14" font-weight="bold">Trivy Cache</text><text x="1015" y="44" fill="#94a3b8" font-size="11">Image digest CVE profiles</text>
+      </g>
+    </g>
+
+    <!-- Steps 2 & 3: Normalization & Pre-filtering -->
+    <g transform="translate(0, 185)">
+      <rect x="0" y="0" width="1290" height="90" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+      <rect x="15" y="-12" width="90" height="24" rx="12" fill="#0284c7"/><text x="60" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Steps 2 &amp; 3</text>
+      <text x="120" y="22" fill="#f8fafc" font-size="16" font-weight="700">Event Normalization, Workload Baselines &amp; Temporal Pre-Filtering</text>
+      <text x="20" y="52" fill="#cbd5e1" font-size="13">
+        Events normalized to <tspan fill="#38bdf8" font-weight="bold">CanonicalEvent v1.0.0</tspan> and matched against declarative YAML baselines (<tspan fill="#38bdf8">baselines/*.yaml</tspan>) over a <tspan fill="#38bdf8">&#177;30s temporal window</tspan>.
+      </text>
+      <text x="20" y="74" fill="#cbd5e1" font-size="13">
+        Deterministic pre-filtering eliminates routine verified operations (e.g. periodic kubelet probes) to minimize model invocations.
+      </text>
+    </g>
+
+    <!-- Step 4: ScaleDown Classification -->
+    <g transform="translate(0, 290)">
+      <rect x="0" y="0" width="1290" height="240" rx="12" fill="url(#scaledownGrad)" stroke="#a855f7" stroke-width="2"/>
+      <rect x="15" y="-12" width="70" height="24" rx="12" fill="#a855f7"/><text x="50" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Step 4</text>
+
+      <text x="100" y="24" fill="#f8fafc" font-size="18" font-weight="800">Classification via ScaleDown Classify-1 Decisions API</text>
+      <rect x="1050" y="10" width="220" height="28" rx="14" fill="#581c87" stroke="#a855f7"/>
+      <text x="1160" y="29" fill="#e9d5ff" font-size="13" font-weight="bold" text-anchor="middle">ScaleDown Classify-1</text>
+
+      <!-- 3 Question Cards -->
+      <g transform="translate(20, 50)">
+        <rect x="0" y="0" width="395" height="120" rx="8" fill="#1b1033" stroke="#7e22ce"/>
+        <text x="15" y="25" fill="#d8b4fe" font-size="14" font-weight="bold">Choice Question: attack_type</text>
+        <text x="15" y="48" fill="#e2e8f0" font-size="12">5 mutually exclusive categories:</text>
+        <text x="15" y="68" fill="#cbd5e1" font-size="11">benign &#183; container_escape &#183; privilege_abuse</text>
+        <text x="15" y="86" fill="#cbd5e1" font-size="11">cryptomining &#183; unknown</text>
+        <text x="15" y="106" fill="#a855f7" font-size="11">Returns probabilities + max P confidence</text>
+      </g>
+      <g transform="translate(435, 50)">
+        <rect x="0" y="0" width="395" height="120" rx="8" fill="#1b1033" stroke="#7e22ce"/>
+        <text x="15" y="25" fill="#d8b4fe" font-size="14" font-weight="bold">Score Question: severity</text>
+        <text x="15" y="48" fill="#e2e8f0" font-size="12">Criteria levels 0 to 4 (Informational to Critical).</text>
+        <text x="15" y="70" fill="#cbd5e1" font-size="12">Score = Expected value &#931; i &#183; P(level_i) &#8712; [0, 4]</text>
+        <text x="15" y="92" fill="#38bdf8" font-size="12" font-weight="bold">Severity = Score + 1.0 &#8712; [1.0, 5.0]</text>
+        <text x="15" y="108" fill="#94a3b8" font-size="11">Continuous calibrated risk scoring</text>
+      </g>
+      <g transform="translate(850, 50)">
+        <rect x="0" y="0" width="415" height="120" rx="8" fill="#1b1033" stroke="#7e22ce"/>
+        <text x="15" y="25" fill="#d8b4fe" font-size="14" font-weight="bold">Noul Questions: Evidence Flags</text>
+        <text x="15" y="46" fill="#cbd5e1" font-size="11">&#183; baseline_deviation (unexpected binary/path)</text>
+        <text x="15" y="64" fill="#cbd5e1" font-size="11">&#183; shell_unexpected (interactive shell spawn)</text>
+        <text x="15" y="82" fill="#cbd5e1" font-size="11">&#183; resource_exposure (host path / runtime socket)</text>
+        <text x="15" y="100" fill="#cbd5e1" font-size="11">&#183; resource_abuse (abnormal compute / egress)</text>
+      </g>
+
+      <!-- Metrics Bar -->
+      <rect x="20" y="185" width="1245" height="40" rx="6" fill="#090d16" stroke="#475569"/>
+      <text x="40" y="210" fill="#cbd5e1" font-size="13">
+        Measured Latency: <tspan fill="#38bdf8" font-weight="bold">0.90&#8211;1.16 s</tspan> (median <tspan fill="#38bdf8" font-weight="bold">1.04 s</tspan>)   |   
+        Measured Cost: <tspan fill="#38bdf8" font-weight="bold">$0.093 / 1,000 incidents</tspan>   |   
+        Tokens: <tspan fill="#38bdf8" font-weight="bold">1,808&#8211;1,952</tspan> in / 6 out   |   
+        Adversarial ASR: <tspan fill="#34d399" font-weight="bold">0.0%</tspan> (XML Tier)
+      </text>
+    </g>
+
+    <!-- Step 5: Pure Deterministic Policy Engine -->
+    <g transform="translate(0, 545)">
+      <rect x="0" y="0" width="1290" height="75" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+      <rect x="15" y="-12" width="70" height="24" rx="12" fill="#0284c7"/><text x="50" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Step 5</text>
+      <text x="100" y="22" fill="#f8fafc" font-size="16" font-weight="700">Pure Deterministic Policy Engine (14-Case Conflict Resolution Matrix)</text>
+      <text x="1070" y="22" fill="#f59e0b" font-size="13" font-weight="bold">Confidence Gate &#8805; 0.70</text>
+      <text x="20" y="52" fill="#cbd5e1" font-size="13">
+        Evaluates hard overrides and conflict rules. Telemetry degradation forces <tspan fill="#f59e0b">alert_only</tspan> fallback. Confidence &lt; 0.70 routes directly to human analyst.
+      </text>
+    </g>
+
+    <!-- Step 6: SRE Response Controller -->
+    <g transform="translate(0, 635)">
+      <rect x="0" y="0" width="1290" height="135" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+      <rect x="15" y="-12" width="70" height="24" rx="12" fill="#0284c7"/><text x="50" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Step 6</text>
+      <text x="100" y="22" fill="#f8fafc" font-size="16" font-weight="700">SRE Response Controller &amp; Safety Tier</text>
+      <text x="1040" y="22" fill="#38bdf8" font-size="13" font-weight="bold">Safe Reversible Containment</text>
+
+      <g transform="translate(20, 36)">
+        <rect x="0" y="0" width="295" height="85" rx="8" fill="#0f172a" stroke="#3b82f6"/>
+        <text x="15" y="26" fill="#60a5fa" font-size="15" font-weight="bold">Alert SecOps</text>
+        <text x="15" y="50" fill="#94a3b8" font-size="12">Slack/PagerDuty webhook notification</text>
+        <text x="15" y="70" fill="#64748b" font-size="11">with audit record ID and confidence.</text>
+      </g>
+      <g transform="translate(320, 36)">
+        <rect x="0" y="0" width="295" height="85" rx="8" fill="#0f172a" stroke="#10b981"/>
+        <text x="15" y="26" fill="#34d399" font-size="15" font-weight="bold">Quarantine Pod</text>
+        <text x="15" y="50" fill="#94a3b8" font-size="12">Reversible K8s NetworkPolicy isolates</text>
+        <text x="15" y="70" fill="#64748b" font-size="11">pod ingress &amp; egress dynamically.</text>
+      </g>
+      <g transform="translate(640, 36)">
+        <rect x="0" y="0" width="295" height="85" rx="8" fill="#0f172a" stroke="#f59e0b"/>
+        <text x="15" y="26" fill="#fbbf24" font-size="15" font-weight="bold">Route to Human Review</text>
+        <text x="15" y="50" fill="#94a3b8" font-size="12">Queues incident for analyst triage</text>
+        <text x="15" y="70" fill="#64748b" font-size="11">when confidence is low or conflicting.</text>
+      </g>
+      <g transform="translate(960, 36)">
+        <rect x="0" y="0" width="295" height="85" rx="8" fill="#2a0808" stroke="#ef4444" stroke-dasharray="4,3"/>
+        <rect x="15" y="10" width="160" height="18" rx="4" fill="#b91c1c"/>
+        <text x="95" y="23" fill="#fff" font-size="9" font-weight="bold" text-anchor="middle">DESIGN ONLY / FUTURE WORK</text>
+        <text x="15" y="46" fill="#f87171" font-size="14" font-weight="bold">Pod Termination</text>
+        <text x="15" y="66" fill="#fca5a5" font-size="11">Zero pod delete verbs exist in RBAC.</text>
+      </g>
+    </g>
+
+    <!-- Step 7 & Tech Stack -->
+    <g transform="translate(0, 785)">
+      <rect x="0" y="0" width="1290" height="85" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+      <rect x="15" y="-12" width="70" height="24" rx="12" fill="#0284c7"/><text x="50" y="4" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle">Step 7</text>
+      <text x="100" y="20" fill="#f8fafc" font-size="15" font-weight="700">Audit Sink, Observability &amp; Feedback Diff Loop</text>
+      <text x="20" y="44" fill="#cbd5e1" font-size="12">
+        HMAC-SHA256 chained audit logs; Prometheus exporter &amp; Grafana dashboard; SRE feedback baseline diff loop (<tspan fill="#38bdf8">feedback.py</tspan>).
+      </text>
+
+      <!-- Tech Stack Badges -->
+      <g transform="translate(20, 52)">
+        <text x="0" y="20" fill="#94a3b8" font-size="12" font-weight="bold">TECH STACK:</text>
+        <rect x="90" y="6" width="130" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="155" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Kubernetes (kind)</text>
+        <rect x="230" y="6" width="125" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="292" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Cilium &amp; Hubble</text>
+        <rect x="365" y="6" width="105" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="417" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Falco eBPF</text>
+        <rect x="480" y="6" width="170" height="22" rx="4" fill="#0f172a" stroke="#a855f7"/><text x="565" y="21" fill="#d8b4fe" font-size="11" text-anchor="middle">ScaleDown Classify-1</text>
+        <rect x="660" y="6" width="145" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="732" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Prometheus / Grafana</text>
+        <rect x="815" y="6" width="60" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="845" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Trivy</text>
+        <rect x="885" y="6" width="165" height="22" rx="4" fill="#0f172a" stroke="#475569"/><text x="967" y="21" fill="#f1f5f9" font-size="11" text-anchor="middle">Python 3.12 (Pydantic v2)</text>
+      </g>
+    </g>
+
+  </g>
+
+  <!-- Footer Banner with Disclosures (y: 1220, height: 100) -->
+  <g transform="translate(15, 1220)">
+    <path d="M 0 0 L 2370 0 L 2370 95 Q 2370 110 2354 110 L 16 110 Q 0 110 0 95 Z" fill="#0b1120"/>
+    <line x1="0" y1="0" x2="2370" y2="0" stroke="#334155" stroke-width="1.5"/>
+
+    <text x="30" y="32" fill="#94a3b8" font-size="12">
+      <tspan font-weight="bold" fill="#cbd5e1">AI-Assistance Disclosure:</tspan> In accordance with academic integrity guidelines, generative AI tools (Antigravity) were utilized under Mode A pair programming:
+    </text>
+    <text x="30" y="52" fill="#94a3b8" font-size="12">
+      the AI assistant authored implementation code, test suites, and configs under direct human direction. All verification tests were executed, inspected, and approved by the authors.
+    </text>
+    <text x="30" y="74" fill="#94a3b8" font-size="12">
+      <tspan font-weight="bold" fill="#cbd5e1">Privacy Posture:</tspan> Evaluated via ScaleDown Zero Data Retention (ZDR) policy. All cluster activity is controlled benign simulation using inert dummy paths.
+    </text>
+
+    <text x="2330" y="55" fill="#64748b" font-size="13" font-family="monospace" text-anchor="end">RuntimeLens v2.0 · Ticket 16b (Oct 2026)</text>
+  </g>
+</svg>
