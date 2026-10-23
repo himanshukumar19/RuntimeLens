@@ -25,6 +25,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `13a` (`13a-passed`):** Pure deterministic policy engine & 14-case exhaustive unit test suite covering all overrides, conflict matrix rows, and confidence thresholds.
 - **Ticket `14` (`5a8e248`, PR #1):** Prometheus metrics exporter (`src/runtimelens/observability/exporter.py`) and Grafana SecOps dashboard (`lab/monitoring/grafana/dashboard.json`).
 - **Ticket `15` (`5a8e248`, PR #1):** SRE extensions: continuous exposure-based risk scoring (`risk_score.py`) and human feedback baseline diff loop (`feedback.py`).
+- **Ticket `16b` (`ahead/16b`):** Academic poster redesign (`docs/poster/poster.html`, `poster.svg`), Mermaid pipeline and policy flow diagrams, and resolution of items 1.1–1.9 of `docs/REPORT_REVISION_CHECKLIST.md`.
 - **Ticket `16c` (`5a8e248`, PR #1):** 5-minute live interactive and automated demonstration CLI runner (`scripts/demo.py`, `make demo` / `make demo-auto`) and viva defense runbook (`docs/DEMO_RUNBOOK.md`).
 - **Verification Harness & Benchmarks (`5a8e248`):** `.cursor/skills/verify-runtimelens/`, `scripts/control_runtimelens.py`, and 5-trial performance benchmark (12,847.1 events/sec, p50 77.2 µs, 0 errors).
 
@@ -39,11 +40,11 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 2. Active & Blocked Tickets
 
-- **Active State:** `READY FOR TICKET 16b OR TICKET 06a`
-- **Status:** `UNBLOCKED` (PR #1 and PR #2 merged into `main`; CI 100% green; 171 automated tests passing)
+- **Active State:** `TICKET 16b COMPLETED ON AHEAD/16b; READY FOR TICKET 06a (CLUSTER PILOT)`
+- **Status:** `UNBLOCKED` (174 automated tests passing; CI checks green)
 - **Remediation Status:**
   - Stage 0 (doc/node sanitation) COMPLETED.
-  - Stage 1 (proof runs + verify_dataset.py gate) COMPLETED.
+  - Stage 1 (proof runs + verify_dataset.py gate + poster redesign) COMPLETED.
   - Stage 2 (real 25-run pilot runner with genuine 5-source captures) READY.
 - **Snapshot Baseline:** Clean snapshot `snap-s4` remains verified on `runtimelens-vm` post-S4.
 
@@ -52,6 +53,7 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 ## 3. Active Branches
 
 - **`main`:** Clean, 171 tests passing, all GitHub Actions CI checks green.
+- **`ahead/16b`:** Active work-ahead branch for Ticket 16b (174 tests passing, reviews clean).
 - **`ahead/12b`:** Merged into `main` via PR #2.
 - **`feature/offline-extensions-and-tooling`:** Merged into `main` via PR #1.
 

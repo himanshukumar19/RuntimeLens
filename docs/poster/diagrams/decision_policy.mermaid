@@ -1,0 +1,26 @@
+flowchart TD
+    START(["Incoming Evaluated Event"]) --> CHK_DEG{"Is Telemetry Degraded<br/>or Missing Sources?"}
+
+    CHK_DEG -- Yes --> DEGRADED["Force: degraded_mode=True<br/>Action: alert_only<br/>review_required=True"]
+    CHK_DEG -- No --> CHK_CONF{"Model Confidence<br/>>= 0.70?"}
+
+    CHK_CONF -- No --> LOW_CONF["Action: route_to_review<br/>Reason: low_confidence<br/>review_required=True"]
+    CHK_CONF -- Yes --> CHK_CLASS{"Predicted Attack Class"}
+
+    CHK_CLASS -- "benign" --> BENIGN["Action: log_and_pass<br/>review_required=False"]
+    CHK_CLASS -- "unknown" --> UNKNOWN["Action: route_to_review<br/>review_required=True"]
+    CHK_CLASS -- "cryptomining" --> MINING{"Severity >= 3.0 &<br/>Resource Abuse Flag?"}
+    CHK_CLASS -- "privilege_abuse" --> PRIV{"Severity >= 3.5 &<br/>Unauthorized Secret/Exec?"}
+    CHK_CLASS -- "container_escape" --> ESCAPE{"Severity >= 4.0 &<br/>HostExposure Flag?"}
+
+    MINING -- Yes --> QUARANTINE_NET["Action: isolate_network<br/>Apply Reversible NetworkPolicy<br/>Alert SecOps"]
+    MINING -- No --> ALERT_MINING["Action: alert_only<br/>review_required=True"]
+
+    PRIV -- Yes --> QUARANTINE_PRIV["Action: isolate_network<br/>Revoke SA Token Bindings<br/>Alert SecOps"]
+    PRIV -- No --> ALERT_PRIV["Action: alert_only<br/>review_required=False"]
+
+    ESCAPE -- Yes --> ESC_ACTION{"Response Tier"}
+    ESCAPE -- No --> ALERT_ESC["Action: alert_only<br/>review_required=True"]
+
+    ESC_ACTION -- Production --> ISO_HOST["Action: isolate_network + node_cordon<br/>Reversible Containment<br/>Zero Pod Deletion Verbs"]
+    ESC_ACTION -.->|"Design Only / Future"| KILL_POD["Action: terminate_pod<br/>(RBAC Forbidden in v1.0)"]

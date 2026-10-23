@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuntimeLens Academic Architecture Poster</title>
+  <style>
+    :root {
+      --bg-canvas: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-card: #334155;
+      --bg-subtle: #1e293b;
+      --border-panel: #475569;
+      --border-card: #64748b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #cbd5e1;
+      --primary: #38bdf8;
+      --primary-dark: #0284c7;
+      --primary-bg: #0369a1;
+      --danger: #f87171;
+      --danger-bg: #7f1d1d;
+      --danger-border: #ef4444;
+      --warning: #fbbf24;
+      --warning-bg: #78350f;
+      --success: #34d399;
+      --success-bg: #064e3b;
+      --purple: #c084fc;
+      --purple-bg: #581c87;
+      --cyan: #22d3ee;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    .poster-container {
+      width: 100%;
+      max-width: 1800px;
+      background: #090d16;
+      border: 2px solid var(--border-panel);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header Banner */
+    .poster-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0369a1 100%);
+      padding: 24px 32px;
+      border-bottom: 3px solid var(--primary);
+      position: relative;
+    }
+
+    .header-badge {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--primary);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+
+    .poster-title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+
+    .poster-subtitle {
+      font-size: 1.1rem;
+      color: #bae6fd;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    .poster-authors {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 10px;
+    }
+
+    .author-item strong {
+      color: #fff;
+    }
+
+    /* Main Poster Layout: 2 primary columns */
+    .poster-body {
+      display: grid;
+      grid-template-columns: 43% 57%;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    /* Column Headers */
+    .column-header {
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .col-header-problem {
+      background: linear-gradient(90deg, #881337 0%, #4c0519 100%);
+      color: #ffe4e6;
+      border-left: 6px solid #f43f5e;
+    }
+
+    .col-header-solution {
+      background: linear-gradient(90deg, #064e3b 0%, #022c22 100%);
+      color: #d1fae5;
+      border-left: 6px solid #10b981;
+    }
+
+    /* Panels & Cards */
+    .panel-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel-box-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-panel);
+      padding-bottom: 8px;
+    }
+
+    /* Multi-Tenant Cluster Diagram */
+    .tenants-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .tenant-card {
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid var(--border-card);
+      text-align: center;
+    }
+
+    .tenant-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .workload-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .workload-pill {
+      background: #0f172a;
+      font-size: 0.72rem;
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+
+    .shared-layer {
+      background: #450a0a;
+      border: 1px dashed #ef4444;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #fecaca;
+    }
+
+    .infra-layer {
+      background: #1e293b;
+      border: 1px solid #64748b;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+    }
+
+    /* Threat Paths */
+    .threat-paths-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .threat-card {
+      background: #1e1e24;
+      border-radius: 8px;
+      padding: 12px;
+      border-top: 3px solid #ef4444;
+    }
+
+    .threat-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fca5a5;
+      margin-bottom: 6px;
+    }
+
+    .threat-desc {
+      font-size: 0.76rem;
+      color: #cbd5e1;
+      line-height: 1.35;
+    }
+
+    .threat-tag {
+      font-size: 0.68rem;
+      font-family: monospace;
+      color: #94a3b8;
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* Why Existing Approaches Fail */
+    .fail-reasons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .fail-card {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .fail-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fbbf24;
+      margin-bottom: 4px;
+    }
+
+    .fail-text {
+      font-size: 0.74rem;
+      color: #9ca3af;
+      line-height: 1.3;
+    }
+
+    /* Research Statement Box */
+    .claim-box {
+      background: linear-gradient(135deg, #172554 0%, #1e1b4b 100%);
+      border: 2px solid #3b82f6;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+
+    .claim-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #93c5fd;
+      margin-bottom: 6px;
+    }
+
+    .claim-body {
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+
+    /* Solution Workflow: Right Column */
+    .workflow-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 10px;
+      padding: 12px 16px;
+      position: relative;
+    }
+
+    .step-badge {
+      position: absolute;
+      top: -10px;
+      left: 14px;
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      border: 1px solid #38bdf8;
+    }
+
+    .step-content {
+      margin-top: 4px;
+    }
+
+    .step-header {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 5 Telemetry Sources Grid */
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .source-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .source-name {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 3px;
+    }
+
+    .source-role {
+      font-size: 0.68rem;
+      color: #94a3b8;
+      line-height: 1.2;
+    }
+
+    /* ScaleDown Classification Box */
+    .scaledown-box {
+      background: #171026;
+      border: 2px solid #a855f7;
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .scaledown-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #581c87;
+      padding-bottom: 6px;
+    }
+
+    .scaledown-badge {
+      background: #581c87;
+      color: #e9d5ff;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border: 1px solid #a855f7;
+    }
+
+    .questions-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.3fr;
+      gap: 10px;
+    }
+
+    .question-card {
+      background: #24163d;
+      border: 1px solid #6b21a8;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .question-type {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #d8b4fe;
+      margin-bottom: 4px;
+    }
+
+    .question-details {
+      font-size: 0.72rem;
+      color: #e2e8f0;
+      line-height: 1.35;
+    }
+
+    .metrics-bar {
+      display: flex;
+      justify-content: space-between;
+      background: #090d16;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+    }
+
+    .metrics-bar strong {
+      color: #38bdf8;
+    }
+
+    /* Policy & SRE Actions */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .action-card {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      position: relative;
+    }
+
+    .action-alert { border: 1px solid #3b82f6; }
+    .action-quarantine { border: 1px solid #10b981; }
+    .action-review { border: 1px solid #f59e0b; }
+    .action-terminate {
+      border: 1px dashed #ef4444;
+      background: #2a0808;
+      opacity: 0.9;
+    }
+
+    .action-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .action-desc {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      line-height: 1.25;
+    }
+
+    .badge-design-only {
+      background: #b91c1c;
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Tech Stack Strip */
+    .tech-stack-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: #090d16;
+      border: 1px solid var(--border-panel);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 12px;
+      align-items: center;
+    }
+
+    .tech-label {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-right: 6px;
+    }
+
+    .tech-pill {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      color: #f1f5f9;
+    }
+
+    /* Footer */
+    .poster-footer {
+      background: #0b1120;
+      border-top: 1px solid var(--border-panel);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .disclosure-box {
+      max-width: 80%;
+      line-height: 1.35;
+    }
+
+    .version-stamp {
+      font-family: monospace;
+      color: #64748b;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+<div class="poster-container">
+
+  <!-- Top Header Banner -->
+  <header class="poster-header">
+    <div class="header-badge">Runtime Security & Multi-Tenant Container Orchestration</div>
+    <h1 class="poster-title">RuntimeLens: Context-Aware Runtime and Orchestration Threat Classification for Multi-Tenant Kubernetes Using a Typed-Decision Model</h1>
+    <div class="poster-subtitle">End-to-end 5-source telemetry correlation, Git-versioned workload baselines, ScaleDown Classify-1 decision model, and reversible SRE response.</div>
+    <div class="poster-authors">
+      <div class="author-item"><strong>Altaf Raja</strong> (23BCS011) · System Architecture & SRE Response</div>
+      <div class="author-item"><strong>Kamal Nayan Kumar</strong> (23BDS026) · Model Adaptation, Baselines & Evaluation</div>
+      <div class="author-item"><strong>Himanshu Kumar</strong> (23BCS055) · Cluster Infrastructure & eBPF Telemetry</div>
+      <div class="author-item"><strong>Institution:</strong> Dept. of Computer Science & Engineering, Final Year Capstone Project, 2026</div>
+    </div>
+  </header>
+
+  <!-- Main Body Grid: 2 Columns -->
+  <main class="poster-body">
+
+    <!-- LEFT COLUMN: Problem Statement & Context -->
+    <div class="column-left">
+      <div class="column-header col-header-problem">
+        <span>1. PROBLEM STATEMENT & ENVIRONMENT</span>
+      </div>
+
+      <!-- Multi-Tenant Architecture -->
+      <section class="panel-box">
+        <div class="panel-box-title">
+          <span>Multi-Tenant Container Environment</span>
+          <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;">Isolated Namespaces / Shared Kernel</span>
+        </div>
+
+        <div class="tenants-grid">
+          <div class="tenant-card">
+            <div class="tenant-name">tenant-a</div>
+            <div class="workload-pills">
+              <span class="workload-pill">web</span>
+              <span class="workload-pill">api</span>
+              <span class="workload-pill">database</span>
+              <span class="workload-pill">payment-style</span>
+            </div>
+          </div>
+          <div class="tenant-card">
+            <div class="tenant-name">tenant-b</div>
+            <div class="workload-pills">
+              <span class="workload-pill">web</span>
+              <span class="workload-pill">api</span>
+              <span class="workload-pill">database</span>
+              <span class="workload-pill">payment-style</span>
+            </div>
+          </div>
+          <div class="tenant-card">
+            <div class="tenant-name">tenant-c</div>
+            <div class="workload-pills">
+              <span class="workload-pill">web</span>
+              <span class="workload-pill">api</span>
+              <span class="workload-pill">database</span>
+              <span class="workload-pill">payment-style</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="shared-layer">
+          Shared Host Kernel (eBPF BTF-enabled Linux 6.8 inside Kind Node)
+        </div>
+        <div class="infra-layer">
+          Multi-Tenant Cloud Infrastructure (Standard Ubuntu 24.04 Node)
+        </div>
+
+        <!-- Threat Paths -->
+        <div class="threat-paths-grid">
+          <div class="threat-card">
+            <div class="threat-title">Container Escape</div>
+            <div class="threat-desc">Interaction with container runtime sockets or host file mounts.</div>
+            <span class="threat-tag">Lab: /opt/runtimelens-dummy/docker.sock</span>
+          </div>
+          <div class="threat-card">
+            <div class="threat-title">Privilege Abuse</div>
+            <div class="threat-desc">Misuse of K8s service-account tokens, cross-tenant Secret reads, or pod exec.</div>
+            <span class="threat-tag">Lab: cross-ns secret list / exec</span>
+          </div>
+          <div class="threat-card">
+            <div class="threat-title">Cryptomining</div>
+            <div class="threat-desc">Sustained abnormal compute usage and outbound network egress anomalies.</div>
+            <span class="threat-tag">Lab: loopback + mock-mining-sink:3333</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Why Existing Approaches Fail -->
+      <section class="panel-box">
+        <div class="panel-box-title">Why Existing Approaches Are Insufficient</div>
+        <div class="fail-reasons">
+          <div class="fail-card">
+            <div class="fail-title">Static Scans Miss Runtime</div>
+            <div class="fail-text">Vulnerability scanners (e.g. Trivy) only inspect build artifacts. Clean images can still spawn malicious reverse shells or hijack compute post-deployment.</div>
+          </div>
+          <div class="fail-card">
+            <div class="fail-title">Blind to Orchestration</div>
+            <div class="fail-text">Host-level eBPF misses Kubernetes control-plane semantics: RBAC role bindings, cross-namespace Secret queries, and pod lifecycle modifications.</div>
+          </div>
+          <div class="fail-card">
+            <div class="fail-title">Lack of Workload Context</div>
+            <div class="fail-text">An interactive shell or network connect is routine for debugging tooling, but catastrophic for an automated payment workload. Global rules trigger massive false-positive noise.</div>
+          </div>
+          <div class="fail-card">
+            <div class="fail-title">Opaque Uncalibrated Models</div>
+            <div class="fail-text">Standard LLMs produce uncalibrated probabilities, suffer hallucinated rationales, and invite prompt-injection attacks from attacker-controlled process strings.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Core Research Claim -->
+      <section class="claim-box">
+        <div class="claim-title">Primary Research Claim</div>
+        <div class="claim-body">
+          Adding declarative, Git-versioned workload baselines to runtime and orchestration telemetry improves macro-F1 and reduces benign false-positive rates compared to the same classifier without baseline context, evaluated via paired counterfactual comparisons without synthetic telemetry shortcuts.
+        </div>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: Proposed Solution & Architecture -->
+    <div class="column-right">
+      <div class="column-header col-header-solution">
+        <span>2. PROPOSED SOLUTION: ARCHITECTURE & PIPELINE</span>
+      </div>
+
+      <div class="workflow-container">
+
+        <!-- Step 1: 5 Telemetry Sources -->
+        <div class="step-box">
+          <span class="step-badge">Step 1</span>
+          <div class="step-content">
+            <div class="step-header">
+              <span>5-Source Telemetry Ingestion (Raw Capture)</span>
+              <span style="font-size: 0.72rem; color: #34d399;">Zero Class-Label Leakage</span>
+            </div>
+            <div class="sources-grid">
+              <div class="source-item">
+                <div class="source-name">Falco eBPF</div>
+                <div class="source-role">Syscalls, shell spawns, sensitive path reads</div>
+              </div>
+              <div class="source-item">
+                <div class="source-name">K8s Audit</div>
+                <div class="source-role">API authorization, secret reads, pod exec</div>
+              </div>
+              <div class="source-item">
+                <div class="source-name">Hubble Cilium</div>
+                <div class="source-role">eBPF network flows, pod egress, DNS</div>
+              </div>
+              <div class="source-item">
+                <div class="source-name">cAdvisor</div>
+                <div class="source-role">Node CPU mcores & container memory bytes</div>
+              </div>
+              <div class="source-item">
+                <div class="source-name">Trivy Cache</div>
+                <div class="source-role">Base image digest vulnerability profiles</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 & 3: Normalization, Baselines & Pre-filter -->
+        <div class="step-box">
+          <span class="step-badge">Steps 2 & 3</span>
+          <div class="step-content">
+            <div class="step-header">
+              <span>Event Normalization, Workload Baselines & Pre-Filtering</span>
+            </div>
+            <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; margin-bottom: 6px;">
+              Events are normalized to <code style="color: #38bdf8;">CanonicalEvent v1.0.0</code> and matched against Git-versioned profiles in <code style="color: #38bdf8;">baselines/*.yaml</code> with a &plusmn;30s temporal correlation window. Deterministic pre-filtering removes routine operations (e.g. readiness probes) to minimize model invocations.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 4: ScaleDown Classification -->
+        <div class="scaledown-box">
+          <div class="scaledown-header">
+            <div>
+              <strong style="color: #f1f5f9; font-size: 0.95rem;">Step 4: Classification via ScaleDown Classify-1 Decisions API</strong>
+              <div style="font-size: 0.72rem; color: #c084fc;">Single forward-pass evaluation over XML-escaped structured state</div>
+            </div>
+            <span class="scaledown-badge">ScaleDown Classify-1</span>
+          </div>
+
+          <div class="questions-grid">
+            <div class="question-card">
+              <div class="question-type">Choice Question: attack_type</div>
+              <div class="question-details">
+                Evaluates 5 mutually exclusive classes: <em>benign</em>, <em>container_escape</em>, <em>privilege_abuse</em>, <em>cryptomining</em>, <em>unknown</em>.<br/>
+                Returns discrete label, class probabilities, and top-class confidence.
+              </div>
+            </div>
+            <div class="question-card">
+              <div class="question-type">Score Question: severity</div>
+              <div class="question-details">
+                Scores criteria levels 0 to 4 (Informational to Critical).<br/>
+                Computes continuous expected score: &Sigma; i &middot; P(i).<br/>
+                Continuous Severity = Score + 1.0 &isin; [1.0, 5.0].
+              </div>
+            </div>
+            <div class="question-card">
+              <div class="question-type">Noul Questions: Evidence Flags</div>
+              <div class="question-details">
+                4 independent scalar flags &isin; [0.0, 1.0]:<br/>
+                &bull; <code>baseline_deviation</code> (unauthorized binary/path)<br/>
+                &bull; <code>shell_unexpected</code> (interactive shell)<br/>
+                &bull; <code>resource_exposure</code> (host socket/path)<br/>
+                &bull; <code>resource_abuse</code> (abnormal compute/egress)
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics-bar">
+            <div>Measured Model Latency: <strong>0.90–1.16 s</strong> (median <strong>1.04 s</strong>)</div>
+            <div>Evaluated Cost: <strong>$0.093 / 1,000 incidents</strong> (1,808–1,952 in-tokens)</div>
+            <div>Adversarial ASR: <strong>0.0%</strong> (under XML defense tier)</div>
+          </div>
+        </div>
+
+        <!-- Step 5: Decision Policy -->
+        <div class="step-box">
+          <span class="step-badge">Step 5</span>
+          <div class="step-content">
+            <div class="step-header">
+              <span>Pure Deterministic Policy Engine</span>
+              <span style="font-size: 0.72rem; color: #f59e0b;">Confidence Gate: &ge; 0.70</span>
+            </div>
+            <p style="font-size: 0.76rem; color: #cbd5e1; line-height: 1.35;">
+              Combines model predictions with deterministic conflict resolution matrix. Degraded telemetry forces fallback to alert-only with human review. Low confidence (&lt; 0.70) routes directly to analyst investigation queue.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 6: SRE Response Controller -->
+        <div class="step-box">
+          <span class="step-badge">Step 6</span>
+          <div class="step-content">
+            <div class="step-header">
+              <span>Response Actions & SRE Integration</span>
+              <span style="font-size: 0.72rem; color: #38bdf8;">Safe Reversible Containment</span>
+            </div>
+            <div class="actions-grid">
+              <div class="action-card action-alert">
+                <div class="action-title" style="color: #60a5fa;">Alert SecOps</div>
+                <div class="action-desc">Slack/PagerDuty alert with audit record ID and confidence.</div>
+              </div>
+              <div class="action-card action-quarantine">
+                <div class="action-title" style="color: #34d399;">Quarantine Pod</div>
+                <div class="action-desc">Applies isolated Kubernetes NetworkPolicy. Reversible.</div>
+              </div>
+              <div class="action-card action-review">
+                <div class="action-title" style="color: #fbbf24;">Human Review</div>
+                <div class="action-desc">Queued for security analyst review when confidence is low.</div>
+              </div>
+              <div class="action-card action-terminate">
+                <span class="badge-design-only">Design Only / Future Work</span>
+                <div class="action-title" style="color: #f87171;">Pod Termination</div>
+                <div class="action-desc">Zero delete verbs in RBAC. Destructive actions excluded.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 7: Continuous Improvement & Tech Stack -->
+        <div class="step-box">
+          <span class="step-badge">Step 7</span>
+          <div class="step-content">
+            <div class="step-header">
+              <span>Tamper-Evident Audit, Observability & Feedback Diff Loop</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #94a3b8; line-height: 1.3;">
+              Chained HMAC-SHA256 audit log; Prometheus exporter with Grafana SecOps dashboard; human-reviewed labels feed back into baseline diff generator (<code style="color: #38bdf8;">feedback.py</code>) to safely accommodate legitimate workload evolution.
+            </p>
+
+            <div class="tech-stack-strip">
+              <span class="tech-label">Tech Stack:</span>
+              <span class="tech-pill">Kubernetes (kind v0.24)</span>
+              <span class="tech-pill">Cilium & Hubble (eBPF)</span>
+              <span class="tech-pill">Falco v0.38 (eBPF Syscalls)</span>
+              <span class="tech-pill">ScaleDown Classify-1 (Decisions API)</span>
+              <span class="tech-pill">Prometheus & Grafana</span>
+              <span class="tech-pill">Trivy</span>
+              <span class="tech-pill">Python 3.12 (Pydantic v2)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer with Disclosures -->
+  <footer class="poster-footer">
+    <div class="disclosure-box">
+      <strong>AI-Assistance Disclosure:</strong> In accordance with academic integrity guidelines, generative AI tools (Antigravity) were utilized under Mode A pair programming: the AI assistant authored implementation code, test suites, configurations, and automation scripts under direct human direction, review, and specification. All phase gate verification tests were executed, inspected, and approved directly by the authors, who conducted all laboratory cluster experiments and retain full scientific and operational governance.
+      <br/>
+      <strong>Privacy & Safety Posture:</strong> Evaluated via ScaleDown Zero Data Retention (ZDR) policy. All cluster activity is controlled benign simulation using dummy paths.
+    </div>
+    <div class="version-stamp">
+      RuntimeLens v2.0<br/>
+      Ticket 16b / Oct 2026
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>
