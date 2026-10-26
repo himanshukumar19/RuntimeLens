@@ -27,6 +27,11 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 - **Ticket `15` (`5a8e248`, PR #1):** SRE extensions: continuous exposure-based risk scoring (`risk_score.py`) and human feedback baseline diff loop (`feedback.py`).
 - **Ticket `16b` (`ahead/16b`):** Academic poster redesign (`docs/poster/poster.html`, `poster.svg`), Mermaid pipeline and policy flow diagrams, and resolution of items 1.1–1.9 of `docs/REPORT_REVISION_CHECKLIST.md`.
 - **Ticket `16c` (`5a8e248`, PR #1):** 5-minute live interactive and automated demonstration CLI runner (`scripts/demo.py`, `make demo` / `make demo-auto`) and viva defense runbook (`docs/DEMO_RUNBOOK.md`).
+- **Ticket `13b` (`PASSED`):** SRE response controller (`src/runtimelens/controller/quarantine.py`) implementing label quarantine (`quarantine: "true"`), 15m TTL rollback loop, dry-run safety default, and zero-delete RBAC manifests (`lab/rbac/response-controller-rbac.yaml`).
+- **Ticket `04-live` (`PASSED`):** Live multi-source correlation daemon (`src/runtimelens/collector/live_wiring.py`) wiring Falco and K8s audit webhooks concurrently into `CorrelationBuffer`.
+- **Ticket `12a` (`PASSED`):** Dev-set model tuning & 6 systematic ablations runner (`src/runtimelens/eval/run_ablations.py`) with cluster bootstrap and McNemar tests.
+- **Ticket `12c` (`PASSED`):** Single-pass held-out test set evaluation harness (`src/runtimelens/eval/run_final_test.py`) with audit access logging and primary hypothesis testing.
+- **Ticket `16a` (`PASSED`):** Final academic report v2 draft (`docs/report/final_report.md`) resolving items 1.1–1.8 of `docs/REPORT_REVISION_CHECKLIST.md`.
 - **Verification Harness & Benchmarks (`5a8e248`):** `.cursor/skills/verify-runtimelens/`, `scripts/control_runtimelens.py`, and 5-trial performance benchmark (12,847.1 events/sec, p50 77.2 µs, 0 errors).
 
 ### Formally Invalidated Tickets (Decision D-20, Dated 2026-10-18):
@@ -40,8 +45,8 @@ The project is governed under Mode A pair programming on macOS ARM64 with an air
 
 ## 2. Active & Blocked Tickets
 
-- **Active State:** `TICKET 16b COMPLETED ON AHEAD/16b; READY FOR TICKET 06a (CLUSTER PILOT)`
-- **Status:** `UNBLOCKED` (174 automated tests passing; CI checks green)
+- **Active State:** `ALL OFFLINE AND EVALUATION TICKETS IMPLEMENTED (13b, 04-live, 12a, 12c, 16a PASSED); 192 AUTOMATED TESTS PASSING`
+- **Status:** `UNBLOCKED FOR LAB EXPERIMENT` (192 automated tests passing; CI checks green)
 - **Remediation Status:**
   - Stage 0 (doc/node sanitation) COMPLETED.
   - Stage 1 (proof runs + verify_dataset.py gate + poster redesign) COMPLETED.

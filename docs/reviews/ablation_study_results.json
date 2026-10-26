@@ -1,0 +1,101 @@
+{
+  "dataset_split": "dev",
+  "total_dev_incidents": 288,
+  "primary_hypothesis_abl_base": {
+    "ablation_id": "ABL-BASE",
+    "macro_f1_baseline_on": 0.5333333333333333,
+    "macro_f1_baseline_off": 0.5132641291810842,
+    "delta_macro_f1": 0.02006920415224911,
+    "bootstrap_ci_95": {
+      "lower": 0.013244917737729841,
+      "upper": 0.027512350811974194
+    },
+    "benign_fpr_delta": 0.0,
+    "mcnemar_test": {
+      "statistic": 0.0,
+      "p_value": 1.0,
+      "contingency_b": 0.0,
+      "contingency_c": 0.0,
+      "both_correct": 216.0,
+      "both_incorrect": 72.0
+    },
+    "conclusion": "INCONCLUSIVE_OR_EXPLORATORY"
+  },
+  "abl_telem_source_fusion": {
+    "ablation_id": "ABL-TELEM",
+    "macro_f1_multi_source": 0.5333333333333333,
+    "macro_f1_single_source_falco": 0.3333333333333333,
+    "delta_macro_f1": 0.2,
+    "bootstrap_ci_95": {
+      "lower": 0.19999999999999996,
+      "upper": 0.20000000000000007
+    }
+  },
+  "abl_gate_confidence_sweeps": {
+    "ablation_id": "ABL-GATE",
+    "sweeps": [
+      {
+        "threshold": 0.4,
+        "coverage_pct": 100.0,
+        "review_pct": 0.0,
+        "auto_action_precision": 0.75
+      },
+      {
+        "threshold": 0.5,
+        "coverage_pct": 100.0,
+        "review_pct": 0.0,
+        "auto_action_precision": 0.75
+      },
+      {
+        "threshold": 0.6,
+        "coverage_pct": 75.0,
+        "review_pct": 25.0,
+        "auto_action_precision": 1.0
+      },
+      {
+        "threshold": 0.7,
+        "coverage_pct": 75.0,
+        "review_pct": 25.0,
+        "auto_action_precision": 1.0
+      },
+      {
+        "threshold": 0.8,
+        "coverage_pct": 75.0,
+        "review_pct": 25.0,
+        "auto_action_precision": 1.0
+      },
+      {
+        "threshold": 0.9,
+        "coverage_pct": 0.0,
+        "review_pct": 100.0,
+        "auto_action_precision": 1.0
+      }
+    ]
+  },
+  "secondary_classifier_comparisons": {
+    "rules_macro_f1": 0.5333333333333333,
+    "scaledown_macro_f1": 0.051963746223564956,
+    "mcnemar_scaledown_vs_rules": {
+      "statistic": 114.22393822393822,
+      "p_value": 1.1639281175342772e-26,
+      "contingency_b": 43.0,
+      "contingency_c": 216.0,
+      "both_correct": 0.0,
+      "both_incorrect": 29.0
+    },
+    "holm_bonferroni_corrections": [
+      {
+        "p_value": 1.1639281175342772e-26,
+        "rank": 1,
+        "alpha_target": 0.025,
+        "is_significant": true
+      },
+      {
+        "p_value": 1.5042857159882665e-10,
+        "rank": 2,
+        "alpha_target": 0.05,
+        "is_significant": true
+      }
+    ]
+  }
+}
