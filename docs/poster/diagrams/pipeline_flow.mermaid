@@ -1,0 +1,76 @@
+flowchart TD
+    subgraph S1["1. 5-Source Telemetry Ingestion"]
+        FALCO["Falco eBPF<br/>(syscalls, file, exec)"]
+        AUDIT["K8s Audit Webhook<br/>(API authz, secrets, pods)"]
+        HUBBLE["Hubble / Cilium<br/>(pod flows, DNS, egress)"]
+        PROM["cAdvisor / Prometheus<br/>(CPU mcores, memory bytes)"]
+        TRIVY["Trivy Cache<br/>(base image CVE profiles)"]
+    end
+
+    subgraph S2["2. State Construction & Baselines"]
+        NORM["Telemetry Normalizer<br/>(Pydantic CanonicalEvent v1.0.0)"]
+        BASE["Declarative Workload Baseline<br/>(baselines/*.yaml, SHA-256)"]
+        STATE["Structured Incident State<br/>(XML-delimited facts & delta)"]
+    end
+
+    subgraph S3["3. Temporal Correlation & Filter"]
+        WINDOW["Sliding Window Correlation<br/>(±30s Falco + Audit match)"]
+        PREFILTER["Deterministic Pre-Filter<br/>(Discard verified routine actions)"]
+    end
+
+    subgraph S4["4. ScaleDown Classify-1 Decisions API"]
+        PROMPT["XML Escaping & Token Redaction"]
+        API["ScaleDown Classify-1<br/>POST /v1/scaledown"]
+        CHOICE["Choice: attack_type<br/>(probabilities + top choice)"]
+        SCORE["Score: severity<br/>(levels 0-4 -> Score + 1.0)"]
+        NOUL["Noul: 4 binary flags<br/>(baseline, shell, exposure, abuse)"]
+    end
+
+    subgraph S5["5. Deterministic Policy Engine"]
+        RULES["Hard Overrides & Conflict Table<br/>(Confidence threshold >= 0.70)"]
+        DECISION["Final Typed Decision<br/>(action, review_required, target)"]
+    end
+
+    subgraph S6["6. SRE Response Controller"]
+        ACT_ALERT["Alert SecOps<br/>(Low severity / degraded)"]
+        ACT_QUARANTINE["Reversible NetworkPolicy<br/>(Isolate pod egress / ingress)"]
+        ACT_REVIEW["Route to Human Queue<br/>(Low confidence or conflict)"]
+        ACT_TERM["Pod Termination<br/>(DESIGN ONLY / FUTURE WORK)"]
+    end
+
+    subgraph S7["7. Observability & Continuous Improvement"]
+        AUDIT_LOG["Tamper-Evident Audit Sink<br/>(HMAC-SHA256 chained log)"]
+        GRAFANA["Prometheus Exporter & Grafana<br/>(Latency, FPR, SecOps metrics)"]
+        FEEDBACK["SRE Feedback Diff Loop<br/>(Baseline update candidate)"]
+    end
+
+    FALCO --> NORM
+    AUDIT --> NORM
+    HUBBLE --> NORM
+    PROM --> NORM
+    TRIVY --> NORM
+
+    NORM --> WINDOW
+    WINDOW --> BASE
+    BASE --> STATE
+    STATE --> PREFILTER
+    PREFILTER --> PROMPT
+    PROMPT --> API
+
+    API --> CHOICE
+    API --> SCORE
+    API --> NOUL
+
+    CHOICE --> RULES
+    SCORE --> RULES
+    NOUL --> RULES
+    RULES --> DECISION
+
+    DECISION --> ACT_ALERT
+    DECISION --> ACT_QUARANTINE
+    DECISION --> ACT_REVIEW
+    DECISION -.-> ACT_TERM
+
+    DECISION --> AUDIT_LOG
+    DECISION --> GRAFANA
+    ACT_REVIEW --> FEEDBACK

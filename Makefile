@@ -4,7 +4,7 @@ REQUIRED_KUBE_CONTEXT := kind-runtimelens
 # Robust python runner selection across macOS (uv) and VM (/home/ubuntu/venv)
 PYTHON_EXEC := $(shell if [ -x /home/ubuntu/venv/bin/python3 ]; then echo "/home/ubuntu/venv/bin/python3"; elif which uv >/dev/null 2>&1; then echo "uv run python"; else echo "python3"; fi)
 
-.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api capture-check safety-lint run-pilot run-dataset
+.PHONY: help setup lint format typecheck test pre-commit-install precommit-review verify-gates check-kube-context lab-up lab-down lab-verify test-live-api capture-check safety-lint run-pilot run-dataset demo demo-auto
 
 help:
 	@echo "RuntimeLens Development Automation"
@@ -14,6 +14,8 @@ help:
 	@echo "format              : Auto-format and fix lint issues"
 	@echo "typecheck           : Run mypy strict type checker"
 	@echo "test                : Run all pytest suites"
+	@echo "demo                : Run live interactive demonstration script"
+	@echo "demo-auto           : Run automated non-interactive demonstration script"
 	@echo "pre-commit-install  : Install git pre-commit hooks"
 	@echo "precommit-review    : Execute 9-point standing review checks before commit"
 	@echo "verify-gates        : Re-run verification checks for passed tickets"
@@ -112,6 +114,12 @@ run-pilot:
 run-dataset:
 	@echo "=== Running Full 400-Run Live Cluster Scenario Generation (Ticket 06c) ==="
 	PYTHONPATH=src:. $(PYTHON_EXEC) -m runtimelens.scenarios.runner --stage full-400
+
+demo:
+	PYTHONPATH=src:. $(PYTHON_EXEC) scripts/demo.py
+
+demo-auto:
+	PYTHONPATH=src:. $(PYTHON_EXEC) scripts/demo.py --auto
 
 verify-gates:
 	@echo "=== Verifying Gate 01: Repo Foundation, Secrets CI & Skeleton ==="

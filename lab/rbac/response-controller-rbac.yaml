@@ -1,0 +1,82 @@
+# RuntimeLens SRE Response Controller Least-Privilege RBAC (Ticket 13b)
+# Invariant: STRICTLY ZERO DELETE VERBS ANYWHERE IN THIS MANIFEST
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: runtimelens-response-controller
+  namespace: runtimelens
+---
+# tenant-a Pod Isolation Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: runtimelens-pod-isolator
+  namespace: tenant-a
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"] # ZERO delete or deletecollection verbs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: runtimelens-pod-isolator-binding
+  namespace: tenant-a
+subjects:
+  - kind: ServiceAccount
+    name: runtimelens-response-controller
+    namespace: runtimelens
+roleRef:
+  kind: Role
+  name: runtimelens-pod-isolator
+  apiGroup: rbac.authorization.k8s.io
+---
+# tenant-b Pod Isolation Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: runtimelens-pod-isolator
+  namespace: tenant-b
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"] # ZERO delete or deletecollection verbs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: runtimelens-pod-isolator-binding
+  namespace: tenant-b
+subjects:
+  - kind: ServiceAccount
+    name: runtimelens-response-controller
+    namespace: runtimelens
+roleRef:
+  kind: Role
+  name: runtimelens-pod-isolator
+  apiGroup: rbac.authorization.k8s.io
+---
+# tenant-c Pod Isolation Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: runtimelens-pod-isolator
+  namespace: tenant-c
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"] # ZERO delete or deletecollection verbs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: runtimelens-pod-isolator-binding
+  namespace: tenant-c
+subjects:
+  - kind: ServiceAccount
+    name: runtimelens-response-controller
+    namespace: runtimelens
+roleRef:
+  kind: Role
+  name: runtimelens-pod-isolator
+  apiGroup: rbac.authorization.k8s.io

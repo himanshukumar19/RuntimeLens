@@ -48,6 +48,7 @@ htmlcov/
 .scratch/
 tmp/
 *.tmp
+artifacts/
 
 # Operating System Files
 .DS_Store
