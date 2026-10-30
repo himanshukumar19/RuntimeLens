@@ -39,7 +39,7 @@ typecheck:
 	uv run mypy src tests scripts
 
 test:
-	uv run pytest tests/unit/ tests/contract/ tests/integration/
+	PYTHONPATH=src uv run pytest tests/unit/ tests/contract/ tests/integration/
 
 pre-commit-install:
 	uv run pre-commit install
@@ -120,6 +120,9 @@ demo:
 
 demo-auto:
 	PYTHONPATH=src:. $(PYTHON_EXEC) scripts/demo.py --auto
+
+demo-video:
+	PYTHONPATH=src:. $(PYTHON_EXEC) scripts/generate_demo_video.py
 
 verify-gates:
 	@echo "=== Verifying Gate 01: Repo Foundation, Secrets CI & Skeleton ==="

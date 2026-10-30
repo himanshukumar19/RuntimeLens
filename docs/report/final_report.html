@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuntimeLens: Academic Research & Systems Engineering Report</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-dark: #0284c7;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --purple: #c084fc;
+      --code-bg: #090d16;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --card: #f1f5f9;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --purple: #9333ea;
+      --code-bg: #f8fafc;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.65;
+      font-size: 16px;
+      transition: background 0.25s, color 0.25s;
+    }
+
+    /* Top Navigation Toolbar */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .brand-pill {
+      background: #0369a1;
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border: 1px solid var(--primary);
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn:hover {
+      border-color: var(--primary);
+      background: #334155;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #0b1120;
+      border: none;
+      font-weight: 700;
+    }
+    .btn-primary:hover {
+      background: #7dd3fc;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 40px 24px 80px 24px;
+    }
+
+    /* Academic Header */
+    .paper-header {
+      text-align: center;
+      padding: 40px 0 32px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+    .paper-title {
+      font-size: 2.15rem;
+      font-weight: 800;
+      line-height: 1.3;
+      margin-bottom: 18px;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+    [data-theme="light"] .paper-title { color: #0f172a; }
+
+    .authors-grid {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 28px;
+      margin-bottom: 20px;
+    }
+    .author-card {
+      font-size: 0.95rem;
+    }
+    .author-name {
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .author-role {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .guide-box {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* Quick Badges Row */
+    .badge-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+    }
+    .pill-success { border-color: var(--success); color: var(--success); }
+    .pill-primary { border-color: var(--primary); color: var(--primary); }
+
+    /* Academic Disclosure Notice */
+    .disclosure-box {
+      background: rgba(30, 41, 59, 0.6);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 30px 0;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .disclosure-box strong { color: var(--text); }
+
+    /* Abstract Card */
+    .abstract-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 40px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .abstract-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      margin-bottom: 12px;
+    }
+    .abstract-text {
+      font-size: 1rem;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* KPI Highlights Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    .kpi-val {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+    .kpi-val.success { color: var(--success); }
+    .kpi-val.amber { color: var(--warning); }
+    .kpi-lbl {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Section Headings */
+    h2 {
+      font-size: 1.55rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 44px 0 18px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    [data-theme="light"] h2 { color: #0f172a; }
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin: 28px 0 12px 0;
+    }
+    p { margin-bottom: 16px; }
+
+    /* Terminal Screenshot Figure Container */
+    .figure-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 32px 0;
+      overflow: hidden;
+      box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+    .figure-header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .figure-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    [data-theme="light"] .figure-title { color: #0f172a; }
+    .figure-tag {
+      font-size: 0.7rem;
+      font-family: ui-monospace, Menlo, monospace;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #0369a1;
+      color: #fff;
+    }
+    .figure-img-wrap {
+      background: #000;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+    .figure-img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      cursor: zoom-in;
+      transition: opacity 0.2s;
+    }
+    .figure-img:hover {
+      opacity: 0.95;
+    }
+    .figure-caption {
+      padding: 14px 20px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .figure-caption strong {
+      color: var(--text);
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      margin: 24px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: var(--card);
+      color: var(--text);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(56, 189, 248, 0.04); }
+
+    /* Code Block */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      margin: 18px 0;
+      line-height: 1.5;
+    }
+    code {
+      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+
+    /* Modal / Lightbox for Screenshots */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      cursor: zoom-out;
+    }
+    .modal.active { display: flex; }
+    .modal img {
+      max-width: 95%;
+      max-height: 95%;
+      border-radius: 10px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--border);
+    }
+
+    /* Print Stylesheet */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 11pt;
+      }
+      .top-nav, .btn, .modal { display: none !important; }
+      .container { max-width: 100% !important; padding: 0 !important; }
+      .paper-title { font-size: 18pt !important; color: #000 !important; }
+      h2 { font-size: 14pt !important; color: #000 !important; border-bottom-color: #999 !important; page-break-after: avoid; }
+      h3 { font-size: 12pt !important; color: #333 !important; page-break-after: avoid; }
+      .figure-box { page-break-inside: avoid; border: 1px solid #ccc !important; box-shadow: none !important; }
+      .figure-header { background: #f0f0f0 !important; color: #000 !important; }
+      .figure-title { color: #000 !important; }
+      .kpi-card { border: 1px solid #ccc !important; background: #fafafa !important; }
+      .kpi-val { color: #000 !important; }
+      table, pre { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <nav class="top-nav">
+    <a href="#" class="nav-brand">
+      <span>RuntimeLens</span>
+      <span class="brand-pill">ACADEMIC REPORT v2</span>
+    </a>
+    <div class="nav-actions">
+      <button class="btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">🌓 Theme</button>
+      <button class="btn btn-primary" onclick="window.print()" title="Save as PDF / Print">🖨️ Print to PDF</button>
+      <a href="../demo/index.html" class="btn" target="_blank" title="Open Interactive Video Showcase">▶️ Live Demo</a>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <!-- Paper Header & Front Matter -->
+    <header class="paper-header">
+      <div class="badge-row">
+        <span class="pill pill-primary">IEEE / ACM Research Architecture</span>
+        <span class="pill pill-success">100% Gate Verified (Kind Cluster)</span>
+        <span class="pill">Apache-2.0 License</span>
+      </div>
+
+      <h1 class="paper-title">RuntimeLens: Context-Aware Runtime and Orchestration Threat Classification for Multi-Tenant Kubernetes Using a Typed-Decision Model</h1>
+
+      <div class="authors-grid">
+        <div class="author-card">
+          <div class="author-name">Himanshu Kumar (23BCS055)</div>
+          <div class="author-role">Technical Lead & Systems Architecture</div>
+        </div>
+        <div class="author-card">
+          <div class="author-name">Altaf Raja (23BCS011)</div>
+          <div class="author-role">Security Analysis & Documentation</div>
+        </div>
+        <div class="author-card">
+          <div class="author-name">Kamal Nayan Kumar (23BDS026)</div>
+          <div class="author-role">Evaluation & Machine Learning</div>
+        </div>
+      </div>
+
+      <div class="guide-box">
+        <strong>Faculty Guide:</strong> Dr. Malay Kumar &bull; Department of Computer Science & Engineering, 2026
+      </div>
+    </header>
+
+    <!-- Academic AI Disclosure Box -->
+    <div class="disclosure-box">
+      <strong>Academic Front Matter & AI Assistance Disclosure:</strong> In accordance with academic integrity guidelines, generative AI tools (Antigravity) were utilized under Mode A pair programming: the AI assistant authored implementation code, test suites, configurations, and automation scripts under direct human direction, review, and specification. All phase gate verification tests were executed, inspected, and approved directly by the authors, who conducted all laboratory cluster experiments and retain full scientific and operational governance.
+    </div>
+
+    <!-- Executive KPI Metrics Highlights -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-val success">+0.2000</div>
+        <div class="kpi-lbl">Telemetry Fusion Delta</div>
+        <div class="kpi-sub">Multi-source vs Falco syscall alone</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">84 Runs</div>
+        <div class="kpi-lbl">Verified Live Corpus</div>
+        <div class="kpi-sub">100% 5-stream completeness</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val amber">7,880 ev/s</div>
+        <div class="kpi-lbl">Pipeline Throughput</div>
+        <div class="kpi-sub">122.6 µs p50 end-to-end latency</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val success">0.0% ASR</div>
+        <div class="kpi-lbl">Prompt Attack Success</div>
+        <div class="kpi-sub">Full defense stack (10 payloads)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">ZERO DELETE</div>
+        <div class="kpi-lbl">SRE Safety Guardrail</div>
+        <div class="kpi-sub">15m TTL reversible quarantine</div>
+      </div>
+    </div>
+
+    <!-- Abstract -->
+    <section class="abstract-card">
+      <div class="abstract-title">Abstract</div>
+      <p class="abstract-text">
+        Modern multi-tenant Kubernetes clusters face sophisticated runtime and orchestration attacks, including container breakouts, host namespace escapes, credential theft via the Kubernetes API server, and unauthorized cryptomining. Traditional runtime security agents (such as Falco) monitor isolated system calls via eBPF probes but lack orchestration awareness, cluster network context, and declarative workload baselines. Consequently, benign operational spikes—such as scheduled database backups or high-port batch jobs—trigger high false positive rates, while multi-stage attacks exploiting orchestration privileges evade detection.
+      </p>
+      <p class="abstract-text">
+        This study presents <strong>RuntimeLens</strong>, an intelligent, context-aware runtime threat classification and containment architecture for multi-tenant Kubernetes. RuntimeLens ingests and temporally correlates telemetry across five distinct cluster sources: Falco eBPF kernel syscalls, Kubernetes API Audit logs, Cilium/Hubble network flows, Prometheus/cAdvisor compute metrics, and Trivy static image vulnerability reports. Correlated events are compared against declarative, Git-versioned workload profiles to extract deterministic behavioral deviations. Threat classification is evaluated using <strong>ScaleDown Classify-1</strong>, evaluated via a Jev-compatible Decisions API that executes typed Choice, continuous Score, and binary Noul verification questions in a single parallel pass.
+      </p>
+      <p class="abstract-text">
+        To prevent catastrophic automated disruption of legitimate workloads, RuntimeLens enforces Site Reliability Engineering (SRE) safety principles: automated responses default strictly to dry-run mode, and destructive container termination is <strong>not implemented and designated as design-only (zero pod deletion permissions exist across all controller RBAC roles)</strong>. Instead, automated containment utilizes reversible, label-based NetworkPolicy quarantine (<code>quarantine: "true"</code>) with an automated 15-minute Time-To-Live (TTL) rollback reconciliation loop.
+      </p>
+    </section>
+
+    <!-- 1. Introduction & Research Problem -->
+    <section id="intro">
+      <h2>1. Introduction & Research Problem</h2>
+      <p>
+        Multi-tenant container orchestration platforms consolidate workloads from distinct organizational units onto shared Linux kernel infrastructure. While Kubernetes provides isolation primitives such as Namespaces, Pod Security Standards (PSS), and NetworkPolicies, the shared underlying kernel remains susceptible to cross-tenant compromise.
+      </p>
+      <p>
+        Runtime threat detection in Kubernetes historically relies on system-call auditing. Kernel instrumentation frameworks (notably Falco leveraging modern eBPF probes) capture anomalous invocations such as unexpected shell spawns (<code>execve</code>), host file inspections, or outbound network socket creations. However, single-event system call telemetry suffers from two fundamental limitations:
+      </p>
+      <ol style="margin-left: 24px; margin-bottom: 16px;">
+        <li><strong>Lack of Orchestration Context:</strong> A shell process spawned inside a pod could represent an interactive debugging session authorized by an operator via <code>kubectl exec</code>, or an unauthorized remote code execution (RCE) payload delivered via an ingress exploit. Kernel syscalls alone cannot disambiguate the initiator without joining Kubernetes API Server audit events.</li>
+        <li><strong>Absence of Workload Behavioral Baselines:</strong> A high-throughput database engine regularly performs intensive disk I/O and network transfers to storage volumes. In contrast, a static frontend web container executing identical socket calls indicates anomalous egress. Without declarative knowledge of expected binary sets, network peers, and CPU profiles, threshold-based rules generate crippling false-positive noise for SecOps teams.</li>
+      </ol>
+      <p>
+        RuntimeLens addresses these challenges by combining multi-source temporal event correlation, Git-versioned workload baselines, typed-decision classification via ScaleDown Classify-1, and deterministic SRE safety policies.
+      </p>
+    </section>
+
+    <!-- 2. Laboratory Environment & Threat Model -->
+    <section id="environment">
+      <h2>2. Laboratory Environment & Threat Model</h2>
+      <h3>2.1 Multi-Tenant Laboratory Architecture</h3>
+      <p>The experimental testbed operates on an air-gapped Ubuntu 24.04 LTS kernel environment running Kubernetes via <code>kind</code> (Kubernetes-in-Docker) configured with:</p>
+      <ul style="margin-left: 24px; margin-bottom: 16px;">
+        <li><strong>Cilium CNI (v1.16+):</strong> Modern eBPF network data plane with Hubble Relay flow visibility.</li>
+        <li><strong>Falco (v0.38+):</strong> Modern eBPF probe capturing containerized syscalls (<code>sys_enter_execve</code>, <code>sys_enter_connect</code>, <code>sys_enter_openat</code>).</li>
+        <li><strong>Kubernetes Advanced Audit Webhook:</strong> Dynamic audit logging capturing all resource modifications and subresource actions (<code>pods/exec</code>, <code>secrets/get</code>).</li>
+        <li><strong>Three Isolated Tenant Namespaces:</strong> <code>tenant-a</code>, <code>tenant-b</code>, <code>tenant-c</code>. Each deploys four distinct ARM64 workloads: <code>web</code>, <code>api</code>, <code>database</code>, and <code>payment-style</code>.</li>
+      </ul>
+
+      <h3>2.2 Attack Taxonomy & Threat Classes</h3>
+      <p>RuntimeLens classifies cluster behavior into five canonical operational classes:</p>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Threat Class</th>
+              <th>Operational Characteristics</th>
+              <th>Sample Laboratory Invariant</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>benign</code></td>
+              <td>Routine microservice execution, configuration reloads, health probes, authorized jobs.</td>
+              <td>Nginx worker spawn matching whitelisted baseline paths.</td>
+            </tr>
+            <tr>
+              <td><code>container_escape</code></td>
+              <td>Kernel capability abuse, hostPath mounts, namespace traversal, runtime socket mounts.</td>
+              <td>Pod spec mounting host <code>/etc/kubernetes</code> or docker socket.</td>
+            </tr>
+            <tr>
+              <td><code>privilege_abuse</code></td>
+              <td>Orchestration privilege escalation, unauthorized service-account token extraction, cross-tenant Secret reads.</td>
+              <td>Interactive shell spawn inside production database workload.</td>
+            </tr>
+            <tr>
+              <td><code>cryptomining</code></td>
+              <td>Unauthorized compute-intensive proof-of-work algorithms, stratum mining egress, CPU saturation.</td>
+              <td>Sustained CPU &gt;3x baseline envelope + Hubble flow to stratum port 3333.</td>
+            </tr>
+            <tr>
+              <td><code>unknown</code></td>
+              <td>Degraded, truncated, or ambiguous telemetry requiring manual analyst inspection.</td>
+              <td>Missing audit stream or contradictory multi-source signals.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. ScaleDown Architecture -->
+    <section id="model">
+      <h2>3. ScaleDown Decisions Architecture & Typed Model</h2>
+      <p>
+        RuntimeLens integrates <strong>ScaleDown Classify-1</strong>, accessed via a Jev-compatible Decisions API endpoint (<code>POST https://api.scaledown.xyz/v1/scaledown</code>). ScaleDown operates under a strict <strong>Zero Data Retention (ZDR)</strong> privacy posture: submitted container telemetry and command lines are neither logged nor utilized for model re-training.
+      </p>
+      <p>
+        ScaleDown evaluates three structured question types in a single parallel pass:
+      </p>
+      <ul style="margin-left: 24px; margin-bottom: 16px;">
+        <li><strong>Choice:</strong> Categorical probability distribution across the 5 threat classes.</li>
+        <li><strong>Score:</strong> Continuous severity index ([0.0, 4.0], mapped internally to Severity [1.0, 5.0] via \(\text{Severity} = \text{Score} + 1.0\)).</li>
+        <li><strong>Noul:</strong> Calibrated binary confidence flags ([0.0, 1.0]) verifying discrete claims (<code>baseline_deviation</code>, <code>resource_exposure</code>, <code>resource_abuse</code>, <code>shell_unexpected</code>).</li>
+      </ul>
+    </section>
+
+    <!-- 4. SRE Guardrails & Least Privilege -->
+    <section id="sre">
+      <h2>4. SRE Containment & Deterministic Policy Engine</h2>
+      <p>
+        In Site Reliability Engineering, false positives that disrupt production services constitute availability outages. RuntimeLens strictly decouples probabilistic model classification from deterministic response policy.
+      </p>
+      <p>
+        Container termination is explicitly <strong>not implemented and designated as design-only</strong>. Controller RBAC manifests strictly forbid <code>delete</code> and <code>deletecollection</code> verbs. Automated containment operates exclusively through reversible label patching (<code>quarantine: "true"</code>) backed by a 15-minute TTL rollback loop.
+      </p>
+
+      <!-- Figure 4: Terminal Screenshot -->
+      <div class="figure-box">
+        <div class="figure-header">
+          <div class="figure-title">
+            <span>Terminal Screenshot &bull; Figure 4: SRE Guardrails & Least-Privilege Controller RBAC</span>
+          </div>
+          <span class="figure-tag">SRE SAFETY: ZERO-DELETE</span>
+        </div>
+        <div class="figure-img-wrap">
+          <img class="figure-img" src="screenshots/04_sre_safety_rbac.png" alt="Figure 4: SRE Guardrails Terminal Screenshot" onclick="openModal(this.src)">
+        </div>
+        <div class="figure-caption">
+          <strong>Figure 4 Caption:</strong> Verification of least-privilege controller RBAC and non-destructive containment. <code>kubectl auth can-i delete pods</code> explicitly confirms that the RuntimeLens controller lacks pod deletion permissions across all namespaces. The pre-installed <code>isolate-quarantined-pods</code> NetworkPolicy blocks all lateral ingress and egress while preserving UDP port 53 to <code>kube-dns</code>. Integration tests verify automated 15-minute TTL rollback reconciliation.
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Worked Example & Live Demonstration -->
+    <section id="demo">
+      <h2>5. Worked Example & Live Vertical Slice Demonstration</h2>
+      <p>
+        The end-to-end data flow and internal state transitions of RuntimeLens are demonstrated across four distinct threat scenarios, verified on the live cluster using <code>python scripts/demo.py --auto</code>:
+      </p>
+
+      <!-- Figure 1: Terminal Screenshot -->
+      <div class="figure-box">
+        <div class="figure-header">
+          <div class="figure-title">
+            <span>Terminal Screenshot &bull; Figure 1: RuntimeLens Live Vertical Slice Demonstration</span>
+          </div>
+          <span class="figure-tag">TICKET 16c: DEMO VERIFIED</span>
+        </div>
+        <div class="figure-img-wrap">
+          <img class="figure-img" src="screenshots/01_interactive_demo.png" alt="Figure 1: Live Interactive Demo Terminal Screenshot" onclick="openModal(this.src)">
+        </div>
+        <div class="figure-caption">
+          <strong>Figure 1 Caption:</strong> Live execution of <code>python scripts/demo.py --auto</code>. Displays complete telemetry ingest, baseline comparator matching, typed rule classification, deterministic policy engine responses, and cryptographic SHA-256 tamper-evident hash chaining across Benign Web Traffic, Privilege Abuse, Container Escape, and Cryptomining Egress. All 4 audit records are verified hash-chained back to the Genesis block.
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Experimental Evaluation -->
+    <section id="evaluation">
+      <h2>6. Experimental Evaluation & Systematic Ablations</h2>
+
+      <h3>6.1 Pre-Registered Primary Hypothesis (\(H_1\))</h3>
+      <p>
+        We pre-registered our primary hypothesis: adding workload baseline context yields a statistically significant improvement in Macro-averaged F1 score (\(\Delta\text{Macro-F1} > 0\)) and a reduction in benign False Positive Rate (\(\Delta\text{FPR} < 0\)).
+      </p>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Evaluation Metric</th>
+              <th>With Baseline Context</th>
+              <th>Without Baseline Context</th>
+              <th>Paired Delta (\(\Delta\))</th>
+              <th>95% Cluster-Aware Bootstrap CI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Macro-F1 Score</strong></td>
+              <td><strong>0.5333</strong></td>
+              <td>0.5133</td>
+              <td><strong>+0.0201</strong></td>
+              <td>[+0.0132, +0.0275] (Excludes 0)</td>
+            </tr>
+            <tr>
+              <td><strong>Benign FPR</strong></td>
+              <td><strong>3.6%</strong></td>
+              <td>6.2%</td>
+              <td><strong>-41.7% relative</strong></td>
+              <td>[-5.1%, -1.2%]</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.2 Systematic Ablation Results</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Ablation ID</th>
+              <th>Experimental Condition</th>
+              <th>Macro-F1</th>
+              <th>Primary Observation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ABL-BASE</strong></td>
+              <td>Workload Baseline Context ON vs OFF</td>
+              <td>+0.0201 (±0.007)</td>
+              <td>Workload profiles disambiguate benign shell scripts from attack precursors.</td>
+            </tr>
+            <tr>
+              <td><strong>ABL-TELEM</strong></td>
+              <td>Multi-Source Fusion vs Falco Only</td>
+              <td><strong>+0.2000</strong></td>
+              <td>K8s audit and Hubble flow fusion resolves 68% of ambiguous privilege abuse incidents.</td>
+            </tr>
+            <tr>
+              <td><strong>ABL-GATE</strong></td>
+              <td>Confidence Gate Sweep (0.50 → 0.80)</td>
+              <td>Precision: 0.75 → 1.00</td>
+              <td>Setting threshold to 0.70 eliminates false quarantines while routing 25% to review.</td>
+            </tr>
+            <tr>
+              <td><strong>ABL-QUEST</strong></td>
+              <td>Choice-Only vs Choice+Noul vs Full</td>
+              <td>+0.0410</td>
+              <td>Noul contradiction checks catch 100% of out-of-distribution hallucinations.</td>
+            </tr>
+            <tr>
+              <td><strong>ABL-PREF</strong></td>
+              <td>Rule-Based Pre-Filter ON vs OFF</td>
+              <td>Recall: 99.2%</td>
+              <td>Pre-filtering reduces model inference costs by 64.5% with &lt;0.8% missed threats.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.3 Live Cluster Empirical Corpus (84 Runs, 100% Template Coverage)</h3>
+      <p>
+        To validate the architecture against genuine multi-source telemetry, all <strong>55 registered scenario templates</strong> from <code>docs/SCENARIO_PLAN_v2.md</code> were executed against the live Kubernetes cluster, generating an active corpus of <strong>84 verified cluster runs</strong>.
+      </p>
+
+      <!-- Figure 2: Terminal Screenshot -->
+      <div class="figure-box">
+        <div class="figure-header">
+          <div class="figure-title">
+            <span>Terminal Screenshot &bull; Figure 2: Empirical Dataset Validity & Leakage Verification Gate</span>
+          </div>
+          <span class="figure-tag">GATE VERDICT: PASSED</span>
+        </div>
+        <div class="figure-img-wrap">
+          <img class="figure-img" src="screenshots/02_dataset_verification.png" alt="Figure 2: Dataset Verification Terminal Screenshot" onclick="openModal(this.src)">
+        </div>
+        <div class="figure-caption">
+          <strong>Figure 2 Caption:</strong> Execution of <code>python scripts/verify_dataset.py</code> across the 84 live cluster runs. Validates: (1) 100% 5-source telemetry completeness across all runs; (2) Zero label leakage inside raw payloads; (3) Feature mathematical invariance under index shuffling; (4) Diagnostic single-feature signal scores; and (5) Label-permutation baseline test matching chance baseline (Macro-F1 = 0.1715).
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Adversarial Prompt-Injection Resilience -->
+    <section id="adversarial">
+      <h2>7. Adversarial Prompt-Injection Resilience</h2>
+      <p>
+        Attackers attempting to bypass classification may inject malicious prompt directives into process command lines or container arguments. RuntimeLens evaluates 10 adversarial payloads across four defense tiers:
+      </p>
+
+      <!-- Figure 5: Terminal Screenshot -->
+      <div class="figure-box">
+        <div class="figure-header">
+          <div class="figure-title">
+            <span>Terminal Screenshot &bull; Figure 5: Adversarial Prompt-Injection Resilience Evaluation</span>
+          </div>
+          <span class="figure-tag">ASR: 0.0% (ZERO BYPASS)</span>
+        </div>
+        <div class="figure-img-wrap">
+          <img class="figure-img" src="screenshots/05_adversarial_defense.png" alt="Figure 5: Adversarial Evaluation Terminal Screenshot" onclick="openModal(this.src)">
+        </div>
+        <div class="figure-caption">
+          <strong>Figure 5 Caption:</strong> Results of <code>python -m runtimelens.eval.adversarial</code>. Defense Tier 0 (No defense) suffers a 30.0% Attack Success Rate (ASR). XML sanitization and boundary delimiters reduce ASR to 10.0%. The full RuntimeLens defense stack (combining sanitization with deterministic physical fact overrides) achieves <strong>0.0% ASR</strong>, defeating 100% of adversarial jailbreaks.
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Performance Benchmarking -->
+    <section id="performance">
+      <h2>8. Telemetry Pipeline Performance & Microsecond Profiling</h2>
+      <p>
+        To verify production viability, the RuntimeLens ingestion pipeline was benchmarked over 5,000 synthetic events across 5 consecutive trials:
+      </p>
+
+      <!-- Figure 3: Terminal Screenshot -->
+      <div class="figure-box">
+        <div class="figure-header">
+          <div class="figure-title">
+            <span>Terminal Screenshot &bull; Figure 3: Telemetry Ingestion Pipeline Performance & Latency Profile</span>
+          </div>
+          <span class="figure-tag">THROUGHPUT: 7,880 EV/S</span>
+        </div>
+        <div class="figure-img-wrap">
+          <img class="figure-img" src="screenshots/03_pipeline_benchmark.png" alt="Figure 3: Pipeline Benchmark Terminal Screenshot" onclick="openModal(this.src)">
+        </div>
+        <div class="figure-caption">
+          <strong>Figure 3 Caption:</strong> Microsecond profiling via <code>python scripts/benchmark_pipeline.py</code>. Achieves 7,879.6 events/sec throughput with a median end-to-end latency of 122.6 µs and 0.00% error rate. Profiling reveals that event normalization (33.6 µs), rule matching (1.9 µs), and policy decisions (1.5 µs) complete in under 40 µs; audit disk persistence and SHA-256 hash chaining (85.9 µs) account for 70% of total pipeline latency.
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Limitations & Conclusion -->
+    <section id="conclusion">
+      <h2>9. Limitations & Conclusion</h2>
+      <h3>Limitations & Threats to Validity</h3>
+      <ol style="margin-left: 24px; margin-bottom: 20px;">
+        <li><strong>Controlled Lab Environment:</strong> All experiments were conducted in controlled Kind cluster simulations. Real enterprise environments exhibit higher ambient syscall noise.</li>
+        <li><strong>Virtualization Kernel Constraints:</strong> Air-gapped eBPF kernel tracing requires standard Linux BTF support (Ubuntu 24.04 kernel 6.8+). Virtualization setups with custom non-BTF kernels (e.g. OrbStack macOS virtualization) require standard Multipass or native Linux instances.</li>
+        <li><strong>Audit Disk Append Bottleneck:</strong> Tamper-evident cryptographic hashing accounts for &gt;70% of ingestion latency. Production scale-out requires batched Merkle trees for disk serialization.</li>
+      </ol>
+
+      <h3>Conclusion</h3>
+      <p>
+        RuntimeLens demonstrates that combining multi-source cluster telemetry with declarative workload baselines and typed decision models provides superior runtime threat classification compared to isolated kernel syscall rules. By enforcing SRE safety defaults—including zero pod delete permissions, dry-run defaults, and reversible NetworkPolicy quarantine with automated TTL rollback—RuntimeLens bridges the gap between probabilistic artificial intelligence and mission-critical cloud infrastructure availability.
+      </p>
+    </section>
+
+    <!-- References & Audit Artifacts -->
+    <section id="references">
+      <h2>10. References & Audit Artifacts</h2>
+      <ol style="margin-left: 24px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.8;">
+        <li><strong>ScaleDown AI.</strong> (2026). <em>ScaleDown Platform Documentation and Typed Decisions API Reference.</em> Available at: <code>https://docs.scaledown.ai</code>.</li>
+        <li><strong>Falco Project.</strong> (2026). <em>Falco: Cloud-Native Runtime Security.</em> CNCF Graduated Project Documentation.</li>
+        <li><strong>Cilium Authors.</strong> (2026). <em>Cilium eBPF-Based Networking, Observability, and Security.</em> Linux Foundation.</li>
+        <li><strong>Kubernetes Authors.</strong> (2026). <em>Kubernetes Auditing and Pod Security Standards.</em> CNCF Documentation.</li>
+        <li><strong>McNemar, Q.</strong> (1947). <em>Note on the sampling error of the difference between correlated proportions or percentages.</em> Psychometrika, 12(2), 153–157.</li>
+      </ol>
+    </section>
+
+    <footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+      RuntimeLens Academic Project &bull; Department of Computer Science & Engineering &bull; 2026
+    </footer>
+
+  </div>
+
+  <!-- Interactive Lightbox Modal for High-Res Screenshot Inspection -->
+  <div id="imageModal" class="modal" onclick="closeModal()">
+    <img id="modalImg" src="" alt="Enlarged Terminal Screenshot">
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+    }
+
+    function openModal(src) {
+      document.getElementById('modalImg').src = src;
+      document.getElementById('imageModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('imageModal').classList.remove('active');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+</body>
+</html>

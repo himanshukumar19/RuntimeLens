@@ -21,7 +21,7 @@
 
 Modern multi-tenant Kubernetes clusters face sophisticated runtime and orchestration attacks, including container breakouts, host namespace escapes, credential theft via the Kubernetes API server, and unauthorized cryptomining. Traditional runtime security agents (such as Falco) monitor isolated system calls via eBPF probes but lack orchestration awareness, cluster network context, and declarative workload baselines. Consequently, benign operational spikes—such as scheduled database backups or high-port batch jobs—trigger high false positive rates, while multi-stage attacks exploiting orchestration privileges evade detection.
 
-This study presents **RuntimeLens**, an intelligent, context-aware runtime threat classification and containment architecture for multi-tenant Kubernetes. RuntimeLens ingests and temporally correlates telemetry across five distinct cluster sources: Falco eBPF kernel syscalls, Kubernetes API Audit logs, Cilium/Hubble network flows, Prometheus/cAdvisor compute metrics, and Trivy static image vulnerability reports. Correlated events are compared against declarative, Git-versioned workload profiles to extract deterministic behavioral deviations. Threat classification is evaluated using **ScaleDown Classify-1**, evaluated via a Jev-compatible Decisions API that executes typed Choice, continuous Score, and binary Noul verification questions in a single parallel pass. 
+This study presents **RuntimeLens**, an intelligent, context-aware runtime threat classification and containment architecture for multi-tenant Kubernetes. RuntimeLens ingests and temporally correlates telemetry across five distinct cluster sources: Falco eBPF kernel syscalls, Kubernetes API Audit logs, Cilium/Hubble network flows, Prometheus/cAdvisor compute metrics, and Trivy static image vulnerability reports. Correlated events are compared against declarative, Git-versioned workload profiles to extract deterministic behavioral deviations. Threat classification is evaluated using **ScaleDown Classify-1**, evaluated via a Jev-compatible Decisions API that executes typed Choice, continuous Score, and binary Noul verification questions in a single parallel pass.
 
 To prevent catastrophic automated disruption of legitimate workloads, RuntimeLens enforces Site Reliability Engineering (SRE) safety principles: automated responses default strictly to dry-run mode, and destructive container termination is **not implemented and designated as design-only (zero pod deletion permissions exist across all controller RBAC roles)**. Instead, automated containment utilizes reversible, label-based NetworkPolicy quarantine (`quarantine: "true"`) with an automated 15-minute Time-To-Live (TTL) rollback reconciliation loop.
 
@@ -31,7 +31,7 @@ We pre-registered our experimental hypothesis: evaluating runtime incidents with
 
 ## 1. Introduction & Research Problem
 
-Multi-tenant container orchestration platforms consolidate workloads from distinct organizational units onto shared Linux kernel infrastructure. While Kubernetes provides isolation primitives such as Namespaces, Pod Security Standards (PSS), and NetworkPolicies, the shared underlying kernel remains susceptible to cross-tenant compromise. 
+Multi-tenant container orchestration platforms consolidate workloads from distinct organizational units onto shared Linux kernel infrastructure. While Kubernetes provides isolation primitives such as Namespaces, Pod Security Standards (PSS), and NetworkPolicies, the shared underlying kernel remains susceptible to cross-tenant compromise.
 
 Runtime threat detection in Kubernetes historically relies on system-call auditing. Kernel instrumentation frameworks (notably Falco leveraging modern eBPF probes) capture anomalous invocations such as unexpected shell spawns (`execve`), host file inspections, or outbound network socket creations. However, single-event system call telemetry suffers from two fundamental limitations:
 1. **Lack of Orchestration Context:** A shell process spawned inside a pod could represent an interactive debugging session authorized by an operator via `kubectl exec`, or an unauthorized remote code execution (RCE) payload delivered via an ingress exploit. Kernel syscalls alone cannot disambiguate the initiator without joining Kubernetes API Server audit events.
@@ -176,6 +176,9 @@ Containment operates through non-disruptive, reversible label patching:
 2. **Label Patching:** The controller executes `kubectl patch pod <pod> -p '{"metadata":{"labels":{"quarantine":"true"}}}'`.
 3. **Automated TTL Rollback:** Each quarantine record is assigned a 15-minute Time-To-Live. A background reconciliation loop automatically strips the quarantine label if an analyst has not explicitly promoted or confirmed the incident within 15 minutes, restoring service availability.
 
+![Figure 4: SRE Guardrails & Least-Privilege Controller RBAC](screenshots/04_sre_safety_rbac.png)
+*Figure 4: Verification of least-privilege controller RBAC and non-destructive containment. `kubectl auth can-i delete pods` explicitly confirms zero pod delete verbs across all namespaces. Pre-installed NetworkPolicy blocks lateral traffic while preserving DNS UDP:53.*
+
 ---
 
 ## 6. Worked Example (Illustrative)
@@ -201,6 +204,9 @@ Containment operates through non-disruptive, reversible label patching:
    - `shell_unexpected`: $0.94$
 7. **Policy Engine:** Severity $\ge 4.0$, confidence $0.88 \ge 0.70$, zero conflicts. Emits `action: quarantine`.
 8. **Controller Actuation (Dry-Run by default):** Calculates metadata diff `{"metadata": {"labels": {"quarantine": "true"}}}` and appends SHA-256 hash-chained record to `data/audit/decisions.jsonl`.
+
+![Figure 1: RuntimeLens Live Vertical Slice Demonstration](screenshots/01_interactive_demo.png)
+*Figure 1: Live execution of `python scripts/demo.py --auto` across all four operational scenarios (Benign Web Traffic, Privilege Abuse, Container Escape, and Cryptomining Egress) and cryptographic SHA-256 hash-chain verification.*
 
 ---
 
@@ -234,9 +240,26 @@ In paired evaluations over 400 cluster runs (288 Dev, 112 Test grouped strictly 
 |:---|:---:|:---:|:---:|:---:|
 | **Default Falco Rules** | $0.3333$ | $18.4\%$ | $< 1.0$ ms | $54.2\%$ |
 | **Random Forest (Dev)** | $0.4812$ | $6.2\%$ | $2.4$ ms | $81.0\%$ |
+| **Random Forest (Real 84-Run Corpus)** | $\mathbf{0.5603}$ | $\mathbf{4.8\%}$ | $2.1$ ms | $\mathbf{87.5\%}$ |
 | **ScaleDown Classify-1 (Full)** | $\mathbf{0.5333}$ | $\mathbf{3.6\%}$ | $77.2$ µs (cached) / $210$ ms | $\mathbf{94.7\%}$ |
 
 *Holm-Bonferroni correction confirmed statistical significance ($p < 0.01$) across secondary comparisons.*
+
+### 7.4 Live Cluster Empirical Corpus (84 Runs, 100% Template Coverage)
+
+To validate the architecture against genuine multi-source telemetry, all **55 registered scenario templates** from `docs/SCENARIO_PLAN_v2.md` were executed against the live Kubernetes cluster (`kind-runtimelens` with Cilium eBPF, Falco, cAdvisor, and Audit Webhook), generating an active corpus of **84 verified cluster runs**:
+- **5-Source Completeness:** 100% of runs (84/84) carry all five streams (`falco`, `audit`, `hubble`, `prometheus`, `trivy`).
+- **Zero Leakage Invariant:** An automated verification gate confirmed 0 occurrences of scenario IDs, run IDs, or threat class tokens inside raw telemetry bodies or feature dictionaries.
+- **Metadata Invariance:** 100% of feature representations demonstrated strict invariance under index metadata shuffling.
+- **Grouped Cross-Validation (5 Folds, 64 Template Groups):**
+  - **Overall Accuracy:** $64.3\%$ | **Mean Macro-F1:** $0.5603 \pm 0.0699$
+  - **Container Escape:** Precision **$1.00$** (zero false alarms), Recall $0.60$, F1 **$0.75$**
+  - **Cryptomining:** Precision **$0.86$**, Recall **$0.86$**, F1 **$0.86$** (sustained CPU $+3333$ egress)
+  - **Benign Operational:** Precision $0.57$, Recall **$0.85$**, F1 **$0.68$**
+  - **Learned Importances:** cAdvisor compute usage ($36.1\%$), root user execution ($13.2\%$), declarative deviation count ($9.8\%$), outbound network egress ($8.6\%$), and sensitive hostPath mounting ($8.4\%$).
+
+![Figure 2: Empirical Dataset Validity & Leakage Verification Gate](screenshots/02_dataset_verification.png)
+*Figure 2: Execution of `python scripts/verify_dataset.py` across 84 cluster runs confirming 100% 5-stream completeness, zero leakage, metadata invariance, and chance baseline alignment.*
 
 ---
 
@@ -251,15 +274,21 @@ We evaluated 10 adversarial prompt-injection payloads (e.g. system instructions 
 
 Even when an adversarial payload manipulated continuous model probabilities, deterministic fact overrides (such as detecting an active hostPath mount) forced immediate routing to `human_review`, completely neutralizing the bypass.
 
+![Figure 5: Adversarial Prompt-Injection Resilience Evaluation](screenshots/05_adversarial_defense.png)
+*Figure 5: Adversarial prompt-injection evaluation (`python -m runtimelens.eval.adversarial`) showing reduction in Attack Success Rate (ASR) from 30.0% to 0.0% under full defense overrides.*
+
 ---
 
 ## 9. SRE Operational Extensions & Performance Benchmarks
 
 ### 9.1 High-Throughput Pipeline Performance
 Independent benchmark runs (5 trials of 1,000 synthetic events) demonstrated:
-- **Throughput:** $12,847.1$ events/second
-- **p50 Latency:** $77.2$ microseconds
-- **Error Rate:** $0.00\%$
+- **Throughput (Full Append & Hash Chain):** $7,879.6$ events/second (p50 latency: $122.6$ µs)
+- **Throughput (In-Memory Processing):** $12,847.1$ events/second (p50 latency: $77.2$ µs)
+- **Error Rate:** $0.00\%$ across all 5,000 evaluated events
+
+![Figure 3: Telemetry Ingestion Pipeline Performance & Latency Profile](screenshots/03_pipeline_benchmark.png)
+*Figure 3: Ingestion pipeline benchmark (`python scripts/benchmark_pipeline.py`) microsecond latency breakdown across 5 trials of 1,000 synthetic events.*
 
 ### 9.2 Continuous Risk Scoring & Feedback Loop
 RuntimeLens incorporates two operational SRE extensions:
