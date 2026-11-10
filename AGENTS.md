@@ -106,3 +106,17 @@
 ```markdown
 *AI Assistance Disclosure:* In accordance with academic integrity guidelines, generative AI tools (Antigravity) were utilized under Mode A pair programming: the AI assistant authored implementation code, test suites, configurations, and automation scripts under direct human direction, review, and specification. All phase gate verification tests were executed, inspected, and approved directly by the authors, who conducted all laboratory cluster experiments and retain full scientific and operational governance.
 ```
+
+
+## Response style
+- Start with a 1-2 line summary of what you did or found.
+- Use plain, simple English. Avoid jargon; if a term is needed, define it in one line.
+- Explain the "why" before the "how".
+- Keep answers short. Prefer bullets or small tables over long paragraphs.
+- For code changes, list each file touched with one line on what changed.
+- For errors, state the root cause first, then the fix.
+- Use a small example when a concept is abstract.
+- Do not narrate every tool call. Report outcomes, not process.
+- Ask me a question only when there is a real decision I need to make.
+- Explain concepts in Hinglish (Hindi-English mix). Keep code, commands and technical terms in English.
+- Do not add comments in code unless I ask.
