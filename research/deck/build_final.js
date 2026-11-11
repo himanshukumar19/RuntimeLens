@@ -97,11 +97,12 @@ const headCell = (t, opts = {}) => ({ text: t, options: { bold: true, color: CYA
     { text: "Kamal Nayan Kumar  23BDS026", options: { bold: true, color: TXT } },
   ], { x: M + 0.28, y: 5.06, w: 5.6, h: 1.3, fontFace: BODY, fontSize: 16.5, margin: 0, lineSpacingMultiple: 1.15, valign: "top" });
   card(s, 7.0, 4.12, 5.73, 2.35);
-  heading(s, "COURSE", 7.28, 4.28, 5.2, { size: 12.5, h: 0.28 });
+  heading(s, "Course", 7.28, 4.38, 5.2, { size: 22, h: 0.42 });
+  s.addShape(pres.shapes.RECTANGLE, { x: 7.28, y: 4.92, w: 1.05, h: 0.03, fill: { color: CYAN }, line: { type: "none" } });
   s.addText([
-    { text: "Cloud Security and SRE", options: { bold: true, color: TXT, breakLine: true, paraSpaceAfter: 8 } },
+    { text: "Cloud Security and SRE", options: { bold: true, color: TXT, breakLine: true, paraSpaceAfter: 12 } },
     { text: "Instructor:  Dr. Malay Kumar", options: { color: "22384F" } },
-  ], { x: 7.28, y: 4.66, w: 5.2, h: 1.6, fontFace: BODY, fontSize: 15, margin: 0, lineSpacingMultiple: 1.15, valign: "top" });
+  ], { x: 7.28, y: 5.06, w: 5.2, h: 1.3, fontFace: BODY, fontSize: 16.5, margin: 0, lineSpacingMultiple: 1.2, valign: "top" });
   s.addNotes("Open with the one-liner: RuntimeLens classifies runtime threats by comparing telemetry against what each workload is supposed to do. Introduce the team and instructor, then the agenda: problem, why it is new, how it works, and the measured results. Everything in this deck is from our repo — numbers carry file paths.");
 }
 
