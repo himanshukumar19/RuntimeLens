@@ -1,0 +1,385 @@
+{
+  "arms": [
+    {
+      "arm": "groq-20b",
+      "model": "openai/gpt-oss-20b",
+      "n_incidents": 28,
+      "n_attacks": 17,
+      "n_calls": 56,
+      "call_failures": 0,
+      "with_baseline": {
+        "n": 28,
+        "accuracy": 0.7857142857142857,
+        "macro_f1": 0.7151138716356108,
+        "benign_fpr": 0.0,
+        "benign_recall": 1.0,
+        "per_class": {
+          "benign": {
+            "precision": 0.9166666666666666,
+            "recall": 1.0,
+            "f1": 0.9565217391304348,
+            "support": 11
+          },
+          "container_escape": {
+            "precision": 0.5,
+            "recall": 0.2,
+            "f1": 0.28571428571428575,
+            "support": 5
+          },
+          "privilege_abuse": {
+            "precision": 0.5555555555555556,
+            "recall": 0.8333333333333334,
+            "f1": 0.6666666666666667,
+            "support": 6
+          },
+          "cryptomining": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "unknown": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666,
+            "support": 2
+          }
+        }
+      },
+      "without_baseline": {
+        "n": 28,
+        "accuracy": 0.7857142857142857,
+        "macro_f1": 0.7898528138528138,
+        "benign_fpr": 0.0,
+        "benign_recall": 1.0,
+        "per_class": {
+          "benign": {
+            "precision": 0.7857142857142857,
+            "recall": 1.0,
+            "f1": 0.88,
+            "support": 11
+          },
+          "container_escape": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666665,
+            "support": 5
+          },
+          "privilege_abuse": {
+            "precision": 0.6,
+            "recall": 0.5,
+            "f1": 0.5454545454545454,
+            "support": 6
+          },
+          "cryptomining": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571428571428571,
+            "support": 4
+          },
+          "unknown": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 2
+          }
+        }
+      },
+      "delta_macro_f1": -0.07473894221720301,
+      "delta_benign_fpr": 0.0,
+      "delta_accuracy": 0.0,
+      "attacks_called_benign": {
+        "with_baseline": 1,
+        "without_baseline": 3,
+        "delta": -2
+      },
+      "paired_bootstrap": {
+        "iterations": 10000,
+        "seed": 20261111,
+        "delta_macro_f1": {
+          "lo": -0.3096447446602245,
+          "hi": 0.14355072463768126,
+          "mean": -0.07416428502969534,
+          "p_two_sided": 0.5582
+        },
+        "delta_benign_fpr": {
+          "lo": 0.0,
+          "hi": 0.0,
+          "mean": 0.0,
+          "p_two_sided": 1.0
+        },
+        "delta_accuracy": {
+          "lo": -0.1785714285714285,
+          "hi": 0.1785714285714285,
+          "mean": 0.0008499999999999996,
+          "p_two_sided": 1.0
+        }
+      },
+      "mcnemar_midp": {
+        "b": 3,
+        "c": 3,
+        "n": 6,
+        "p_value": 1.0
+      },
+      "per_class_mcnemar_raw_p": {
+        "benign": 1.0,
+        "container_escape": 0.25,
+        "privilege_abuse": 0.25,
+        "cryptomining": 0.5,
+        "unknown": 0.5
+      },
+      "per_class_mcnemar_holm_p": {
+        "container_escape": 1.0,
+        "privilege_abuse": 1.0,
+        "cryptomining": 1.0,
+        "unknown": 1.0,
+        "benign": 1.0
+      },
+      "precision_at_k": {
+        "5": 1.0,
+        "10": 0.9,
+        "25": 0.8,
+        "50": 0.7857142857142857
+      },
+      "fpr_at_tpr": {
+        "0.9": 0.0,
+        "0.95": 0.0
+      },
+      "mean_confidence_with_baseline": 0.85,
+      "latency_ms": {
+        "mean": 1162.6464285714285,
+        "median": 897.35,
+        "min": 509.1,
+        "max": 4579.3
+      },
+      "confusion_with_baseline": {
+        "benign": {
+          "benign": 11,
+          "container_escape": 0,
+          "privilege_abuse": 0,
+          "cryptomining": 0,
+          "unknown": 0
+        },
+        "container_escape": {
+          "benign": 0,
+          "container_escape": 1,
+          "privilege_abuse": 4,
+          "cryptomining": 0,
+          "unknown": 0
+        },
+        "privilege_abuse": {
+          "benign": 0,
+          "container_escape": 1,
+          "privilege_abuse": 5,
+          "cryptomining": 0,
+          "unknown": 0
+        },
+        "cryptomining": {
+          "benign": 0,
+          "container_escape": 0,
+          "privilege_abuse": 0,
+          "cryptomining": 4,
+          "unknown": 0
+        },
+        "unknown": {
+          "benign": 1,
+          "container_escape": 0,
+          "privilege_abuse": 0,
+          "cryptomining": 0,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "arm": "groq-qwen27b",
+      "model": "qwen/qwen3.8-27b",
+      "n_incidents": 28,
+      "n_attacks": 17,
+      "n_calls": 56,
+      "call_failures": 0,
+      "with_baseline": {
+        "n": 28,
+        "accuracy": 0.6428571428571429,
+        "macro_f1": 0.4801932367149758,
+        "benign_fpr": 0.0,
+        "benign_recall": 1.0,
+        "per_class": {
+          "benign": {
+            "precision": 0.9166666666666666,
+            "recall": 1.0,
+            "f1": 0.9565217391304348,
+            "support": 11
+          },
+          "container_escape": {
+            "precision": 0.6666666666666666,
+            "recall": 0.4,
+            "f1": 0.5,
+            "support": 5
+          },
+          "privilege_abuse": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "support": 6
+          },
+          "cryptomining": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "unknown": {
+            "precision": 0.2857142857142857,
+            "recall": 1.0,
+            "f1": 0.4444444444444445,
+            "support": 2
+          }
+        }
+      },
+      "without_baseline": {
+        "n": 28,
+        "accuracy": 0.5357142857142857,
+        "macro_f1": 0.48278388278388273,
+        "benign_fpr": 0.2727272727272727,
+        "benign_recall": 0.7272727272727273,
+        "per_class": {
+          "benign": {
+            "precision": 0.8888888888888888,
+            "recall": 0.7272727272727273,
+            "f1": 0.7999999999999999,
+            "support": 11
+          },
+          "container_escape": {
+            "precision": 0.5,
+            "recall": 0.2,
+            "f1": 0.28571428571428575,
+            "support": 5
+          },
+          "privilege_abuse": {
+            "precision": 0.42857142857142855,
+            "recall": 0.5,
+            "f1": 0.4615384615384615,
+            "support": 6
+          },
+          "cryptomining": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666,
+            "support": 4
+          },
+          "unknown": {
+            "precision": 0.125,
+            "recall": 0.5,
+            "f1": 0.2,
+            "support": 2
+          }
+        }
+      },
+      "delta_macro_f1": -0.00259064606890691,
+      "delta_benign_fpr": -0.2727272727272727,
+      "delta_accuracy": 0.1071428571428572,
+      "attacks_called_benign": {
+        "with_baseline": 1,
+        "without_baseline": 1,
+        "delta": 0
+      },
+      "paired_bootstrap": {
+        "iterations": 10000,
+        "seed": 20261111,
+        "delta_macro_f1": {
+          "lo": -0.17758454106280186,
+          "hi": 0.2300854700854701,
+          "mean": 0.0063900560838933765,
+          "p_two_sided": 0.992
+        },
+        "delta_benign_fpr": {
+          "lo": -0.5714285714285714,
+          "hi": 0.0,
+          "mean": -0.2741849377269617,
+          "p_two_sided": 0.084
+        },
+        "delta_accuracy": {
+          "lo": -0.10714285714285715,
+          "hi": 0.3214285714285714,
+          "mean": 0.1075,
+          "p_two_sided": 0.3874
+        }
+      },
+      "mcnemar_midp": {
+        "b": 6,
+        "c": 3,
+        "n": 9,
+        "p_value": 0.34375
+      },
+      "per_class_mcnemar_raw_p": {
+        "benign": 0.125,
+        "container_escape": 0.5,
+        "privilege_abuse": 1.0,
+        "cryptomining": 0.25,
+        "unknown": 0.5
+      },
+      "per_class_mcnemar_holm_p": {
+        "benign": 0.625,
+        "cryptomining": 1.0,
+        "container_escape": 1.0,
+        "unknown": 1.0,
+        "privilege_abuse": 1.0
+      },
+      "precision_at_k": {
+        "5": 1.0,
+        "10": 1.0,
+        "25": 0.68,
+        "50": 0.6428571428571429
+      },
+      "fpr_at_tpr": {
+        "0.9": 0.0,
+        "0.95": 0.0
+      },
+      "mean_confidence_with_baseline": 0.6803571428571429,
+      "latency_ms": {
+        "mean": 469.6017857142857,
+        "median": 405.15,
+        "min": 330.4,
+        "max": 1482.6
+      },
+      "confusion_with_baseline": {
+        "benign": {
+          "benign": 11,
+          "container_escape": 0,
+          "privilege_abuse": 0,
+          "cryptomining": 0,
+          "unknown": 0
+        },
+        "container_escape": {
+          "benign": 0,
+          "container_escape": 2,
+          "privilege_abuse": 2,
+          "cryptomining": 0,
+          "unknown": 1
+        },
+        "privilege_abuse": {
+          "benign": 1,
+          "container_escape": 1,
+          "privilege_abuse": 3,
+          "cryptomining": 0,
+          "unknown": 1
+        },
+        "cryptomining": {
+          "benign": 0,
+          "container_escape": 0,
+          "privilege_abuse": 1,
+          "cryptomining": 0,
+          "unknown": 3
+        },
+        "unknown": {
+          "benign": 0,
+          "container_escape": 0,
+          "privilege_abuse": 0,
+          "cryptomining": 0,
+          "unknown": 2
+        }
+      }
+    }
+  ],
+  "source_rows": "ab_rows_20261111T061525Z.jsonl"
+}

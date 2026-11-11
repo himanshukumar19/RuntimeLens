@@ -1,0 +1,158 @@
+[
+  {
+    "name": "escape_hostpath",
+    "status": 200,
+    "latency_ms": 1071.4,
+    "choice": "container_escape",
+    "conf": 0.5443370601535872,
+    "probs": {
+      "benign": 0.0510631869382909,
+      "container_escape": 0.5443370601535872,
+      "privilege_abuse": 0.3782256631261038,
+      "cryptomining": 0.015172302966400104,
+      "unknown": 0.011201786815618064
+    },
+    "score": 2.2093158069536383,
+    "nouls": {
+      "baseline_deviation": 0.8839944102716952,
+      "shell_unexpected": 0.33175012029691275,
+      "resource_exposure": 0.9068621902042062,
+      "resource_abuse": 0.08738914799620108
+    },
+    "usage": {
+      "input_tokens": 1934,
+      "output_tokens": 6,
+      "cost": 0.0000967
+    }
+  },
+  {
+    "name": "priv_abuse_exec",
+    "status": 200,
+    "latency_ms": 1035.7,
+    "choice": "privilege_abuse",
+    "conf": 0.6328059499019011,
+    "probs": {
+      "benign": 0.14750369070062969,
+      "container_escape": 0.19978689139299605,
+      "privilege_abuse": 0.6328059499019011,
+      "cryptomining": 0.010855041915475278,
+      "unknown": 0.00904842608899796
+    },
+    "score": 1.5747355384203907,
+    "nouls": {
+      "baseline_deviation": 0.8235542907878084,
+      "shell_unexpected": 0.7605071873077496,
+      "resource_exposure": 0.33175012029691275,
+      "resource_abuse": 0.09922349534724674
+    },
+    "usage": {
+      "input_tokens": 1946,
+      "output_tokens": 6,
+      "cost": 0.00009730000000000001
+    }
+  },
+  {
+    "name": "crypto_mining",
+    "status": 200,
+    "latency_ms": 527.1,
+    "choice": "cryptomining",
+    "conf": 0.926498183958772,
+    "probs": {
+      "benign": 0.012467930561267606,
+      "container_escape": 0.03497777847419629,
+      "privilege_abuse": 0.022872965734412574,
+      "cryptomining": 0.926498183958772,
+      "unknown": 0.0031831412713514695
+    },
+    "score": 2.387957000613004,
+    "nouls": {
+      "baseline_deviation": 0.8285847665822916,
+      "shell_unexpected": 0.482500148107348,
+      "resource_exposure": 0.1435989639883045,
+      "resource_abuse": 0.9628989220688732
+    },
+    "usage": {
+      "input_tokens": 2150,
+      "output_tokens": 6,
+      "cost": 0.0001075
+    }
+  },
+  {
+    "name": "benign_backup",
+    "status": 200,
+    "latency_ms": 466.3,
+    "choice": "benign",
+    "conf": 0.3568873472056346,
+    "probs": {
+      "benign": 0.3568873472056346,
+      "container_escape": 0.15261304282837887,
+      "privilege_abuse": 0.3568873472056346,
+      "cryptomining": 0.013888496751852504,
+      "unknown": 0.11972376600849931
+    },
+    "score": 1.6457744892012551,
+    "nouls": {
+      "baseline_deviation": 0.5087526072082865,
+      "shell_unexpected": 0.43042630904157736,
+      "resource_exposure": 0.698536004640996,
+      "resource_abuse": 0.16649918886708998
+    },
+    "usage": {
+      "input_tokens": 1988,
+      "output_tokens": 6,
+      "cost": 0.0000994
+    }
+  },
+  {
+    "name": "benign_web",
+    "status": 200,
+    "latency_ms": 458.6,
+    "choice": "privilege_abuse",
+    "conf": 0.3601435159314575,
+    "probs": {
+      "benign": 0.30020445028432363,
+      "container_escape": 0.2658958046463273,
+      "privilege_abuse": 0.3601435159314575,
+      "cryptomining": 0.022092549887279298,
+      "unknown": 0.05166367925061231
+    },
+    "score": 1.9572026325351677,
+    "nouls": {
+      "baseline_deviation": 0.482500148107348,
+      "shell_unexpected": 0.46504311767072043,
+      "resource_exposure": 0.7475209723805551,
+      "resource_abuse": 0.2941422747027756
+    },
+    "usage": {
+      "input_tokens": 1910,
+      "output_tokens": 6,
+      "cost": 0.0000955
+    }
+  },
+  {
+    "name": "unknown_degraded",
+    "status": 200,
+    "latency_ms": 462.6,
+    "choice": "unknown",
+    "conf": 0.8826749773196095,
+    "probs": {
+      "benign": 0.03332333868143501,
+      "container_escape": 0.026141904577609416,
+      "privilege_abuse": 0.047958482212112005,
+      "cryptomining": 0.009901297209233969,
+      "unknown": 0.8826749773196095
+    },
+    "score": 1.9199095742186347,
+    "nouls": {
+      "baseline_deviation": 0.40488440498145223,
+      "shell_unexpected": 0.30888821068842,
+      "resource_exposure": 0.17141523341770842,
+      "resource_abuse": 0.13115826132329883
+    },
+    "usage": {
+      "input_tokens": 1742,
+      "output_tokens": 6,
+      "cost": 0.0000871
+    }
+  }
+]

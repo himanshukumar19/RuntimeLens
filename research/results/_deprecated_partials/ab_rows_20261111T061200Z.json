@@ -1,0 +1,927 @@
+[
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-a",
+    "label": "Authorized operator debug shell",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1533.0,
+    "usage": {
+      "prompt_tokens": 706,
+      "completion_tokens": 135
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-a",
+    "label": "Interactive shell in payment processor",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 761.9,
+    "usage": {
+      "prompt_tokens": 712,
+      "completion_tokens": 243
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-b",
+    "label": "Routine maintenance shell, ops-allowed",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1983.4,
+    "usage": {
+      "prompt_tokens": 715,
+      "completion_tokens": 188
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-b",
+    "label": "Cross-pod exec into adjacent tenant",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 764.5,
+    "usage": {
+      "prompt_tokens": 731,
+      "completion_tokens": 157
+    },
+    "predicted": "container_escape",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-a",
+    "label": "Sustained CPU with mining-pool egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1284.4,
+    "usage": {
+      "prompt_tokens": 728,
+      "completion_tokens": 165
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 1.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-05-a",
+    "label": "Legitimate port-3333 telemetry to internal peer",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 573.5,
+    "usage": {
+      "prompt_tokens": 706,
+      "completion_tokens": 134
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-02-a",
+    "label": "Volatile-path compute binary execution",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 787.4,
+    "usage": {
+      "prompt_tokens": 717,
+      "completion_tokens": 186
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 1.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-03-a",
+    "label": "Scheduled database compaction job",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 503.6,
+    "usage": {
+      "prompt_tokens": 710,
+      "completion_tokens": 71
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-b",
+    "label": "Sustained CPU spike, no egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 924.3,
+    "usage": {
+      "prompt_tokens": 715,
+      "completion_tokens": 224
+    },
+    "predicted": "unknown",
+    "confidence": 0.6,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-03-b",
+    "label": "Health probe failure and kubelet restart",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 830.1,
+    "usage": {
+      "prompt_tokens": 714,
+      "completion_tokens": 110
+    },
+    "predicted": "benign",
+    "confidence": 1.0,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-01-a",
+    "label": "Cross-tenant secret read attempt",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 744.4,
+    "usage": {
+      "prompt_tokens": 721,
+      "completion_tokens": 293
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-a",
+    "label": "Authorized in-namespace secret read",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 673.2,
+    "usage": {
+      "prompt_tokens": 721,
+      "completion_tokens": 136
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-02-a",
+    "label": "RBAC escalation via rolebinding create",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 753.3,
+    "usage": {
+      "prompt_tokens": 736,
+      "completion_tokens": 192
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-b",
+    "label": "Rolling restart deployment",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 665.5,
+    "usage": {
+      "prompt_tokens": 713,
+      "completion_tokens": 110
+    },
+    "predicted": "benign",
+    "confidence": 1.0,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-01-a",
+    "label": "Host runtime socket mount",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1187.4,
+    "usage": {
+      "prompt_tokens": 714,
+      "completion_tokens": 164
+    },
+    "predicted": "container_escape",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-02-a",
+    "label": "Sensitive host filesystem probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 683.1,
+    "usage": {
+      "prompt_tokens": 704,
+      "completion_tokens": 271
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-03-a",
+    "label": "Namespace traversal attempt",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1301.9,
+    "usage": {
+      "prompt_tokens": 723,
+      "completion_tokens": 213
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-02-b",
+    "label": "Host kubeconfig probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 799.0,
+    "usage": {
+      "prompt_tokens": 710,
+      "completion_tokens": 220
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-UNK-01-a",
+    "label": "Audit collector halted mid-event",
+    "truth": "unknown",
+    "family": "U",
+    "ok": true,
+    "latency_ms": 872.5,
+    "usage": {
+      "prompt_tokens": 714,
+      "completion_tokens": 224
+    },
+    "predicted": "benign",
+    "confidence": 0.7,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-UNK-02-a",
+    "label": "Falco buffer overflow, dropped events",
+    "truth": "unknown",
+    "family": "U",
+    "ok": true,
+    "latency_ms": 1119.7,
+    "usage": {
+      "prompt_tokens": 711,
+      "completion_tokens": 135
+    },
+    "predicted": "unknown",
+    "confidence": 0.3,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-c",
+    "label": "Ops shell in database maintenance window",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 823.9,
+    "usage": {
+      "prompt_tokens": 722,
+      "completion_tokens": 164
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-04-a",
+    "label": "Scheduled config reload",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 639.9,
+    "usage": {
+      "prompt_tokens": 703,
+      "completion_tokens": 103
+    },
+    "predicted": "benign",
+    "confidence": 1.0,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-05-b",
+    "label": "Internal service mesh telemetry flow",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 742.7,
+    "usage": {
+      "prompt_tokens": 708,
+      "completion_tokens": 140
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-c",
+    "label": "Autoscaler scale-up event",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1048.0,
+    "usage": {
+      "prompt_tokens": 715,
+      "completion_tokens": 110
+    },
+    "predicted": "benign",
+    "confidence": 1.0,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-c",
+    "label": "Unprivileged shell via RCE in api workload",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 649.8,
+    "usage": {
+      "prompt_tokens": 719,
+      "completion_tokens": 150
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-01-b",
+    "label": "ServiceAccount token exfiltration",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1377.3,
+    "usage": {
+      "prompt_tokens": 730,
+      "completion_tokens": 173
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-c",
+    "label": "Mining binary with pool handshake",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 417.4,
+    "usage": {
+      "prompt_tokens": 724,
+      "completion_tokens": 161
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 1.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-01-b",
+    "label": "Privileged container with host PID",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1512.4,
+    "usage": {
+      "prompt_tokens": 710,
+      "completion_tokens": 179
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-02-a",
+    "label": "Authorized operator debug shell",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 683.2,
+    "usage": {
+      "prompt_tokens": 692,
+      "completion_tokens": 162
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.1,
+      "shell_unexpected": 0.1,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-03-a",
+    "label": "Interactive shell in payment processor",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 915.1,
+    "usage": {
+      "prompt_tokens": 693,
+      "completion_tokens": 249
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.7,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.5,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-02-b",
+    "label": "Routine maintenance shell, ops-allowed",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 903.1,
+    "usage": {
+      "prompt_tokens": 701,
+      "completion_tokens": 161
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-03-b",
+    "label": "Cross-pod exec into adjacent tenant",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1232.0,
+    "usage": {
+      "prompt_tokens": 711,
+      "completion_tokens": 147
+    },
+    "predicted": "container_escape",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 1.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-01-a",
+    "label": "Sustained CPU with mining-pool egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 740.5,
+    "usage": {
+      "prompt_tokens": 701,
+      "completion_tokens": 129
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 1.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-05-a",
+    "label": "Legitimate port-3333 telemetry to internal peer",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 736.3,
+    "usage": {
+      "prompt_tokens": 692,
+      "completion_tokens": 159
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-02-a",
+    "label": "Volatile-path compute binary execution",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1369.0,
+    "usage": {
+      "prompt_tokens": 696,
+      "completion_tokens": 186
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 1.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-03-a",
+    "label": "Scheduled database compaction job",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 633.8,
+    "usage": {
+      "prompt_tokens": 696,
+      "completion_tokens": 103
+    },
+    "predicted": "benign",
+    "confidence": 1.0,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-20b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-01-b",
+    "label": "Sustained CPU spike, no egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1068.8,
+    "usage": {
+      "prompt_tokens": 694,
+      "completion_tokens": 190
+    },
+    "predicted": "benign",
+    "confidence": 0.8,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  }
+]
