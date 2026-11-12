@@ -1,0 +1,264 @@
+:root {
+  --ink: #12263a;
+  --soft: #3a5068;
+  --muted: #4e6076;
+  --cyan: #0e7e9e;
+  --cyan-soft: #e4f1f6;
+  --green: #177e54;
+  --green-soft: #e8f5ee;
+  --amber: #b45309;
+  --amber-soft: #fff4e0;
+  --red: #c8433c;
+  --red-soft: #fdecea;
+  --rule: #c9d6e5;
+  --paper: #f7fafd;
+  --white: #ffffff;
+}
+
+@page {
+  size: A4;
+  margin: 16mm 15mm 18mm 15mm;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10.2pt;
+  line-height: 1.45;
+  color: var(--ink);
+  margin: 0;
+  hyphens: none;
+}
+
+/* ---------- cover ---------- */
+#title-block-header {
+  margin: 0 0 14pt 0;
+  padding: 0 0 12pt 0;
+  border-bottom: 2.5pt solid var(--cyan);
+}
+#title-block-header .title {
+  font-size: 25pt;
+  font-weight: 700;
+  letter-spacing: -0.3pt;
+  color: var(--ink);
+  margin: 0 0 6pt 0;
+  line-height: 1.1;
+}
+#title-block-header .subtitle {
+  font-size: 11.5pt;
+  color: var(--soft);
+  font-weight: 400;
+  line-height: 1.35;
+  margin: 0 0 10pt 0;
+}
+#title-block-header .author,
+#title-block-header .date {
+  font-size: 9.4pt;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ---------- toc ---------- */
+#TOC {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8pt;
+  padding: 12pt 14pt 10pt 14pt;
+  margin: 0 0 16pt 0;
+  page-break-inside: avoid;
+}
+#TOC > ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  columns: 2;
+  column-gap: 22pt;
+}
+#TOC ul ul {
+  padding-left: 12pt;
+  font-size: 9.2pt;
+}
+#TOC li {
+  margin: 2.5pt 0;
+  break-inside: avoid;
+}
+#TOC a {
+  color: var(--ink);
+  text-decoration: none;
+}
+#TOC > ul > li > a {
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+/* ---------- headings ---------- */
+h1 {
+  font-size: 15.5pt;
+  color: var(--ink);
+  margin: 20pt 0 8pt 0;
+  padding-left: 9pt;
+  border-left: 4pt solid var(--cyan);
+  line-height: 1.2;
+  break-after: avoid;
+}
+h2 {
+  font-size: 12.4pt;
+  color: var(--cyan);
+  margin: 13pt 0 5pt 0;
+  break-after: avoid;
+}
+h3 {
+  font-size: 11pt;
+  color: var(--ink);
+  margin: 10pt 0 4pt 0;
+  break-after: avoid;
+}
+p {
+  margin: 0 0 6pt 0;
+}
+strong { color: var(--ink); }
+
+/* ---------- lists ---------- */
+ul, ol {
+  margin: 0 0 7pt 0;
+  padding-left: 15pt;
+}
+li {
+  margin: 2.6pt 0;
+}
+li > ul {
+  margin: 2.6pt 0 0 0;
+}
+
+/* ---------- code ---------- */
+code {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 8.9pt;
+  background: #eef3f9;
+  color: #17475c;
+  padding: 0.6pt 3pt;
+  border-radius: 3pt;
+  border: 0.5pt solid #d8e3ee;
+}
+pre code {
+  display: block;
+  padding: 6pt 8pt;
+  background: #0b1220;
+  color: #e6edf7;
+  border: 0.5pt solid #0b1220;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+/* ---------- slide header band ---------- */
+.slidehead {
+  background: var(--ink);
+  color: #ffffff;
+  border-radius: 7pt;
+  padding: 10pt 13pt;
+  margin: 15pt 0 9pt 0;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.slidehead p {
+  margin: 0 0 4pt 0;
+}
+.slidehead p:last-child { margin-bottom: 0; }
+.slidehead strong {
+  color: #ffffff;
+  font-size: 12.6pt;
+  letter-spacing: 0.1pt;
+}
+.slidehead em {
+  color: #9fd6e6;
+  font-style: normal;
+  font-size: 9.8pt;
+}
+.slidehead code {
+  background: rgba(255, 255, 255, 0.12);
+  color: #d8f0f8;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ---------- boxes ---------- */
+.termsbox, .caveat, .zerobox, .qabox, .plainbox {
+  border-radius: 6pt;
+  padding: 8pt 11pt;
+  margin: 8pt 0 10pt 0;
+  break-inside: avoid;
+}
+.termsbox {
+  background: var(--cyan-soft);
+  border: 1pt solid #bcdcea;
+}
+.caveat {
+  background: var(--amber-soft);
+  border: 1pt solid #edd3a5;
+}
+.zerobox {
+  background: var(--red-soft);
+  border: 1pt solid #f2c6c1;
+}
+.qabox {
+  background: var(--paper);
+  border: 1pt solid var(--rule);
+}
+.plainbox {
+  background: var(--paper);
+  border: 1pt solid var(--rule);
+}
+.termsbox p, .caveat p, .zerobox p, .qabox p, .plainbox p:last-child { margin-bottom: 0; }
+
+.box-label {
+  display: block;
+  font-weight: 700;
+  font-size: 9pt;
+  letter-spacing: 0.6pt;
+  text-transform: uppercase;
+  margin-bottom: 4pt;
+}
+.termsbox .box-label { color: var(--cyan); }
+.caveat .box-label { color: var(--amber); }
+.zerobox .box-label { color: var(--red); }
+.qabox .box-label { color: var(--cyan); }
+.plainbox .box-label { color: var(--muted); }
+
+/* ---------- tables ---------- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8pt 0 10pt 0;
+  font-size: 9.1pt;
+  break-inside: auto;
+}
+tr { break-inside: avoid; }
+thead { display: table-header-group; }
+th {
+  background: var(--ink);
+  color: #ffffff;
+  text-align: left;
+  font-weight: 600;
+  padding: 4.5pt 6pt;
+  border: 0.5pt solid var(--ink);
+}
+td {
+  padding: 4pt 6pt;
+  border: 0.5pt solid var(--rule);
+  vertical-align: top;
+}
+tr:nth-child(even) td {
+  background: #f2f7fc;
+}
+
+hr {
+  border: 0;
+  border-top: 1pt solid var(--rule);
+  margin: 16pt 0;
+}
+
+/* keep first heading of a page with its text */
+h1 + p, h2 + p, h1 + ul { break-before: avoid; }

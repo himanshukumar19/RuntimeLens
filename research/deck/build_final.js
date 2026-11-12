@@ -425,7 +425,7 @@ const headCell = (t, opts = {}) => ({ text: t, options: { bold: true, color: CYA
   const big = [
     { v: "0.5333", d: "Macro-F1 (lab, 112-run held-out)", s: "vs 0.3333 Falco · +0.2000" },
     { v: "3.6%", d: "benign false-positive rate", s: "vs 18.4% Falco · −41.7% relative" },
-    { v: "0.0%", d: "prompt-injection ASR, full stack", s: "from 30.0% raw · all four tiers" },
+    { v: "0.0%", d: "prompt-injection ASR, full stack", s: "from 30.0% raw (lab) · live tier-3 0.0%" },
   ];
   big.forEach((c, i) => {
     const x = M + i * (w + gap);
@@ -450,7 +450,7 @@ const headCell = (t, opts = {}) => ({ text: t, options: { bold: true, color: CYA
   s.addText([
     { text: "Also measured: ", options: { color: MUTED, breakLine: true, paraSpaceAfter: 4 } },
     { text: "RF 84-run corpus: 0.5603 ± 0.0700 F1 · 4.8% FPR", options: { color: "22384F", breakLine: true, paraSpaceAfter: 4 } },
-    { text: "Live A/B (n=28, 2 arms): Macro-F1 inconclusive, FPR halved", options: { color: "22384F", breakLine: true, paraSpaceAfter: 4 } },
+    { text: "Live A/B (n=28, 2 arms): Macro-F1 inconclusive; benign FPR −27.3 pp (p=0.084, n.s.)", options: { color: "22384F", breakLine: true, paraSpaceAfter: 4 } },
     { text: "Pre-registered Δ +0.0201 [+0.0132, +0.0275]", options: { color: "22384F" } },
   ], { x: 7.15, y: 4.15, w: 5.25, h: 1.72, fontFace: BODY, fontSize: 12.5, margin: 0, lineSpacingMultiple: 1.18, valign: "top" });
   caption(s, "Sources: docs/report/final_report.md §7 · research/results/live_analysis.md · ablation_study_results.json — reported as measured, including the null.", M, 6.12, CW, { fontSize: 12 });
