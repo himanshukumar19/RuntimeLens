@@ -1,6 +1,22 @@
 % IEEEtran conference paper - RuntimeLens (concise research-paper format)
 % Compile with: tectonic runtimelens_paper.tex
 \documentclass[conference]{IEEEtran}
+\usepackage{fontspec}
+% IEEEtran selects the URW Times family, which has no bold/italic shapes in the
+% TU (XeTeX) encoding — every \textbf silently rendered as regular. Selecting
+% the TeX Gyre Termes clones by file name restores real bold/italic.
+\setmainfont{texgyretermes-regular.otf}[
+  BoldFont=texgyretermes-bold.otf,
+  ItalicFont=texgyretermes-italic.otf,
+  BoldItalicFont=texgyretermes-bolditalic.otf]
+\setsansfont{texgyreheros-regular.otf}[
+  BoldFont=texgyreheros-bold.otf,
+  ItalicFont=texgyreheros-italic.otf,
+  BoldItalicFont=texgyreheros-bolditalic.otf]
+\setmonofont{texgyrecursor-regular.otf}[
+  BoldFont=texgyrecursor-bold.otf,
+  ItalicFont=texgyrecursor-italic.otf,
+  BoldItalicFont=texgyrecursor-bolditalic.otf]
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
@@ -12,17 +28,20 @@
 \graphicspath{{figures/}{../../research/figures/}}
 \begin{document}
 
-\title{RuntimeLens: Context-Aware Runtime Threat Classification for Multi-Tenant Kubernetes Using a Typed-Decision Model}
+\title{\bfseries RuntimeLens: Context-Aware Runtime Threat Classification for Multi-Tenant Kubernetes Using a Typed-Decision Model}
 
 \author{
-\IEEEauthorblockN{Himanshu Kumar, Altaf Raja, and Kamal Nayan Kumar}
-\IEEEauthorblockA{Department of Computer Science and Engineering\\
-Indian Institute of Information Technology Dharwad, Dharwad, India\\
-Corresponding author: Kamal Nayan Kumar}}
+\IEEEauthorblockN{%
+\begin{tabular}{@{}c@{\qquad}c@{\qquad}c@{}}
+\textbf{Kamal Nayan Kumar} & \textbf{Altaf Raja} & \textbf{Himanshu Kumar} \\
+23BDS026 & 23BCS011 & 23BCS055
+\end{tabular}}
+\IEEEauthorblockA{Indian Institute of Information Technology, Dharwad, India}
+\IEEEauthorblockA{Instructor: Dr. Malay Kumar}}
 \maketitle
 
 \begin{abstract}
-Runtime detection in multi-tenant Kubernetes relies on kernel-level syscall auditing, which lacks the context needed to disambiguate an authorized shell from an attacker-spawned one. We present RuntimeLens, an architecture that correlates five telemetry streams, compares them against operator-declared per-workload behavioural baselines, and classifies the result with a typed-decision model that answers a categorical \emph{choice}, an ordinal \emph{severity score}, and four binary \emph{noul} evidence questions in one pass. Containment is enforced by a deterministic policy engine with zero pod-deletion privileges. In a 400-run lab corpus (112-run grouped held-out test split), the typed-decision arm reaches Macro-F1 $0.5333$ versus $0.3333$ for default Falco rules and $0.4812$ for a Random Forest, with a $3.6\%$ benign false-positive rate versus $18.4\%$, and containment precision of $94.7\%$. Our pre-registered hypothesis, $\Delta\text{macro-F1} = +0.0201$ with a 95\% cluster-aware bootstrap interval of $[+0.0132, +0.0275]$, is reported with its honest limits: under a live replication across two hosted models with paired bootstrap and mid-$p$ McNemar tests, the Macro-F1 difference is inconclusive, while the benign false-positive rate halves and attacks read as `benign' drop from $3$ to $1$. Across four pre-registered ablations, multi-source fusion contributes the dominant gain ($+0.2000$ Macro-F1). Ten prompt-injection payloads demonstrate attack success rate falling from $10$--$40\%$ under no defence to $0.0\%$ under the four-tier stack. All code, fixtures and live-call logs are released for audit.
+Runtime detection in multi-tenant Kubernetes relies on kernel-level syscall auditing, which lacks the context needed to disambiguate an authorized shell from an attacker-spawned one. We present RuntimeLens, an architecture that correlates five telemetry streams, compares them against operator-declared per-workload behavioural baselines, and classifies the result with a typed-decision model that answers a categorical \emph{choice}, an ordinal \emph{severity score}, and four binary \emph{noul} evidence questions in one pass. Containment is enforced by a deterministic policy engine with \textbf{zero pod-deletion privileges}. In a 400-run lab corpus (112-run grouped held-out test split), the typed-decision arm reaches Macro-F1 $\mathbf{0.5333}$ versus $\mathbf{0.3333}$ for default Falco rules and $0.4812$ for a Random Forest, with a $\mathbf{3.6\%}$ benign false-positive rate versus $\mathbf{18.4\%}$, and containment precision of $\mathbf{94.7\%}$. Our pre-registered hypothesis, $\Delta\text{macro-F1} = \mathbf{+0.0201}$ with a 95\% cluster-aware bootstrap interval of $\mathbf{[+0.0132, +0.0275]}$, is reported with its honest limits: under a live replication across two hosted models with paired bootstrap and mid-$p$ McNemar tests, the Macro-F1 difference is \textbf{inconclusive}, while the benign false-positive rate halves and attacks read as `benign' drop from $3$ to $1$. Across four pre-registered ablations, multi-source fusion contributes the dominant gain ($+0.2000$ Macro-F1). Ten prompt-injection payloads demonstrate attack success rate falling from $10$--$40\%$ under no defence to $\mathbf{0.0\%}$ under the four-tier stack. All code, fixtures and live-call logs are released for audit.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -34,7 +53,7 @@ Multi-tenant Kubernetes clusters pack workloads for different organizational uni
 
 Kernel-level syscall auditing through eBPF is the default runtime control. Falco, Tetragon and Tracee are mature and fast; a 2025 head-to-head benchmark found all three detect the three attack classes on identical clusters~\cite{syairozi2025}. But three boundaries limit that result. First, a syscall trace records that \texttt{execve("/bin/sh")} happened, not that an on-call engineer had just opened a debug session. Second, single events cannot be chained into multi-step attacks: GCID shows Tetragon's policy grammar has no cross-event join operator~\cite{islam2026}, and BPFence proves stateless rule engines cannot express temporal relations~\cite{galletta2026}. Third, alert fatigue drives deployments to a brittle stage---\cite{ndichu2026} catalogues 119 records and finds recurring failure in operational validation.
 
-RuntimeLens adds the one ingredient that rule engines lack: \emph{context}, expressed as an operator-declared job description per workload, together with a decision procedure that reads telemetry against it. We make three contributions. \emph{(i)} An architecture that correlates five telemetry streams in a $\pm 30$ second window and classifies the correlated event with a typed-decision LLM against a per-workload declarative baseline (Sec.~III). \emph{(ii)} A falsifiable evaluation protocol: pre-registration, grouped splits, cluster-aware paired bootstrap, mid-$p$ McNemar tests, and a live replication against hosted models (Sec.~IV--VI). \emph{(iii)} A measured prompt-injection defence ladder that takes attack success rate to $0.0\%$ without the model holding the final decision (Sec.~VI-E). We report null and inconclusive results as readily as positive ones.
+RuntimeLens adds the one ingredient that rule engines lack: \emph{context}, expressed as an operator-declared job description per workload, together with a decision procedure that reads telemetry against it. We make three contributions. \emph{(i)} \textbf{An architecture that correlates five telemetry streams in a $\pm 30$ second window} and classifies the correlated event with a typed-decision LLM against a per-workload declarative baseline (Sec.~III). \emph{(ii)} \textbf{A falsifiable evaluation protocol:} pre-registration, grouped splits, cluster-aware paired bootstrap, mid-$p$ McNemar tests, and a live replication against hosted models (Sec.~IV--VI). \emph{(iii)} \textbf{A measured prompt-injection defence ladder} that takes attack success rate to $0.0\%$ without the model holding the final decision (Sec.~VI-E). We report null and inconclusive results as readily as positive ones.
 
 \section{Related Work}
 \textbf{eBPF runtime detection.} Falco, Tetragon and Tracee dominate production runtime control; benchmark studies find parity in detection rate and differences in cost~\cite{syairozi2025}. Fusing syscall and flow features improves accuracy ($98.39\%$ vs $87.49\%$)~\cite{ryu2026}, and cryptojacking attribution reaches $99.75\%$~\cite{kim2025}. BPFence formalizes the limit of stateless engines~\cite{galletta2026}. None of this line conditions on an operator-authored job description, nor does it issue a machine-checkable typed decision.
@@ -48,14 +67,14 @@ RuntimeLens adds the one ingredient that rule engines lack: \emph{context}, expr
 \section{System Design}
 Fig.~\ref{fig:architecture} shows the pipeline; each stage is independently testable.
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=\columnwidth]{architecture.pdf}
-\caption{RuntimeLens pipeline. Five sources feed a normaliser and temporal correlator; a comparator applies the workload baseline; the typed-decision classifier answers one \emph{choice}, one \emph{score}, four \emph{noul} questions; the deterministic policy engine selects the action.}
+\includegraphics[width=0.94\textwidth]{pipeline_lr.pdf}
+\caption{RuntimeLens pipeline. Five telemetry sources are normalised into one canonical event, correlated in a sliding window and compared against the declared workload baseline; the sanitiser escapes untrusted text; the typed-decision classifier answers one \emph{choice}, one \emph{score} and four \emph{noul} questions against a single state; the deterministic policy engine selects the action and every decision is written to a SHA-256 hash-chained audit log.}
 \label{fig:architecture}
-\end{figure}
+\end{figure*}
 
-\paragraph{Canonical event and normalisers.} Each of the five sources has a normaliser that emits one canonical event: workload identity, runtime facts, orchestration metadata, and extracted physical facts (host socket mounted, sensitive path mounted, privileged container, root execution, unexpected shell, abnormal CPU, outbound egress, cross-tenant flow). Facts are extracted by code from the pod specification and telemetry; the model never adjudicates them.
+\paragraph{Canonical event and normalisers.} Each of the five sources has a normaliser that emits one canonical event: workload identity, runtime facts, orchestration metadata, and extracted physical facts (host socket mounted, sensitive path mounted, privileged container, root execution, unexpected shell, abnormal CPU, outbound egress, cross-tenant flow). Facts are extracted by code from the pod specification and telemetry; \textbf{the model never adjudicates them}.
 
 \paragraph{Temporal correlation.} A bounded, thread-safe window keyed by (\texttt{namespace}, \texttt{pod\_uid}) joins asynchronous Falco, audit, Hubble and Prometheus events within $\pm 30$ seconds. Bearer tokens and JWTs are regex-scrubbed from audit users before storage. A single \texttt{execve} is therefore joined with concurrent API-server audit records, turning an anonymous shell into an attributable one.
 
@@ -83,7 +102,7 @@ noul  & resource abuse          & $P(\text{yes})$ \\
 
 \paragraph{Deterministic policy engine.} The classifier's output is consumed by a pure function with explicit precedence: (i) telemetry degradation forces \texttt{human\_review}; (ii) a stale baseline forces \texttt{human\_review}; (iii) a host-mount physical fact with a benign prediction forces \texttt{human\_review}; (iv) a choice/noul contradiction (\texttt{benign} with $P(\text{deviation}) > 0.60$) forces \texttt{human\_review}; (v) \texttt{unknown} forces \texttt{human\_review}; (vi) automated quarantine requires confidence $\ge 0.70$ and severity $\ge 4.0$; (vii) otherwise \texttt{log} or \texttt{alert}.
 
-\paragraph{SRE-safe containment and audit.} Containment is a label patch, not a deletion. A pre-installed NetworkPolicy blocks all ingress/egress except UDP $53$ to \texttt{kube-dns}. The controller patches the pod and records a $15$-minute TTL; a reconciliation loop removes the label if an analyst has not promoted the incident. No controller role in any manifest contains the \texttt{delete} or \texttt{deletecollection} verbs; quarantine is reversible by construction. Every decision is appended to a SHA-256 hash-chained JSONL audit log.
+\paragraph{SRE-safe containment and audit.} Containment is a label patch, not a deletion. A pre-installed NetworkPolicy blocks all ingress/egress except UDP $53$ to \texttt{kube-dns}. The controller patches the pod and records a $15$-minute TTL; a reconciliation loop removes the label if an analyst has not promoted the incident. No controller role in any manifest contains the \texttt{delete} or \texttt{deletecollection} verbs; \textbf{quarantine is reversible by construction}. Every decision is appended to a SHA-256 hash-chained JSONL audit log.
 
 \section{Evaluation Design}
 All experiments are controlled, benign-intent simulations in an isolated \texttt{kind} cluster with Ubuntu~24.04, Cilium (eBPF + Hubble), Falco (\texttt{modern\_ebpf}), audit webhook, Prometheus/cAdvisor and Trivy. Three tenant namespaces deploy four workloads (web, api, database, payment-style) with distinct binaries, egress policies and shell expectations.
@@ -106,7 +125,7 @@ All experiments are controlled, benign-intent simulations in an isolated \texttt
 \section{Results}
 
 \subsection{Primary hypothesis (lab corpus)}
-With baseline context, the typed-decision arm reaches Macro-F1 $0.5333$; without it, $0.5133$. The paired difference is $\Delta$macro-F1 $= +0.0201$ with a 95\% cluster-aware bootstrap interval of $[+0.0132,\,+0.0275]$, excluding zero. The benign false-positive rate falls by $41.7\%$ relative, mostly on routine maintenance scripts. This is a real but modest effect; we report it as such.
+With baseline context, the typed-decision arm reaches Macro-F1 $\mathbf{0.5333}$; without it, $0.5133$. The paired difference is $\Delta$macro-F1 $= \mathbf{+0.0201}$ with a 95\% cluster-aware bootstrap interval of $\mathbf{[+0.0132,\,+0.0275]}$, \textbf{excluding zero}. The benign false-positive rate falls by $\mathbf{41.7\%}$ relative, mostly on routine maintenance scripts. This is a \textbf{real but modest} effect; we report it as such.
 
 \subsection{Multi-model comparison}
 \begin{table}[t]
@@ -120,8 +139,8 @@ Model & Macro-F1 & Benign FPR & p50 lat. & Cont. prec. \\
 \midrule
 Falco default rules   & 0.3333 & 18.4\% & $<1.0$ ms & 54.2\% \\
 Random Forest (dev)   & 0.4812 & 6.2\%  & 2.4 ms    & 81.0\% \\
-Random Forest (84-run)& 0.5603 & 4.8\%  & 2.1 ms    & 87.5\% \\
-ScaleDown Classify-1  & 0.5333 & 3.6\%  & 77.2 $\mu$s & 94.7\% \\
+Random Forest (84-run)& \textbf{0.5603} & 4.8\%  & 2.1 ms    & 87.5\% \\
+ScaleDown Classify-1  & 0.5333 & \textbf{3.6\%}  & 77.2 $\mu$s & \textbf{94.7\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -133,7 +152,7 @@ ScaleDown Classify-1  & 0.5333 & 3.6\%  & 77.2 $\mu$s & 94.7\% \\
 \label{fig:modelcompare}
 \end{figure}
 
-Table~\ref{tab:models} compares arms on the identical frozen split with equal dev budgets. The typed-decision arm has the lowest benign FPR ($3.6\%$) and the highest containment precision ($94.7\%$); the Random Forest fitted on the live corpus scores marginally higher macro-F1. We do not claim an LLM beats a gradient-boosted tree on this data; we claim baseline context shifts the boundary in a way tabular features alone do not express.
+Table~\ref{tab:models} compares arms on the identical frozen split with equal dev budgets. The typed-decision arm has the \textbf{lowest benign FPR} ($\mathbf{3.6\%}$) and the \textbf{highest containment precision} ($\mathbf{94.7\%}$); the Random Forest fitted on the live corpus scores marginally higher macro-F1. We do not claim an LLM beats a gradient-boosted tree on this data; we claim baseline context shifts the boundary in a way tabular features alone do not express.
 
 \subsection{Ablation battery}
 \begin{table}[t]
@@ -154,7 +173,7 @@ ABL-PREF & Pre-filter on vs off & rec. $99.2\%$, cost $-64.5\%$ \\
 \end{tabular}
 \end{table}
 
-Multi-source fusion is the dominant lever (+$+0.2000$ F1; audit+network+metrics resolve $68\%$ of ambiguous cases); typed \emph{noul} flags are worth $+0.0410$ and caught every out-of-distribution hallucination in the harness; rule pre-filtering trades $<1\%$ missed threats for $64.5\%$ lower API cost.
+\textbf{Multi-source fusion is the dominant lever} (+$+0.2000$ F1; audit+network+metrics resolve $68\%$ of ambiguous cases); typed \emph{noul} flags are worth $+0.0410$ and caught every out-of-distribution hallucination in the harness; rule pre-filtering trades $<1\%$ missed threats for $64.5\%$ lower API cost.
 
 \subsection{Live replication}
 \begin{table}[t]
@@ -179,7 +198,7 @@ qwen3.8-27b & 0.4802 & $-0.0026$ & $[-0.178,\,+0.230]$ & 0.344 & 28 \\
 \label{fig:liveab}
 \end{figure}
 
-Neither arm shows a detectable Macro-F1 change; both intervals straddle zero. Under the pre-registered rule, the Macro-F1 half is \emph{inconclusive}. The benign FPR half behaves differently: on qwen3.8-27b, baseline context eliminates \emph{every} benign false positive ($0.2727 \rightarrow 0$; $\Delta=-0.2727$, 95\% CI $[-0.571,\,+0.000]$, $p=0.084$), directionally consistent with the lab corpus. On gpt-oss-20b the benign FPR is already zero in both conditions. Counting only attacks read as benign, baseline context cuts them from $3$ to $1$. The effect reproduces; the aggregate metric does not, and we say so.
+Neither arm shows a detectable Macro-F1 change; both intervals straddle zero. Under the pre-registered rule, the Macro-F1 half is \textbf{\emph{inconclusive}}. The benign FPR half behaves differently: on qwen3.8-27b, baseline context eliminates \emph{every} benign false positive ($0.2727 \rightarrow 0$; $\Delta=-0.2727$, 95\% CI $[-0.571,\,+0.000]$, $p=0.084$), directionally consistent with the lab corpus. On gpt-oss-20b the benign FPR is already zero in both conditions. Counting only attacks read as benign, baseline context cuts them from $3$ to $1$. \textbf{The effect reproduces; the aggregate metric does not}, and we say so.
 
 \subsection{Prompt-injection resilience}
 \begin{table}[t]
