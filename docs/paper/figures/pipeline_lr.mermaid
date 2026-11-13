@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph S1["1 · Telemetry ingestion"]
+        FALCO["Falco eBPF<br/>syscalls"]
+        AUDIT["K8s audit<br/>webhook"]
+        HUBBLE["Hubble<br/>flows"]
+        PROM["Prometheus<br/>metrics"]
+        TRIVY["Trivy<br/>CVE cache"]
+    end
+
+    subgraph S2["2 · State construction"]
+        NORM["Normalizer<br/>CanonicalEvent"]
+        BASE["Declared baseline<br/>baselines/*.yaml"]
+        COMP["Drift comparator"]
+    end
+
+    subgraph S3["3 · Classify"]
+        PRE["Sanitizer<br/>XML escape"]
+        API["ScaleDown classify-1<br/>Choice + Score + Noul"]
+    end
+
+    subgraph S4["4 · Act + audit"]
+        ENG["Policy engine<br/>conf 0.70 / sev 4.0"]
+        RESP["Log · Alert · Review<br/>Quarantine dry-run"]
+        AUD["SHA-256<br/>audit chain"]
+    end
+
+    FALCO --> NORM
+    AUDIT --> NORM
+    HUBBLE --> NORM
+    PROM --> NORM
+    TRIVY --> NORM
+    NORM --> COMP
+    BASE --> COMP
+    COMP --> PRE --> API --> ENG
+    ENG --> RESP --> AUD

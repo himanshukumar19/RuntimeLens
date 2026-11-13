@@ -1,0 +1,1242 @@
+[
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-a",
+    "label": "Authorized operator debug shell",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1420.3,
+    "usage": {
+      "prompt_tokens": 754,
+      "completion_tokens": 416
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-a",
+    "label": "Interactive shell in payment processor",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1789.9,
+    "usage": {
+      "prompt_tokens": 760,
+      "completion_tokens": 610
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.95,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.05
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-b",
+    "label": "Routine maintenance shell, ops-allowed",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1222.1,
+    "usage": {
+      "prompt_tokens": 763,
+      "completion_tokens": 352
+    },
+    "predicted": "benign",
+    "confidence": 0.96,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-b",
+    "label": "Cross-pod exec into adjacent tenant",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 2419.7,
+    "usage": {
+      "prompt_tokens": 779,
+      "completion_tokens": 415
+    },
+    "predicted": "container_escape",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.95,
+      "resource_exposure": 0.85,
+      "resource_abuse": 0.05
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-a",
+    "label": "Sustained CPU with mining-pool egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1459.5,
+    "usage": {
+      "prompt_tokens": 776,
+      "completion_tokens": 391
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.05,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.92
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-05-a",
+    "label": "Legitimate port-3333 telemetry to internal peer",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1380.5,
+    "usage": {
+      "prompt_tokens": 754,
+      "completion_tokens": 375
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-02-a",
+    "label": "Volatile-path compute binary execution",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1561.2,
+    "usage": {
+      "prompt_tokens": 765,
+      "completion_tokens": 479
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.92,
+    "severity": 2.5,
+    "nouls": {
+      "baseline_deviation": 0.95,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.9
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-03-a",
+    "label": "Scheduled database compaction job",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1269.0,
+    "usage": {
+      "prompt_tokens": 758,
+      "completion_tokens": 369
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-b",
+    "label": "Sustained CPU spike, no egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6973, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-03-b",
+    "label": "Health probe failure and kubelet restart",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1166.8,
+    "usage": {
+      "prompt_tokens": 762,
+      "completion_tokens": 315
+    },
+    "predicted": "benign",
+    "confidence": 0.96,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-01-a",
+    "label": "Cross-tenant secret read attempt",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7091, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-a",
+    "label": "Authorized in-namespace secret read",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 3150.6,
+    "usage": {
+      "prompt_tokens": 769,
+      "completion_tokens": 464
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-02-a",
+    "label": "RBAC escalation via rolebinding create",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1530.7,
+    "usage": {
+      "prompt_tokens": 784,
+      "completion_tokens": 489
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.85,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.7,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-b",
+    "label": "Rolling restart deployment",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1379.5,
+    "usage": {
+      "prompt_tokens": 761,
+      "completion_tokens": 246
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-01-a",
+    "label": "Host runtime socket mount",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 2358.5,
+    "usage": {
+      "prompt_tokens": 762,
+      "completion_tokens": 525
+    },
+    "predicted": "container_escape",
+    "confidence": 0.85,
+    "severity": 2.5,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.9,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-02-a",
+    "label": "Sensitive host filesystem probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1958.0,
+    "usage": {
+      "prompt_tokens": 752,
+      "completion_tokens": 659
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.85,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.1,
+      "resource_exposure": 0.8,
+      "resource_abuse": 0.05
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-03-a",
+    "label": "Namespace traversal attempt",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7216, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-02-b",
+    "label": "Host kubeconfig probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6985, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-UNK-01-a",
+    "label": "Audit collector halted mid-event",
+    "truth": "unknown",
+    "family": "U",
+    "ok": true,
+    "latency_ms": 1473.1,
+    "usage": {
+      "prompt_tokens": 762,
+      "completion_tokens": 500
+    },
+    "predicted": "benign",
+    "confidence": 0.8,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 1.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-UNK-02-a",
+    "label": "Falco buffer overflow, dropped events",
+    "truth": "unknown",
+    "family": "U",
+    "ok": true,
+    "latency_ms": 2441.3,
+    "usage": {
+      "prompt_tokens": 759,
+      "completion_tokens": 593
+    },
+    "predicted": "unknown",
+    "confidence": 0.6,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.1,
+      "shell_unexpected": 0.05,
+      "resource_exposure": 0.05,
+      "resource_abuse": 0.05
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-02-c",
+    "label": "Ops shell in database maintenance window",
+    "truth": "benign",
+    "family": "A",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7048, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-04-a",
+    "label": "Scheduled config reload",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 3053.9,
+    "usage": {
+      "prompt_tokens": 751,
+      "completion_tokens": 467
+    },
+    "predicted": "benign",
+    "confidence": 0.97,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-05-b",
+    "label": "Internal service mesh telemetry flow",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1296.6,
+    "usage": {
+      "prompt_tokens": 756,
+      "completion_tokens": 381
+    },
+    "predicted": "benign",
+    "confidence": 0.96,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-BEN-01-c",
+    "label": "Autoscaler scale-up event",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1288.7,
+    "usage": {
+      "prompt_tokens": 763,
+      "completion_tokens": 397
+    },
+    "predicted": "benign",
+    "confidence": 0.96,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.04,
+      "shell_unexpected": 0.02,
+      "resource_exposure": 0.01,
+      "resource_abuse": 0.01
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-03-c",
+    "label": "Unprivileged shell via RCE in api workload",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7239, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-PRV-01-b",
+    "label": "ServiceAccount token exfiltration",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1926.4,
+    "usage": {
+      "prompt_tokens": 778,
+      "completion_tokens": 634
+    },
+    "predicted": "unknown",
+    "confidence": 0.8,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-MNR-01-c",
+    "label": "Mining binary with pool handshake",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6840, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "with_baseline",
+    "incident_id": "SC-ESC-01-b",
+    "label": "Privileged container with host PID",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 2666.4,
+    "usage": {
+      "prompt_tokens": 758,
+      "completion_tokens": 497
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.85,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 1.0,
+      "shell_unexpected": 0.6,
+      "resource_exposure": 0.8,
+      "resource_abuse": 0.1
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-02-a",
+    "label": "Authorized operator debug shell",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1839.8,
+    "usage": {
+      "prompt_tokens": 740,
+      "completion_tokens": 427
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.2,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-03-a",
+    "label": "Interactive shell in payment processor",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1775.8,
+    "usage": {
+      "prompt_tokens": 741,
+      "completion_tokens": 600
+    },
+    "predicted": "benign",
+    "confidence": 0.7,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.3,
+      "shell_unexpected": 0.6,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-02-b",
+    "label": "Routine maintenance shell, ops-allowed",
+    "truth": "benign",
+    "family": "A",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7033, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-03-b",
+    "label": "Cross-pod exec into adjacent tenant",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1289.0,
+    "usage": {
+      "prompt_tokens": 759,
+      "completion_tokens": 449
+    },
+    "predicted": "container_escape",
+    "confidence": 0.95,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.9,
+      "resource_exposure": 0.9,
+      "resource_abuse": 0.1
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-01-a",
+    "label": "Sustained CPU with mining-pool egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6925, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-05-a",
+    "label": "Legitimate port-3333 telemetry to internal peer",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1415.3,
+    "usage": {
+      "prompt_tokens": 740,
+      "completion_tokens": 393
+    },
+    "predicted": "benign",
+    "confidence": 0.93,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-02-a",
+    "label": "Volatile-path compute binary execution",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1408.1,
+    "usage": {
+      "prompt_tokens": 744,
+      "completion_tokens": 426
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.93,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.1,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.95
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-03-a",
+    "label": "Scheduled database compaction job",
+    "truth": "benign",
+    "family": "B",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6709, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-01-b",
+    "label": "Sustained CPU spike, no egress",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1739.3,
+    "usage": {
+      "prompt_tokens": 742,
+      "completion_tokens": 430
+    },
+    "predicted": "benign",
+    "confidence": 0.85,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.8,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.2
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-03-b",
+    "label": "Health probe failure and kubelet restart",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1370.1,
+    "usage": {
+      "prompt_tokens": 748,
+      "completion_tokens": 402
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-01-a",
+    "label": "Cross-tenant secret read attempt",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 2536.8,
+    "usage": {
+      "prompt_tokens": 748,
+      "completion_tokens": 672
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.8,
+      "shell_unexpected": 0.1,
+      "resource_exposure": 0.5,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-01-a",
+    "label": "Authorized in-namespace secret read",
+    "truth": "benign",
+    "family": "C",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6724, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-02-a",
+    "label": "RBAC escalation via rolebinding create",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 2176.4,
+    "usage": {
+      "prompt_tokens": 760,
+      "completion_tokens": 474
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.95,
+    "severity": 3.0,
+    "nouls": {
+      "baseline_deviation": 0.8,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.9,
+      "resource_abuse": 0.1
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-01-b",
+    "label": "Rolling restart deployment",
+    "truth": "benign",
+    "family": "C",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6733, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-ESC-01-a",
+    "label": "Host runtime socket mount",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1873.8,
+    "usage": {
+      "prompt_tokens": 740,
+      "completion_tokens": 468
+    },
+    "predicted": "container_escape",
+    "confidence": 0.7,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.6,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.5,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-ESC-02-a",
+    "label": "Sensitive host filesystem probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1454.0,
+    "usage": {
+      "prompt_tokens": 732,
+      "completion_tokens": 455
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.75,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.8,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-ESC-03-a",
+    "label": "Namespace traversal attempt",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6894, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-ESC-02-b",
+    "label": "Host kubeconfig probe",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1774.1,
+    "usage": {
+      "prompt_tokens": 736,
+      "completion_tokens": 452
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.85,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.9,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.8,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-UNK-01-a",
+    "label": "Audit collector halted mid-event",
+    "truth": "unknown",
+    "family": "U",
+    "ok": true,
+    "latency_ms": 2160.0,
+    "usage": {
+      "prompt_tokens": 748,
+      "completion_tokens": 634
+    },
+    "predicted": "unknown",
+    "confidence": 0.6,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.7,
+      "shell_unexpected": 0.8,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.05
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-UNK-02-a",
+    "label": "Falco buffer overflow, dropped events",
+    "truth": "unknown",
+    "family": "U",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7165, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-02-c",
+    "label": "Ops shell in database maintenance window",
+    "truth": "benign",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1303.3,
+    "usage": {
+      "prompt_tokens": 756,
+      "completion_tokens": 443
+    },
+    "predicted": "benign",
+    "confidence": 0.92,
+    "severity": 1.0,
+    "nouls": {
+      "baseline_deviation": 0.15,
+      "shell_unexpected": 0.35,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-04-a",
+    "label": "Scheduled config reload",
+    "truth": "benign",
+    "family": "B",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6757, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-05-b",
+    "label": "Internal service mesh telemetry flow",
+    "truth": "benign",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 1912.2,
+    "usage": {
+      "prompt_tokens": 742,
+      "completion_tokens": 348
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-BEN-01-c",
+    "label": "Autoscaler scale-up event",
+    "truth": "benign",
+    "family": "C",
+    "ok": true,
+    "latency_ms": 1565.4,
+    "usage": {
+      "prompt_tokens": 749,
+      "completion_tokens": 414
+    },
+    "predicted": "benign",
+    "confidence": 0.95,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.0,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.0,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-03-c",
+    "label": "Unprivileged shell via RCE in api workload",
+    "truth": "privilege_abuse",
+    "family": "A",
+    "ok": true,
+    "latency_ms": 1234.9,
+    "usage": {
+      "prompt_tokens": 748,
+      "completion_tokens": 430
+    },
+    "predicted": "benign",
+    "confidence": 0.9,
+    "severity": 0.0,
+    "nouls": {
+      "baseline_deviation": 0.2,
+      "shell_unexpected": 0.3,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.0
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-PRV-01-b",
+    "label": "ServiceAccount token exfiltration",
+    "truth": "privilege_abuse",
+    "family": "C",
+    "ok": false,
+    "latency_ms": null,
+    "usage": null,
+    "predicted": null,
+    "error": "HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kfa6b6vafgnbq4q2hsvpys92` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6615, Req"
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-MNR-01-c",
+    "label": "Mining binary with pool handshake",
+    "truth": "cryptomining",
+    "family": "B",
+    "ok": true,
+    "latency_ms": 2673.6,
+    "usage": {
+      "prompt_tokens": 745,
+      "completion_tokens": 466
+    },
+    "predicted": "cryptomining",
+    "confidence": 0.9,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.85,
+      "shell_unexpected": 0.05,
+      "resource_exposure": 0.1,
+      "resource_abuse": 0.9
+    }
+  },
+  {
+    "arm": "groq-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "condition": "without_baseline",
+    "incident_id": "SC-ESC-01-b",
+    "label": "Privileged container with host PID",
+    "truth": "container_escape",
+    "family": "E",
+    "ok": true,
+    "latency_ms": 1872.0,
+    "usage": {
+      "prompt_tokens": 734,
+      "completion_tokens": 572
+    },
+    "predicted": "privilege_abuse",
+    "confidence": 0.7,
+    "severity": 2.0,
+    "nouls": {
+      "baseline_deviation": 0.6,
+      "shell_unexpected": 0.0,
+      "resource_exposure": 0.8,
+      "resource_abuse": 0.1
+    }
+  }
+]

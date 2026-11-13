@@ -25,7 +25,7 @@ help:
 	@echo "test-live-api       : Run live ScaleDown API smoke test (requires SCALEDOWN_API_KEY)"
 
 setup:
-	uv sync --extra dev
+	uv sync --extra dev --extra research
 
 lint:
 	uv run ruff check .
